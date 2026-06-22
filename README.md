@@ -42,18 +42,21 @@ LobbyTracker es una aplicación web local diseñada para centralizar, visualizar
 ## 📦 Instalación y Configuración
 
 ### Requisitos Previos
+
 - Node.js (v18 o superior)
 - Git
 
 ### Pasos para iniciar el proyecto
 
 1. **Instalar dependencias:**
+
    ```bash
    npm install
    ```
 
 2. **Configurar el entorno:**
    Crea un archivo `.env` en la raíz del proyecto (basado en `.env.example` si existe, o con los siguientes valores estándar):
+
    ```env
    PORT=3000
    DATABASE_PATH=data/lobby.db
@@ -62,6 +65,7 @@ LobbyTracker es una aplicación web local diseñada para centralizar, visualizar
 
 3. **Importar los datos iniciales:**
    Si dispones de una planilla de Excel inicial, colócala en la ruta especificada en `EXCEL_PATH` y ejecuta:
+
    ```bash
    npm run import-lobby
    ```
@@ -77,6 +81,7 @@ LobbyTracker es una aplicación web local diseñada para centralizar, visualizar
 ## 🔒 Privacidad y Seguridad
 
 Este repositorio está configurado mediante [.gitignore](.gitignore) para **excluir cualquier dato privado o sensible**, garantizando que nunca se suban a la nube:
+
 - Archivos de configuración de entorno local (`.env`).
 - Bases de datos activas o temporales (`*.db`, `*.db-shm`, `*.db-wal`).
 - Hojas de cálculo y datos crudos de audiencias (`*.xlsx`).

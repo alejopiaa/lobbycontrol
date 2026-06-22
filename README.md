@@ -76,13 +76,3 @@ LobbyTracker es una aplicación web local diseñada para centralizar, visualizar
    ```
    El dashboard estará disponible en `http://localhost:3000`.
 
----
-
-## 🔒 Privacidad y Seguridad
-
-Este repositorio está configurado mediante [.gitignore](.gitignore) para **excluir cualquier dato privado o sensible**, garantizando que nunca se suban a la nube:
-
-- Archivos de configuración de entorno local (`.env`).
-- Bases de datos activas o temporales (`*.db`, `*.db-shm`, `*.db-wal`).
-- Hojas de cálculo y datos crudos de audiencias (`*.xlsx`).
-- Carpetas de dependencias locales (`node_modules/`).

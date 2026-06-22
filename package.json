@@ -1,0 +1,28 @@
+{
+  "name": "lobby-management-mvp",
+  "version": "1.0.0",
+  "description": "MVP de gestión local de audiencias de la Ley de Lobby",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch-path=server.js --watch-path=database.js server.js",
+    "import-lobby": "node scripts/import_lobby.js",
+    "check-db": "node scripts/check_db.js",
+    "inspect-db": "node scripts/inspect.js"
+  },
+  "keywords": [
+    "lobby",
+    "sqlite",
+    "express",
+    "mvp"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
+  }
+}

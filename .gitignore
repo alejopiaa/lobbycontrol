@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Excel/Data files
+*.xlsx
+data/lobby.db*
+data/lobby_data.xlsx
+
+# Editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db

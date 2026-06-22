@@ -1,0 +1,875 @@
+/* Variables CSS Semánticas - Light-First por defecto */
+:root {
+  /* Marca / Acento */
+  --brand-color: #4f46e5;        /* indigo-600 */
+  --accent-color: #6366f1;       /* indigo-500 */
+  
+  /* Fondo Principal y Encabezado */
+  --bg-main: #f8fafc;           /* slate-50 */
+  --bg-header: #ffffff;         /* white */
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --border-ui: #e2e8f0;         /* slate-200 */
+  --border-ui-focus: #6366f1;    /* indigo-500 */
+  
+  /* Jerarquía de Texto */
+  --text-primary: #0f172a;      /* slate-900 */
+  --text-secondary: #334155;    /* slate-700 */
+  --text-tertiary: #64748b;     /* slate-500 */
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --glass-input-bg: rgba(255, 255, 255, 0.9);
+  --glass-input-border: rgba(0, 0, 0, 0.15);
+
+  /* Scrollbar */
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #6366f1;
+
+  /* Badges de Estado (Helpers) */
+  --badge-ingresada-bg: #f1f5f9;
+  --badge-ingresada-text: #334155;
+  --badge-ingresada-border: #cbd5e1;
+  
+  --badge-enplazo-bg: #d1fae5;
+  --badge-enplazo-text: #047857;
+  --badge-enplazo-border: #a7f3d0;
+  
+  --badge-vencido-bg: #fee2e2;
+  --badge-vencido-text: #e43b66;
+  --badge-vencido-border: #fecdd3;
+  
+  --badge-otros-bg: #e0f2fe;
+  --badge-otros-text: #0369a1;
+  --badge-otros-border: #bae6fd;
+
+  /* Dashboard Card Colors - Light Mode (Darker text/borders) */
+  --card-blue-bg: rgba(79, 70, 229, 0.1);
+  --card-blue-text: #4f46e5;
+  --card-blue-border: rgba(79, 70, 229, 0.25);
+
+  --card-emerald-bg: rgba(5, 150, 105, 0.1);
+  --card-emerald-text: #059669;
+  --card-emerald-border: rgba(5, 150, 105, 0.25);
+
+  --card-amber-bg: rgba(217, 119, 6, 0.1);
+  --card-amber-text: #d97706;
+  --card-amber-border: rgba(217, 119, 6, 0.25);
+
+  --card-purple-bg: rgba(124, 58, 237, 0.1);
+  --card-purple-text: #7c3aed;
+  --card-purple-border: rgba(124, 58, 237, 0.25);
+
+  --card-orange-bg: rgba(249, 115, 22, 0.1);
+  --card-orange-text: #ea580c;
+  --card-orange-border: rgba(249, 115, 22, 0.25);
+
+  --card-teal-bg: rgba(13, 148, 136, 0.1);
+  --card-teal-text: #0d9488;
+  --card-teal-border: rgba(13, 148, 136, 0.25);
+
+  --card-slate-bg: rgba(100, 116, 139, 0.1);
+  --card-slate-text: #475569;
+  --card-slate-border: rgba(100, 116, 139, 0.25);
+
+  --card-pink-bg: rgba(219, 39, 119, 0.1);
+  --card-pink-text: #db2777;
+  --card-pink-border: rgba(219, 39, 119, 0.25);
+
+  --deadline-ok-color: #4f46e5;
+  --deadline-overdue-color: #fda4af;
+}
+
+html.dark {
+  /* Marca / Acento */
+  --brand-color: #818cf8;        /* indigo-400 */
+  --accent-color: #4f46e5;       /* indigo-600 */
+  
+  /* Fondo Principal y Encabezado */
+  --bg-main: #020617;           /* slate-950 */
+  --bg-header: #0f172a;         /* slate-900 */
+  --bg-card: rgba(15, 23, 42, 0.65);
+  --border-ui: #1e293b;         /* slate-800 */
+  --border-ui-focus: #818cf8;    /* indigo-400 */
+  
+  /* Jerarquía de Texto */
+  --text-primary: #f8fafc;      /* slate-50 */
+  --text-secondary: #cbd5e1;    /* slate-300 */
+  --text-tertiary: #94a3b8;     /* slate-400 */
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(15, 23, 42, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: none;
+  --glass-input-bg: rgba(15, 23, 42, 0.4);
+  --glass-input-border: rgba(255, 255, 255, 0.18);
+
+  /* Scrollbar */
+  --scrollbar-track: #0b1329;
+  --scrollbar-thumb: #1e293b;
+  --scrollbar-thumb-hover: #818cf8;
+
+  /* Badges de Estado (Helpers) */
+  --badge-ingresada-bg: rgba(30, 41, 59, 0.5);
+  --badge-ingresada-text: #cbd5e1;
+  --badge-ingresada-border: rgba(71, 85, 105, 0.5);
+  
+  --badge-enplazo-bg: rgba(6, 78, 59, 0.6);
+  --badge-enplazo-text: #a7f3d0;
+  --badge-enplazo-border: rgba(4, 120, 87, 0.6);
+  
+  --badge-vencido-bg: rgba(153, 27, 27, 0.6);
+  --badge-vencido-text: #fecdd3;
+  --badge-vencido-border: rgba(185, 28, 28, 0.6);
+  
+  --badge-otros-bg: rgba(8, 47, 73, 0.4);
+  --badge-otros-text: #bae6fd;
+  --badge-otros-border: rgba(3, 105, 161, 0.4);
+
+  /* Dashboard Card Colors - Dark Mode (Lighter/vibrant text/borders) */
+  --card-blue-bg: rgba(129, 140, 248, 0.1);
+  --card-blue-text: #818cf8;
+  --card-blue-border: rgba(129, 140, 248, 0.2);
+
+  --card-emerald-bg: rgba(16, 185, 129, 0.1);
+  --card-emerald-text: #34d399;
+  --card-emerald-border: rgba(16, 185, 129, 0.2);
+
+  --card-amber-bg: rgba(245, 158, 11, 0.1);
+  --card-amber-text: #fbbf24;
+  --card-amber-border: rgba(245, 158, 11, 0.2);
+
+  --card-purple-bg: rgba(139, 92, 246, 0.1);
+  --card-purple-text: #a78bfa;
+  --card-purple-border: rgba(139, 92, 246, 0.2);
+
+  --card-orange-bg: rgba(249, 115, 22, 0.1);
+  --card-orange-text: #fb923c;
+  --card-orange-border: rgba(249, 115, 22, 0.2);
+
+  --card-slate-bg: rgba(148, 163, 184, 0.1);
+  --card-slate-text: #cbd5e1;
+  --card-slate-border: rgba(148, 163, 184, 0.2);
+
+  --card-teal-bg: rgba(45, 212, 191, 0.1);
+  --card-teal-text: #2dd4bf;
+  --card-teal-border: rgba(45, 212, 191, 0.2);
+
+  --card-pink-bg: rgba(244, 114, 182, 0.1);
+  --card-pink-text: #f472b6;
+  --card-pink-border: rgba(244, 114, 182, 0.2);
+
+  --deadline-ok-color: #818cf8;
+  --deadline-overdue-color: #fecdd3;
+}
+
+/* Efecto de scrollbar premium */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Glassmorphism y Base */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-input {
+  background: var(--glass-input-bg);
+  border: 1px solid var(--glass-input-border);
+  color: var(--text-primary);
+}
+.glass-input:focus {
+  border-color: var(--border-ui-focus);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+.glass-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Estructura Base y Sobreescrituras de Tailwind */
+html, body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}
+header {
+  background-color: var(--bg-header) !important;
+  border-color: var(--border-ui) !important;
+}
+main {
+  background-color: var(--bg-main) !important;
+}
+.bg-slate-950 {
+  background-color: var(--bg-main) !important;
+}
+.bg-slate-900 {
+  background-color: var(--bg-header) !important;
+}
+.bg-slate-900\/60, .bg-slate-900\/50, .bg-slate-950\/40 {
+  background-color: var(--bg-card) !important;
+}
+.bg-slate-900\/10, .bg-slate-800 {
+  background-color: var(--border-ui) !important;
+}
+.bg-slate-800\/30 {
+  background-color: var(--border-ui) !important;
+  opacity: 0.8;
+}
+.bg-slate-700 {
+  background-color: var(--border-ui) !important;
+}
+.text-slate-100 {
+  color: var(--text-primary) !important;
+}
+.text-slate-200, .text-slate-300 {
+  color: var(--text-secondary) !important;
+}
+.text-slate-400 {
+  color: var(--text-tertiary) !important;
+}
+.text-slate-500 {
+  color: var(--text-tertiary) !important;
+}
+h1.text-white, h2.text-white, h3.text-white, h4.text-white,
+div.text-white, span.text-white, p.text-white,
+button.bg-slate-700.text-white {
+  color: var(--text-primary) !important;
+}
+.border-slate-800, .border-slate-700, .border-slate-900 {
+  border-color: var(--border-ui) !important;
+}
+.border-slate-800\/80, .border-slate-800\/60, .border-slate-700\/40, .border-slate-700\/60, .border-slate-600\/60 {
+  border-color: var(--border-ui) !important;
+}
+.hover\:bg-slate-800:hover {
+  background-color: var(--border-ui) !important;
+}
+.hover\:bg-slate-900\/40:hover {
+  background-color: var(--border-ui) !important;
+  opacity: 0.95;
+}
+.hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+
+/* Evitar que elementos específicos de texto en botones o enlaces pierdan su color blanco */
+a.text-white, button.text-white, .btn-primary {
+  color: #ffffff !important;
+}
+
+/* Estandarización de Componentes de UI */
+.btn-primary {
+  background-color: var(--brand-color) !important;
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: var(--accent-color) !important;
+}
+.text-heading {
+  color: var(--text-primary) !important;
+}
+.text-body-muted {
+  color: var(--text-tertiary) !important;
+}
+
+/* Modificadores Semánticos de Estados (Helpers) */
+.bg-indigo-950\/40,
+.bg-sky-950\/40,
+.bg-purple-950\/60 {
+  background-color: var(--badge-otros-bg) !important;
+}
+.border-indigo-900\/60,
+.border-sky-900\/40,
+.border-purple-900\/60 {
+  border-color: var(--badge-otros-border) !important;
+}
+.text-indigo-300,
+.text-sky-300,
+.text-purple-300 {
+  color: var(--badge-otros-text) !important;
+}
+
+.bg-emerald-950\/60 {
+  background-color: var(--badge-enplazo-bg) !important;
+}
+.border-emerald-900\/60 {
+  border-color: var(--badge-enplazo-border) !important;
+}
+.text-emerald-300 {
+  color: var(--badge-enplazo-text) !important;
+}
+
+.bg-rose-950\/60 {
+  background-color: var(--badge-vencido-bg) !important;
+}
+.border-rose-900\/60 {
+  border-color: var(--badge-vencido-border) !important;
+}
+.text-rose-300 {
+  color: var(--badge-vencido-text) !important;
+}
+
+.bg-slate-700\/50 {
+  background-color: var(--badge-ingresada-bg) !important;
+}
+.border-slate-600\/50 {
+  border-color: var(--badge-ingresada-border) !important;
+}
+.text-slate-300 {
+  color: var(--badge-ingresada-text) !important;
+}
+
+/* Módulos / Dashboard Cards Overrides */
+.bg-blue-500\/10 {
+  background-color: var(--card-blue-bg) !important;
+}
+.text-blue-400 {
+  color: var(--card-blue-text) !important;
+}
+.border-blue-500\/20 {
+  border-color: var(--card-blue-border) !important;
+}
+.bg-emerald-500\/10 {
+  background-color: var(--card-emerald-bg) !important;
+}
+.text-emerald-400 {
+  color: var(--card-emerald-text) !important;
+}
+.border-emerald-500\/20 {
+  border-color: var(--card-emerald-border) !important;
+}
+.bg-amber-500\/10 {
+  background-color: var(--card-amber-bg) !important;
+}
+.text-amber-400 {
+  color: var(--card-amber-text) !important;
+}
+.border-amber-500\/20 {
+  border-color: var(--card-amber-border) !important;
+}
+.bg-purple-500\/10 {
+  background-color: var(--card-purple-bg) !important;
+}
+.text-purple-400 {
+  color: var(--card-purple-text) !important;
+}
+.border-purple-500\/20 {
+  border-color: var(--card-purple-border) !important;
+}
+
+img[alt="Secretaría Municipal Maipú"] {
+  filter: none !important;
+}
+html.dark img[alt="Secretaría Municipal Maipú"] {
+  filter: brightness(0) invert(1) !important;
+}
+
+#global-tooltip {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-ui) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+}
+#global-tooltip-text {
+  color: var(--text-secondary) !important;
+}
+#modal-container {
+  background-color: rgba(15, 23, 42, 0.3) !important;
+}
+.font-semibold.text-slate-200.cursor-help {
+  color: var(--text-secondary) !important;
+  border-color: var(--text-tertiary) !important;
+}
+.font-semibold.text-slate-200.cursor-help:hover {
+  color: var(--border-ui-focus) !important;
+  border-color: var(--border-ui-focus) !important;
+}
+div[style*="background: rgba(15, 20, 40"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border-ui) !important;
+}
+select, select option {
+  background-color: var(--bg-header) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Badges de Estado Semánticos */
+.badge-status-vencido {
+  background-color: var(--badge-vencido-bg) !important;
+  color: var(--badge-vencido-text) !important;
+  border: 1px solid var(--badge-vencido-border) !important;
+}
+.badge-status-enplazo {
+  background-color: var(--badge-enplazo-bg) !important;
+  color: var(--badge-enplazo-text) !important;
+  border: 1px solid var(--badge-enplazo-border) !important;
+}
+.badge-status-otros {
+  background-color: var(--badge-otros-bg) !important;
+  color: var(--badge-otros-text) !important;
+  border: 1px solid var(--badge-otros-border) !important;
+}
+.badge-status-normal {
+  background-color: var(--badge-ingresada-bg) !important;
+  color: var(--badge-ingresada-text) !important;
+  border: 1px solid var(--badge-ingresada-border) !important;
+}
+
+/* Colores de Texto Semánticos para Plazos */
+.text-deadline-responded {
+  color: #7c3aed !important;
+}
+html.dark .text-deadline-responded {
+  color: #a78bfa !important;
+}
+.text-deadline-normal {
+  color: var(--text-secondary) !important;
+}
+.text-deadline-overdue {
+  color: var(--badge-vencido-text) !important;
+}
+.text-deadline-warning {
+  color: var(--card-amber-text) !important;
+}
+.text-deadline-ok {
+  color: var(--badge-enplazo-text) !important;
+}
+
+/* Clases de Navegación Adaptativas */
+.sidebar-nav-active {
+  background-color: var(--border-ui) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+.sidebar-nav-inactive {
+  color: var(--text-secondary) !important;
+}
+.sidebar-nav-inactive:hover {
+  color: var(--text-primary) !important;
+  background-color: var(--border-ui) !important;
+}
+
+/* Inputs Readonly/Disabled */
+.glass-input-disabled {
+  background-color: var(--border-ui) !important;
+  border-color: var(--glass-border) !important;
+  color: var(--text-tertiary) !important;
+}
+
+/* Botones Secundarios */
+.btn-secondary {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-ui) !important;
+  color: var(--text-secondary) !important;
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  background-color: var(--border-ui) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Segmented progress bars for the analytical dashboard */
+.bg-deadline-ok {
+  background-color: var(--deadline-ok-color) !important;
+}
+.bg-deadline-overdue {
+  background-color: var(--deadline-overdue-color) !important;
+}
+.bg-deadline-pending {
+  background-color: var(--text-tertiary) !important;
+}
+
+/* Menú de Sugerencias Autocompletables */
+.suggestions-dropdown {
+  background-color: var(--bg-header) !important;
+  background: var(--bg-header) !important;
+  border-color: var(--border-ui) !important;
+  backdrop-filter: blur(16px) !important;
+  opacity: 0.98 !important; /* Extremely high opacity to prevent overlapping text bleeding through */
+  z-index: 50 !important;
+}
+
+/* Módulo de Reportes: Checkbox e Interacción */
+.report-estado-checkbox:checked + span {
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+/* Interacciones Dinámicas del Dashboard */
+.dashboard-card-interactive {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+}
+.dashboard-card-interactive:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -12px rgba(15, 23, 42, 0.15) !important;
+  border-color: var(--deadline-ok-color) !important;
+}
+html.dark .dashboard-card-interactive:hover {
+  box-shadow: 0 16px 32px -12px rgba(0, 0, 0, 0.4) !important;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-card {
+  opacity: 0;
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ====================================================
+   ESTILOS DE IMPRESIÓN NATIVA (CSS PRINT)
+   ==================================================== */
+#print-report-container {
+  display: none;
+}
+
+@media print {
+  /* Ocultar la app solo si el contenedor de reportes TIENE contenido (no está vacío) */
+  body:has(#print-report-container:not(:empty)) > *:not(#print-report-container) {
+    display: none !important;
+  }
+
+  /* Si NO se está imprimiendo un reporte (contenedor vacío), permitir que la pantalla haga scroll para imprimirse completa */
+  body:not(:has(#print-report-container:not(:empty))) {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  body:not(:has(#print-report-container:not(:empty))) main {
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
+
+  /* Mostrar y dar formato al contenedor de impresión */
+  #print-report-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    background: white !important;
+    color: #1e293b !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  }
+
+  /* Asegurar que las tablas tengan comportamiento nativo de impresión */
+  #print-report-container table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #print-report-container tr {
+    page-break-inside: avoid !important;
+  }
+
+  #print-report-container thead {
+    display: table-header-group !important;
+  }
+
+  #print-report-container tbody {
+    display: table-row-group !important;
+  }
+
+  /* Correcciones de colores y contrastes para impresora */
+  body, html {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Asegurar visualización de los badges en impresión a color */
+  #print-report-container span {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  #print-report-container div {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+} /* Cierre de @media print */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+/* Estilo premium para inputs de fecha nativos */
+input[type="date"] {
+  position: relative;
+  font-family: inherit;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.6);
+  opacity: 0.8;
+  transition: opacity 0.2s, filter 0.2s;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  filter: invert(0.8);
+}
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1);
+}
+
+/* ============================================================
+   MODAL DE TIMEOUT DE SESIÓN
+   ============================================================ */
+
+#session-timeout-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.session-timeout-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.session-timeout-modal {
+  position: relative;
+  z-index: 1;
+  background: var(--glass-bg, rgba(15, 23, 42, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.5rem;
+  padding: 2.5rem 2rem 2rem;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.05);
+  animation: sto-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes sto-slide-in {
+  from { opacity: 0; transform: translateY(-24px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)     scale(1);    }
+}
+
+/* Ícono animado */
+.sto-icon-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sto-icon-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(245, 158, 11, 0.4);
+  animation: sto-ring-pulse 2s ease-in-out infinite;
+}
+.sto-icon-ring-2 {
+  animation-delay: 0.7s;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+@keyframes sto-ring-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%       { transform: scale(1.35); opacity: 0;   }
+}
+
+.sto-icon {
+  width: 36px;
+  height: 36px;
+  color: #f59e0b;
+  stroke-width: 1.5;
+  position: relative;
+  z-index: 1;
+}
+
+/* Textos */
+.sto-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 0.5rem;
+}
+
+.sto-body {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+/* Cuenta regresiva */
+.sto-countdown {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 1rem;
+  line-height: 1;
+  font-family: 'Courier New', monospace;
+}
+
+.sto-sep {
+  opacity: 0.5;
+  animation: sto-blink 1s step-end infinite;
+}
+
+@keyframes sto-blink {
+  50% { opacity: 0; }
+}
+
+/* Barra de progreso */
+.sto-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.sto-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: #22c55e;
+  transition: width 1s linear, background 0.5s ease;
+  width: 100%;
+}
+
+/* Botones */
+.sto-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.sto-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+}
+
+.sto-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+}
+
+.sto-btn-primary:active {
+  transform: translateY(0);
+}
+
+.sto-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.sto-btn-secondary:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+/* Estado urgente: quedan menos de 60 seg */
+.session-timeout-modal.sto-urgent .sto-countdown {
+  animation: sto-urgent-pulse 0.6s ease-in-out infinite alternate;
+  color: #f87171;
+}
+
+.session-timeout-modal.sto-urgent .sto-icon {
+  color: #f87171;
+}
+
+.session-timeout-modal.sto-urgent .sto-icon-ring {
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+@keyframes sto-urgent-pulse {
+  from { opacity: 1; }
+  to   { opacity: 0.6; }
+}
+
+/* Modo claro */
+html:not(.dark) .session-timeout-modal {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+html:not(.dark) .sto-title  { color: #1e293b; }
+html:not(.dark) .sto-body   { color: #64748b; }
+html:not(.dark) .sto-countdown { color: #1e293b; }

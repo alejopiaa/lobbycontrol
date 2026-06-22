@@ -1,9 +1,9 @@
 # LobbyTracker 📋
 
 > **Versión Actual:** 1.0.0  
-> **Ámbito:** MVP de gestión local de audiencias de la Ley de Lobby — Ilustre Municipalidad de Maipú.
+> **Ámbito:** MVP de gestión local de audiencias bajo la Ley de Lobby para instituciones y organismos públicos.
 
-LobbyTracker es una aplicación web local diseñada para centralizar, visualizar y auditar las audiencias registradas bajo la Ley de Lobby. Proporciona una interfaz ágil para administradores y auditores de la municipalidad, facilitando la importación de planillas de datos y la generación de reportes analíticos.
+LobbyTracker es una aplicación web local diseñada para centralizar, visualizar y auditar las audiencias registradas bajo la Ley de Lobby. Proporciona una interfaz ágil para administradores y auditores de organismos públicos, facilitando la importación de planillas de datos y la generación de reportes analíticos de manera genérica y adaptable.
 
 ---
 
@@ -21,8 +21,8 @@ LobbyTracker es una aplicación web local diseñada para centralizar, visualizar
    - Módulo para filtrar, buscar y generar reportes específicos en formato PDF o Excel.
    - Registro persistente de reportes generados en el servidor para auditorías posteriores.
 
-4. **Diseño e Infraestructura Local (Intranet)**
-   - **Independiente de Internet:** Todos los recursos (Tailwind CSS compilado, Chart.js, Lucide Icons) se sirven de manera 100% local, ideal para despliegues seguros dentro de la red corporativa/intranet municipal.
+4. **Diseño e Infraestructura Local**
+   - **Independiente de Internet:** Todos los recursos (Tailwind CSS compilado, Chart.js, Lucide Icons) se sirven de manera 100% local, ideal para despliegues seguros dentro de la red corporativa o institucional.
    - Base de datos optimizada en modo **WAL (Write-Ahead Logging)** de SQLite para garantizar lecturas rápidas y concurrentes.
 
 5. **Control de Sesión por Inactividad**

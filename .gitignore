@@ -19,3 +19,11 @@ data/lobby_data.xlsx
 .vscode/
 .DS_Store
 Thumbs.db
+.clinerules
+.cursorrules
+
+# Temp/helper scripts and plans
+implementation_plan.md
+iniciar_servidor.bat
+scratch/
+

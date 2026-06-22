@@ -1,6 +1,0 @@
-# Reglas del Entorno de Desarrollo / Development Environment Rules
-
-- Queda totalmente PROHIBIDO abrir el navegador de forma autónoma o realizar revisiones automáticas tras aplicar cambios en el código.
-- NO consumir cuota en diagnósticos visuales (por ejemplo, herramientas de captura de pantalla, análisis visual automático, etc.).
-- Limitarse únicamente a modificar los archivos del código.
-- Esperar SIEMPRE a que el usuario realice la revisión manual y proporcione el feedback antes de proceder o realizar comprobaciones adicionales.

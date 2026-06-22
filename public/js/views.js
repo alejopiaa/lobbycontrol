@@ -177,7 +177,7 @@ function renderDashboard(container) {
           <div class="text-center">
             <span class="text-xs text-slate-300 font-bold uppercase tracking-widest">Total Solicitudes</span>
             <h3 class="text-4xl font-extrabold text-heading mt-2" id="count-total-solicitudes">${stats.totales.total}</h3>
-            <p class="text-xs text-body-muted font-semibold mt-1">100% Universo</p>
+            <p class="text-xs text-body-muted font-semibold mt-1">100%</p>
           </div>
           <div class="space-y-1.5">
             <div class="w-full h-3 rounded-full overflow-hidden bg-slate-800 flex">

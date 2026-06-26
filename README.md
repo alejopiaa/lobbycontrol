@@ -1,9 +1,15 @@
 # LobbyControl 📋
 
 > **Versión Actual:** 1.0.0  
-> **Ámbito:** Aplicación nativa de escritorio (Electron) desarrollada en el contexto del caso de la **Ilustre Municipalidad de Maipú** para la centralización, visualización, auditoría y análisis de audiencias públicas bajo la Ley de Lobby (Ley N° 20.730), operando bajo un entorno de comunicación aislado y seguro sin exposición de puertos locales.
+> **Ámbito:** Aplicación nativa de escritorio (Electron) desarrollada en el contexto y con datos de la **Ilustre Municipalidad de Maipú** para la centralización, visualización, auditoría y análisis de audiencias públicas bajo la Ley de Lobby (Ley N° 20.730), operando bajo un entorno de comunicación aislado y seguro sin exposición de puertos locales.
 
-LobbyControl es una solución diseñada para la **Ilustre Municipalidad de Maipú** que requiere procesar, auditar y explorar registros de audiencias de lobby de manera local. Permite cargar planillas de datos externas y sincronizarlas de forma segura con los repositorios corporativos de SharePoint de la municipalidad, consolidándolas en una base de datos SQLite local protegida para ofrecer una interfaz fluida con análisis estadísticos en tiempo real, alertas de cumplimiento, búsqueda avanzada y exportación de reportes semanales de auditoría.
+LobbyControl es una solución construida en base a los datos y requerimientos específicos del caso de la **Ilustre Municipalidad de Maipú**. Está diseñada para procesar, auditar y explorar registros locales de audiencias de lobby. 
+
+> [!NOTE]
+> **Contexto de Desarrollo y Portabilidad**
+> Esta aplicación no ha sido desarrollada por, para, ni en la Municipalidad de Maipú. Ha sido desarrollada utilizando sus datos y estructura en el contexto específico de su caso de uso particular (el cual depende de su integración con Microsoft SharePoint). Por lo tanto, esta arquitectura y su lógica de sincronización están acopladas a dicho entorno corporativo y podrían requerir adaptaciones significativas para ser utilizadas en otros servicios públicos que utilicen plataformas de almacenamiento o autenticación distintas.
+
+Permite procesar planillas de datos externas y sincronizarlas con los repositorios corporativos de SharePoint definidos para el caso de Maipú, consolidando los registros en una base de datos SQLite local para ofrecer un panel analítico en tiempo real, alertas de cumplimiento, búsqueda avanzada y exportación de reportes semanales de auditoría.
 
 ---
 
@@ -78,77 +84,6 @@ LobbyControl es una solución diseñada para la **Ilustre Municipalidad de Maip�
 ├── package.json             # Manifiesto del proyecto y scripts npm
 └── .gitignore               # Configuración de archivos excluidos de Git
 ```
-
----
-
-## 📦 Instalación y Puesta en Marcha
-
-### Requisitos
-
-- Node.js (versión 18 o superior)
-- Git
-
-### Pasos
-
-1.  **Clonar el repositorio:**
-
-    ```bash
-    git clone https://github.com/alejopiaa/lobbycontrol.git
-    cd lobbycontrol
-    ```
-
-2.  **Instalar las dependencias de Node.js:**
-
-    ```bash
-    npm install
-    ```
-
-3.  **Configurar variables de entorno:**
-    Crea un archivo `.env` en la raíz del proyecto y ajusta los valores requeridos para la integración corporativa con la municipalidad y SharePoint.
-
-    Ejemplo de archivo `.env`:
-    ```env
-    # Puerto local del router virtual Express (No expuesto externamente en Electron)
-    PORT=3000
-
-    # Rutas locales por defecto para la base de datos e importación de planillas
-    DATABASE_PATH=data/lobby.db
-    EXCEL_PATH=data/lobby_data.xlsx
-
-    # Configuración de SharePoint y Microsoft SSO (Ilustre Municipalidad de Maipú)
-    SHAREPOINT_HOST=immaipu.sharepoint.com
-    SHAREPOINT_SITE_URL=https://immaipu.sharepoint.com/sites/SECMU
-    SHAREPOINT_FOLDER_PATH=/sites/SECMU/Lobby/LobbyControl
-    SHAREPOINT_VERSION_URL=https://immaipu.sharepoint.com/sites/SECMU/_layouts/15/guestaccess.aspx?share=IQAEqx-udSnjR45ENm8jcNqPAd0QSIgfWRzK6-U9madcQbA&e=d4EjCH&download=1
-    SHAREPOINT_DB_URL=https://immaipu.sharepoint.com/sites/SECMU/_layouts/15/guestaccess.aspx?share=IQAfzlIEO2_3Sog3WHRpNfmWATBo8wbHkWgrvo3J3ncFW4M&e=asp2UG&download=1
-    ```
-
-4.  **Inicializar la Base de Datos (Opcional):**
-    Si deseas inicializar la base de datos SQLite importando datos de la planilla Excel local desde la terminal, ejecuta el script de ingesta.
-    
-    > [!IMPORTANT]
-    > **Ruta de Base de Datos y Variable IS_ELECTRON**
-    > * **Base de Datos Local de Desarrollo**: Si corres el script directamente con `node scripts/import_lobby.js`, los datos se guardarán en el archivo definido en `DATABASE_PATH` (`data/lobby.db` dentro del workspace).
-    > * **Base de Datos de Producción/Electron**: Si deseas que la importación apunte al directorio persistente de usuario que utiliza la aplicación Electron (`AppData/Local/LobbyControl/data/lobby.db`), debes establecer la variable de entorno `IS_ELECTRON=true` al ejecutar el script en tu terminal.
-    >   * *Windows PowerShell:* `$env:IS_ELECTRON="true"; node scripts/import_lobby.js`
-    >   * *Bash:* `IS_ELECTRON=true node scripts/import_lobby.js`
-
-    Para ejecutar la importación simple de desarrollo:
-    ```bash
-    node scripts/import_lobby.js
-    ```
-
-5.  **Iniciar la aplicación (Electron):**
-    - **Entorno de Desarrollo:**
-      ```bash
-      npm run electron:dev
-      ```
-    - **Compilar Ejecutable de Producción:**
-      ```bash
-      npm run electron:build
-      ```
-
-    *Nota: Debido a la migración de arquitectura hacia IPC seguro, no se expone ningún servidor HTTP ni puertos TCP de escucha en `http://localhost:3000`. Toda comunicación ocurre internamente a través del protocolo exclusivo de la app `app://lobbycontrol` y los canales de mensajería nativos de Electron.*
 
 ---
 

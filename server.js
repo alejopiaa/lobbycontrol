@@ -305,38 +305,14 @@ app.post('/api/auth/sso', (req, res) => {
     };
 
     if (!user) {
-      // Verificar si la tabla de usuarios está completamente vacía (instalación limpia o base de datos inicial)
-      db.get('SELECT COUNT(*) as count FROM usuarios', [], async (countErr, countRow) => {
-        if (!countErr && countRow && countRow.count === 0) {
-          console.log(`[SSO] Primer usuario detectado (${cleanEmail}) en base de datos vacía. Autoregistrando como Administrador...`);
-          const query = 'INSERT INTO usuarios (correo, nombre, rol, password_hash, rut, asistido_rut) VALUES (?, ?, ?, ?, ?, ?)';
-          const defaultPasswordHash = auth.hashPassword('LobbyControl2026'); // Contraseña temporal
-          db.run(query, [cleanEmail, nombre || 'Administrador Inicial', 'Administrador', defaultPasswordHash, '', ''], function(insertErr) {
-            if (insertErr) {
-              console.error('[SSO] Error al autorregistar usuario inicial:', insertErr.message);
-              return res.status(500).json({ error: 'Error de base de datos al inicializar usuario.' });
-            }
-            db.recalculateAndSignDatabase();
-            handleSession({
-              id: this.lastID,
-              correo: cleanEmail,
-              nombre: nombre || 'Administrador Inicial',
-              rol: 'Administrador',
-              rut: '',
-              asistido_rut: ''
-            });
-          });
-        } else {
-          console.warn(`[SSO] Acceso denegado: El correo ${cleanEmail} no está registrado en la base de datos local.`);
-          try {
-            const { clearAllSsoData } = require('./src/config/sharepoint-auth');
-            await clearAllSsoData();
-          } catch (clearErr) {
-            console.error('[SSO] Error al limpiar almacenamiento tras rechazo de usuario:', clearErr.message);
-          }
-          return res.status(403).json({ error: 'Acceso denegado: Tu correo corporativo no está registrado en el sistema. Solicita acceso al administrador.' });
-        }
-      });
+      console.warn(`[SSO] Acceso denegado: El correo ${cleanEmail} no está registrado en la base de datos local.`);
+      try {
+        const { clearAllSsoData } = require('./src/config/sharepoint-auth');
+        await clearAllSsoData();
+      } catch (clearErr) {
+        console.error('[SSO] Error al limpiar almacenamiento tras rechazo de usuario:', clearErr.message);
+      }
+      return res.status(403).json({ error: 'Acceso denegado: Tu correo corporativo no está registrado en el sistema. Solicita acceso al administrador.' });
     } else {
       handleSession(user);
     }

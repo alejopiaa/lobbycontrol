@@ -22,8 +22,8 @@ if (process.versions.electron) {
   isDev = true; // Si no es Electron (por ejemplo, scripts de consola en desarrollo)
 }
 
-// Usar la ruta de producción si no estamos en desarrollo, si se define USER_DATA_DIR, o si se fuerza por variable de entorno
-const useProductionPath = !isDev || !!process.env.USER_DATA_DIR || process.env.PRODUCTION_DB === 'true';
+// Usar la ruta de producción si no estamos en desarrollo, o si se fuerza por variable de entorno
+const useProductionPath = !isDev || process.env.PRODUCTION_DB === 'true';
 
 if (useProductionPath) {
   // En producción (empaquetado), guardamos de forma segura en la carpeta de datos de usuario de Electron

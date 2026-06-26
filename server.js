@@ -1521,12 +1521,5 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Levantar el servidor sólo si no estamos en Electron
-if (process.env.IS_ELECTRON !== 'true') {
-  app.listen(PORT, () => {
-    console.log(`Servidor de desarrollo local corriendo en http://localhost:${PORT}`);
-  });
-}
-
 module.exports = app;
 

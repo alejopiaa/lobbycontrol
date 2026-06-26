@@ -4,8 +4,6 @@
   "description": "MVP de gestión local de audiencias de la Ley de Lobby",
   "main": "main.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
     "import-lobby": "node scripts/import_lobby.js",
     "check-db": "node scripts/check_db.js",
     "inspect-db": "node scripts/inspect.js",

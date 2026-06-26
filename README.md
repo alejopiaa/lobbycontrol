@@ -7,7 +7,7 @@ LobbyControl es una solución construida en base a los datos y requerimientos es
 
 > [!NOTE]
 > **Contexto de Desarrollo y Portabilidad**
-> Esta aplicación no ha sido desarrollada por, para, ni en la Municipalidad de Maipú. Ha sido desarrollada utilizando sus datos y estructura en el contexto específico de su caso de uso particular (el cual depende de su integración con Microsoft SharePoint). Por lo tanto, esta arquitectura y su lógica de sincronización están acopladas a dicho entorno corporativo y podrían requerir adaptaciones significativas para ser utilizadas en otros servicios públicos que utilicen plataformas de almacenamiento o autenticación distintas.
+> Ha sido desarrollada utilizando sus datos y estructura en el contexto específico de su caso de uso particular (el cual depende de su integración con Microsoft SharePoint). Por lo tanto, esta arquitectura y su lógica de sincronización están acopladas a dicho entorno corporativo y podrían requerir adaptaciones significativas para ser utilizadas en otros servicios públicos que utilicen plataformas de almacenamiento o autenticación distintas.
 
 Permite procesar planillas de datos externas y sincronizarlas con los repositorios corporativos de SharePoint definidos para el caso de Maipú, consolidando los registros en una base de datos SQLite local para ofrecer un panel analítico en tiempo real, alertas de cumplimiento, búsqueda avanzada y exportación de reportes semanales de auditoría.
 

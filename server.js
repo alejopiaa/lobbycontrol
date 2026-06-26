@@ -6,7 +6,6 @@ const auth = require('./src/middleware/auth');
 const dateUtils = require('./src/utils/date-utils');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Semáforo de control para importaciones concurrentes
 let isImporting = false;

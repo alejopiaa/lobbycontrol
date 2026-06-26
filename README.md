@@ -1,7 +1,7 @@
 # LobbyControl 📋
 
 > **Versión Actual:** 1.0.0  
-> **Ámbito:** Plataforma web local e interactiva para la centralización, visualización, auditoría y análisis de audiencias públicas bajo la Ley de Lobby.
+> **Ámbito:** Aplicación nativa de escritorio (Electron) para la centralización, visualización, auditoría y análisis de audiencias públicas bajo la Ley de Lobby, operando bajo un entorno de comunicación aislado y sin exposición de puertos locales.
 
 LobbyControl es una solución diseñada para organismos públicos e instituciones que requieren procesar, auditar y explorar registros de audiencias de lobby. Permite cargar planillas de datos externas, consolidarlas en una base de datos local ligera y segura, y ofrecer una interfaz intuitiva con análisis estadísticos en tiempo real, búsqueda avanzada y exportación de reportes.
 
@@ -38,7 +38,6 @@ LobbyControl es una solución diseñada para organismos públicos e institucione
 ### 5. Seguridad y Rendimiento
 
 - **Cierre de Sesión por Inactividad:** Sistema de control de inactividad del cliente que avisa mediante un contador de advertencia y redirige automáticamente al login al expirar el tiempo establecido.
-- **Rate Limiting:** Protección en rutas críticas del API mediante `express-rate-limit` para mitigar ataques de fuerza bruta o abuso de endpoints.
 - **Sanitización XSS:** Codificación de entidades HTML especiales antes de renderizar entradas dinámicas del usuario en el navegador.
 - **SQLite optimizado con WAL:** Activación de _Write-Ahead Logging_ para habilitar lecturas y escrituras simultáneas y fluidas.
 
@@ -46,33 +45,36 @@ LobbyControl es una solución diseñada para organismos públicos e institucione
 
 ## 🛠️ Stack Tecnológico
 
-- **Backend:** Node.js + Express.js.
+- **Entorno de Ejecución:** Electron (Procesos Principal y de Renderizado completamente aislados).
+- **Backend:** Node.js + Express (operando exclusivamente en memoria como enrutador virtual via IPC nativo, sin levantar servidores HTTP).
 - **Base de Datos:** SQLite (`sqlite3`) para almacenamiento persistente ligero, rápido y autoportante.
 - **Frontend:** HTML5 semántico, CSS vainilla estructurado y Javascript (ES6+) interactivo.
 - **Dependencias principales:**
   - `xlsx` (para la ingesta y manipulación de planillas Excel).
   - `dotenv` (gestión segura de variables de entorno).
-  - `express-rate-limit` (seguridad a nivel de peticiones HTTP).
 
 ---
 
 ## 📂 Estructura del Proyecto
 
 ```text
-├── public/                  # Archivos estáticos servidos al cliente
+├── public/                  # Archivos estáticos de la interfaz (cargados via app://)
 │   ├── css/                 # Estilos CSS de la interfaz
-│   ├── js/                  # Lógica del frontend (módulos, vistas, helpers)
+│   ├── js/                  # Lógica del frontend (módulos, vistas, helpers, interceptor IPC)
 │   ├── vendor/              # Librerías estáticas de terceros (sin CDNs externos)
 │   └── index.html           # Página web principal
 ├── src/                     # Código fuente del backend estructurado
-│   ├── config/              # Inicialización y parámetros de base de datos
-│   ├── middleware/          # Rate limits, autenticación y seguridad
-│   └── utils/               # Helpers y utilidades generales del servidor
+│   ├── config/              # Inicialización y parámetros de base de datos y SSO
+│   ├── ipc/                 # Manejadores de comunicación interprocesos (IPC) y seguridad
+│   ├── middleware/          # Autenticación y utilidades del enrutador virtual
+│   └── utils/               # Helpers y utilidades generales
 ├── scripts/                 # Scripts auxiliares para el ciclo de desarrollo
 │   ├── import_lobby.js      # Procesamiento de importaciones Excel a SQLite
 │   ├── check_db.js          # Diagnóstico de integridad de base de datos
 │   └── inspect.js           # Inspección de esquemas y estadísticas rápidas
-├── server.js                # Archivo principal de inicialización de la app
+├── main.js                  # Proceso principal de Electron (configuración de ventana y protocolo)
+├── preload.js               # Puente de precarga seguro (Context Bridge)
+├── server.js                # Enrutador Express virtual en memoria (sin puerto TCP)
 ├── package.json             # Manifiesto del proyecto y scripts npm
 └── .gitignore               # Configuración de archivos excluidos de Git
 ```
@@ -105,36 +107,35 @@ LobbyControl es una solución diseñada para organismos públicos e institucione
     Crea un archivo `.env` en la raíz del proyecto y ajusta los valores necesarios:
 
     ```env
-    PORT=3000
     DATABASE_PATH=data/lobby.db
     EXCEL_PATH=data/lobby_data.xlsx
     ```
 
-4.  **Inicializar la Base de Datos:**
+4.  **Inicializar la Base de Datos (Opcional):**
     Si cuentas con un archivo de Excel con registros iniciales en la ruta especificada, importa los datos ejecutando:
 
     ```bash
-    npm run import-lobby
+    node scripts/import_lobby.js
     ```
 
-5.  **Iniciar la aplicación:**
-    - **Entorno de Producción:**
+5.  **Iniciar la aplicación (Electron):**
+    - **Entorno de Desarrollo:**
       ```bash
-      npm start
+      npm run electron:dev
       ```
-    - **Entorno de Desarrollo (con recarga automática):**
+    - **Compilar Ejecutable de Producción:**
       ```bash
-      npm run dev
+      npm run electron:build
       ```
 
-    La aplicación estará disponible en `http://localhost:3000`.
+    *Nota: Al no abrir puertos de red ni exponer servidores web locales, la interfaz ya no es accesible desde el navegador en `http://localhost:3000`. Se ejecuta de forma aislada y nativa en la ventana de Electron.*
 
 ---
 
 ## ⚙️ Scripts Disponibles en `package.json`
 
-- `npm start`: Inicia el servidor de producción en el puerto configurado.
-- `npm run dev`: Inicia el servidor en modo desarrollo utilizando la bandera `--watch-path` para reiniciar al detectar cambios.
-- `npm run import-lobby`: Ejecuta el script de lectura de la planilla Excel e inserción de datos en SQLite.
-- `npm run check-db`: Valida la estructura, tablas y realiza conteo de registros en la base de datos local.
-- `npm run inspect-db`: Muestra un desglose descriptivo de la información en el terminal.
+- `npm run electron:dev`: Inicia el cliente de Electron en entorno de desarrollo.
+- `npm run electron:build`: Compila y empaqueta la aplicación como un ejecutable portable de producción para Windows.
+- `npm run import-lobby`: Ejecuta el script de importación de la planilla Excel a SQLite.
+- `npm run check-db`: Valida la integridad y realiza un diagnóstico rápido de los registros en la base de datos local SQLite.
+- `npm run inspect-db`: Muestra un desglose analítico y descriptivo de las tablas en el terminal.

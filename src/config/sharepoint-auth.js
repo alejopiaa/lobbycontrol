@@ -1,10 +1,22 @@
 const { BrowserWindow, session } = require('electron');
 const https = require('https');
 
-// URL del sitio de SharePoint corporativo
+// URL del sitio de SharePoint corporativo y sub-sitio de SECMU
 const SHAREPOINT_HOST = process.env.SHAREPOINT_HOST || 'immaipu.sharepoint.com';
-const SHAREPOINT_BASE_URL = `https://${SHAREPOINT_HOST}`;
-const SHAREPOINT_LOGIN_URL = process.env.SHAREPOINT_LOGIN_URL || SHAREPOINT_BASE_URL;
+const SHAREPOINT_SITE_URL = process.env.SHAREPOINT_SITE_URL || `https://${SHAREPOINT_HOST}/sites/SECMU`;
+const SHAREPOINT_LOGIN_URL = process.env.SHAREPOINT_LOGIN_URL || SHAREPOINT_SITE_URL;
+
+// Extraer la ruta del sub-sitio para consultas REST API
+let sitePath = '/sites/SECMU';
+try {
+  const urlObj = new URL(SHAREPOINT_SITE_URL);
+  sitePath = urlObj.pathname;
+  if (sitePath.endsWith('/')) {
+    sitePath = sitePath.slice(0, -1);
+  }
+} catch (e) {
+  sitePath = '/sites/SECMU';
+}
 
 /**
  * Abre una ventana de login en Electron y captura las cookies del usuario una vez autenticado.
@@ -101,7 +113,7 @@ function fetchSharepointUser(cookieHeader) {
 
     const options = {
       hostname: SHAREPOINT_HOST,
-      path: '/_api/web/currentuser',
+      path: `${sitePath}/_api/web/currentuser`,
       method: 'GET',
       headers: {
         'Cookie': cookieHeader,

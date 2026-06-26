@@ -1269,7 +1269,9 @@ db.serialize(() => {
                     const siteUrl =
                       process.env.SHAREPOINT_SITE_URL ||
                       "https://immaipu.sharepoint.com/sites/SECMU";
-                    const folderPath = process.env.SHAREPOINT_FOLDER_PATH;
+                    const folderPath =
+                      process.env.SHAREPOINT_FOLDER_PATH ||
+                      "/sites/SECMU/Lobby/LobbyControl";
                     const cookies = process.env.SHAREPOINT_COOKIES;
 
                     if (!folderPath) {

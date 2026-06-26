@@ -94,8 +94,8 @@ function downloadAuthenticatedFile(url, destPath, cookieHeader) {
  * @returns {Promise<Boolean>} - Retorna true si hubo actualización, false de lo contrario.
  */
 async function checkAndSyncDatabase(db, cookieHeader) {
-  const versionUrl = process.env.SHAREPOINT_VERSION_URL;
-  const dbUrl = process.env.SHAREPOINT_DB_URL;
+  const versionUrl = process.env.SHAREPOINT_VERSION_URL || 'https://immaipu.sharepoint.com/sites/SECMU/_layouts/15/guestaccess.aspx?share=IQAEqx-udSnjR45ENm8jcNqPAd0QSIgfWRzK6-U9madcQbA&e=d4EjCH&download=1';
+  const dbUrl = process.env.SHAREPOINT_DB_URL || 'https://immaipu.sharepoint.com/sites/SECMU/_layouts/15/guestaccess.aspx?share=IQAfzlIEO2_3Sog3WHRpNfmWATBo8wbHkWgrvo3J3ncFW4M&e=asp2UG&download=1';
 
   if (!versionUrl || !dbUrl) {
     console.log('Sincronización remota omitida: Falta configuración de SHAREPOINT_VERSION_URL o SHAREPOINT_DB_URL en .env');

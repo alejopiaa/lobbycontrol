@@ -3,16 +3,7 @@ const express = require('express');
 const path = require('path');
 const db = require('./src/config/database');
 const auth = require('./src/middleware/auth');
-const rateLimit = require('express-rate-limit');
 const dateUtils = require('./src/utils/date-utils');
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // Máximo 5 intentos por IP
-  message: { error: 'Demasiados intentos de inicio de sesión. Por favor intente de nuevo en 15 minutos.' },
-  standardHeaders: true,
-  legacyHeaders: false
-});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -152,6 +143,9 @@ app.use((req, res, next) => {
 
 // Middleware de autenticación global para la API
 app.use('/api', (req, res, next) => {
+  if (req.user) {
+    return next();
+  }
   // Las rutas de login y última modificación son públicas
   if (req.path === '/auth/login' || req.path === '/auth/sso' || req.path === '/auth/trigger-sso' || req.path === '/db-last-update') {
     return next();
@@ -202,7 +196,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // ==========================================
 // RUTAS DE AUTENTICACIÓN
 // ==========================================
-app.post('/api/auth/login', loginLimiter, (req, res) => {
+app.post('/api/auth/login', (req, res) => {
   const { correo, password } = req.body;
   if (!correo || !password) {
     return res.status(400).json({ error: 'Correo y contraseña son obligatorios.' });
@@ -1527,8 +1521,12 @@ app.use((err, req, res, next) => {
   }
 });
 
-// Levantar el servidor
-app.listen(PORT, () => {
-  console.log(`Servidor de desarrollo local corriendo en http://localhost:${PORT}`);
-});
+// Levantar el servidor sólo si no estamos en Electron
+if (process.env.IS_ELECTRON !== 'true') {
+  app.listen(PORT, () => {
+    console.log(`Servidor de desarrollo local corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
 

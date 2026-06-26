@@ -1,101 +1,33 @@
-const { app, BrowserWindow, session, shell } = require("electron");
+const { app, BrowserWindow, session, shell, protocol, net } = require("electron");
 const path = require("path");
+const fs = require("fs");
 
 // Determinar si la aplicación está empaquetada
 const isPackaged = app.isPackaged;
 
 // Definir el directorio del ejecutable (para el modo portable)
-// Si está empaquetada, process.execPath nos da la ruta al ejecutable (ej. .../LobbyControl.exe)
-// Si está en desarrollo, usamos el directorio actual (__dirname)
 const exeDir = isPackaged ? path.dirname(process.execPath) : __dirname;
 
-// Inyectar variables de entorno críticas antes de requerir server.js
+// Inyectar variables de entorno críticas antes de iniciar manejadores
 process.env.IS_ELECTRON = "true";
 process.env.EXE_DIR = exeDir;
 process.env.USER_DATA_DIR = app.getPath('userData');
 
-// Si no se define puerto en .env, usar 3000
-const PORT = process.env.PORT || "3000";
-process.env.PORT = PORT;
-
-// Iniciar el servidor Express importándolo directamente
-console.log("Iniciando servidor de Express integrado en Electron...");
-require("./server.js");
-
-let mainWindow = null;
-const {
-  loginWithMicrosoft,
-  fetchSharepointUser,
-} = require("./src/config/sharepoint-auth");
-const http = require("http");
-
-// Registrar la sesión SSO en el servidor Express local
-function registerSsoSession(email, nombre, cookieHeader) {
-  return new Promise((resolve, reject) => {
-    const postData = JSON.stringify({ email, nombre, cookieHeader });
-    const req = http.request(
-      {
-        hostname: "127.0.0.1",
-        port: PORT,
-        path: "/api/auth/sso",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(postData),
-        },
-      },
-      (res) => {
-        let body = "";
-        res.on("data", (chunk) => (body += chunk));
-        res.on("end", () => {
-          if (res.statusCode === 200) {
-            resolve({
-              body: JSON.parse(body),
-              setCookie: res.headers["set-cookie"],
-            });
-          } else {
-            reject(new Error(`Código de estado HTTP ${res.statusCode}`));
-          }
-        });
-      },
-    );
-
-    req.on("error", reject);
-    req.write(postData);
-    req.end();
-  });
-}
-
-// Wrapper con reintentos exponenciales para tolerar demoras en el arranque del servidor Express
-function registerSsoSessionWithRetries(email, nombre, cookieHeader, retries = 5, delay = 1000) {
-  return registerSsoSession(email, nombre, cookieHeader)
-    .catch((err) => {
-      if (retries > 0) {
-        console.log(`[SSO] Falló registro de sesión local, reintentando en ${delay}ms (${retries} intentos restantes)... Error: ${err.message}`);
-        return new Promise((resolve) => setTimeout(resolve, delay))
-          .then(() => registerSsoSessionWithRetries(email, nombre, cookieHeader, retries - 1, delay * 1.5));
-      }
-      throw err;
-    });
-}
-
-// Inyecta las cookies devueltas por Express (lobby_session) al navegador de Electron
-async function injectCookiesIntoElectronSession(setCookieHeader) {
-  if (!setCookieHeader) return;
-  for (const cookieStr of setCookieHeader) {
-    const parts = cookieStr.split(";")[0].split("=");
-    if (parts.length >= 2) {
-      const name = parts[0].trim();
-      const value = parts.slice(1).join("=").trim();
-      await session.defaultSession.cookies.set({
-        url: `http://localhost:${PORT}`,
-        name: name,
-        value: value,
-        path: "/",
-      });
+// Registrar el esquema de protocolo personalizado como privilegiado.
+// Esto debe ejecutarse antes de que la aplicación esté lista.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "app",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetch: true,
+      corsEnabled: false
     }
   }
-}
+]);
+
+let mainWindow = null;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -105,13 +37,15 @@ function createMainWindow() {
     autoHideMenuBar: true, // Ocultar barra de menú superior estándar
     webPreferences: {
       nodeIntegration: false,
-      contextBridge: true,
+      contextIsolation: true,
+      sandbox: true,
+      preload: path.join(__dirname, "preload.js")
     },
   });
 
   // Interceptar clicks a enlaces externos para abrirlos en el navegador por defecto del sistema
   const isLocal = (url) => {
-    return url.startsWith(`http://localhost:${PORT}`) || url.startsWith(`http://127.0.0.1:${PORT}`) || url === 'about:blank';
+    return url.startsWith("app://lobbycontrol") || url === 'about:blank';
   };
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
@@ -129,12 +63,9 @@ function createMainWindow() {
     return { action: "allow" };
   });
 
-  mainWindow.loadURL(`http://localhost:${PORT}?platform=electron`).catch((err) => {
-    console.error("Error al cargar la URL local de la aplicación:", err);
-    // Reintentar si falla
-    setTimeout(() => {
-      mainWindow.loadURL(`http://localhost:${PORT}?platform=electron`);
-    }, 1500);
+  // Cargar el index.html usando el protocolo privado seguro
+  mainWindow.loadURL("app://lobbycontrol/index.html").catch((err) => {
+    console.error("Error al cargar la interfaz de usuario via app://:", err);
   });
 
   mainWindow.on("closed", () => {
@@ -142,79 +73,45 @@ function createMainWindow() {
   });
 }
 
-async function startAppFlow() {
-  const SHAREPOINT_HOST = process.env.SHAREPOINT_HOST || "immaipu.sharepoint.com";
-
-  try {
-    // Limpiar caché de HTTP para evitar que assets viejos queden cacheados
-    await session.defaultSession.clearCache();
-
-    console.log(
-      "[SSO] Comprobando cookies de sesión de SharePoint existentes...",
-    );
-    const cookies = await session.defaultSession.cookies.get({
-      domain: SHAREPOINT_HOST,
-    });
-    const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-
-    if (cookieHeader) {
-      console.log("[SSO] Cookies encontradas. Validando contra SharePoint...");
-      try {
-        const userProfile = await fetchSharepointUser(cookieHeader);
-        if (
-          userProfile &&
-          userProfile.Email.toLowerCase().endsWith("@maipu.cl")
-        ) {
-          console.log(
-            `[SSO] Sesión válida encontrada en segundo plano: ${userProfile.Email}`,
-          );
-          const { setCookie } = await registerSsoSessionWithRetries(
-            userProfile.Email,
-            userProfile.Title,
-            cookieHeader,
-          );
-          await injectCookiesIntoElectronSession(setCookie);
-          createMainWindow();
-          return;
-        }
-      } catch (validationErr) {
-        console.log(
-          "[SSO] Cookies expiradas o no válidas. Abriendo pantalla de inicio local.",
-        );
-      }
-    } else {
-      console.log("[SSO] No se encontraron cookies de SharePoint. Abriendo pantalla de inicio local.");
-    }
-
-    // En lugar de abrir login de Microsoft de inmediato, abrimos la ventana principal.
-    // Si no está autenticado localmente, la web mostrará el botón para iniciar sesión corporativo.
-    createMainWindow();
-  } catch (err) {
-    console.error("[SSO] Error en el flujo de inicio de sesión:", err.message);
-    console.log("[SSO] Fallback: Abriendo ventana principal de todos modos.");
-    createMainWindow();
-  }
-}
-
 // Al iniciar Electron
 app.whenReady().then(() => {
-  // Esperar 1 segundo para dar tiempo a que el servidor Express levante la conexión
-  setTimeout(() => {
-    startAppFlow();
-  }, 1000);
+  // 1. Configurar el manejador del protocolo seguro 'app://'
+  protocol.handle("app", (request) => {
+    // Extraer y normalizar la ruta relativa del recurso
+    const urlStr = request.url.replace("app://lobbycontrol/", "");
+    const cleanPath = urlStr.split("?")[0].split("#")[0];
+    
+    // Resolver la ruta dentro del directorio "public" de la aplicación
+    const absoluteFilePath = path.join(__dirname, "public", cleanPath || "index.html");
+
+    // Evitar ataques de Directory Traversal (salto de directorios con ..)
+    const relative = path.relative(path.join(__dirname, "public"), absoluteFilePath);
+    const isInsidePublic = relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+    
+    if (!isInsidePublic) {
+      return new Response("Acceso Denegado", { status: 403 });
+    }
+
+    // Servir el archivo utilizando la API nativa net.fetch sobre file://
+    return net.fetch(`file://${absoluteFilePath}`);
+  });
+
+  // 2. Importar y configurar los manejadores de IPC seguro (Fase 3)
+  require("./src/ipc/handlers");
+
+  // 3. Iniciar la ventana principal de la aplicación
+  createMainWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      startAppFlow();
+      createMainWindow();
     }
   });
 });
 
 // Cuando todas las ventanas se cierran
 app.on("window-all-closed", () => {
-  console.log(
-    "Todas las ventanas cerradas. Deteniendo el servidor y saliendo...",
-  );
+  console.log("Todas las ventanas cerradas. Saliendo...");
   if (process.platform !== "darwin") {
     app.quit();
   }

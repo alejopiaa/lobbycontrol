@@ -23,12 +23,70 @@ let chartEvolucionInstance = null;
 let chartCumplimientoInstance = null;
 let chartTopAutoridadesInstance = null;
 
-// Interceptor global para redirección automática en caso de 401 (Sesión Expirada)
+// Interceptor global para redirección automática y desvío de API a IPC en Electron
 const originalFetch = window.fetch;
-window.fetch = async function (...args) {
-  const response = await originalFetch(...args);
+window.fetch = async function (input, init = {}) {
+  let url = typeof input === 'string' ? input : input.url;
+  
+  // Si es un llamado a la API local (/api/...) y estamos en entorno Electron
+  if (url.startsWith('/api/') && typeof window.api !== 'undefined') {
+    const method = init.method || 'GET';
+    let body = null;
+    if (init.body) {
+      if (typeof init.body === 'string') {
+        try {
+          body = JSON.parse(init.body);
+        } catch (e) {
+          body = init.body;
+        }
+      } else {
+        body = init.body;
+      }
+    }
+
+    try {
+      const responseData = await window.api.invokeRoute({
+        url,
+        method,
+        body,
+        headers: init.headers
+      });
+
+      // Crear un objeto Response simulado para que el frontend lo procese igual
+      const resObj = new Response(
+        typeof responseData.data === 'string' ? responseData.data : JSON.stringify(responseData.data),
+        {
+          status: responseData.status || 200,
+          statusText: responseData.statusText || 'OK',
+          headers: new Headers({
+            'Content-Type': 'application/json',
+            ...(responseData.headers || {})
+          })
+        }
+      );
+
+      // Manejar el caso de no autorizado (401)
+      if (resObj.status === 401) {
+        if (!url.includes('/api/auth/me') && !url.includes('/api/auth/login')) {
+          currentUser = null;
+          switchView('login');
+          showToast('Su sesión ha expirado o no está autorizado.', 'error');
+        }
+      }
+
+      return resObj;
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      });
+    }
+  }
+
+  // Comportamiento por defecto para assets estáticos u otras llamadas (si no hay Electron)
+  const response = await originalFetch(input, init);
   if (response.status === 401) {
-    const url = typeof args[0] === 'string' ? args[0] : args[0].url;
     if (!url.includes('/api/auth/me') && !url.includes('/api/auth/login')) {
       currentUser = null;
       switchView('login');

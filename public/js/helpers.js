@@ -34,7 +34,7 @@ function getDeadlineStatusBadge(fechaIngreso, fechaRespuesta, estado, item) {
   const hasRespuesta = fechaRespuesta && fechaRespuesta !== '-' && fechaRespuesta !== 'null' && fechaRespuesta !== '---';
 
   if (item && item.estado_cumplimiento_sh) {
-    if (estadoClean !== 'Ingresada') {
+    if (estadoClean.toLowerCase() !== 'ingresada') {
       let subtext = '';
       if (item.estado_cumplimiento_sh === 'FUERA_PLAZO') {
         subtext = `Fuera de plazo (-${item.dias_habiles_respuesta || 0}d)`;
@@ -196,7 +196,7 @@ function updateThemeIcons() {
  * @returns {number[]} Lista de porcentajes ajustados.
  */
 function roundPercentagesTo100(values, total) {
-  if (!total || total === 0) {
+  if (!total || total === 0 || !values || values.length === 0) {
     return values.map(() => 0);
   }
 
@@ -213,11 +213,14 @@ function roundPercentagesTo100(values, total) {
   let currentSum = items.reduce((sum, item) => sum + item.floorVal, 0);
   const diff = target - currentSum;
 
-  if (diff > 0) {
+  if (diff > 0 && items.length > 0) {
     // Ordenar por residuo descendente
     const sorted = [...items].sort((a, b) => b.remainder - a.remainder);
     for (let i = 0; i < diff; i++) {
-      sorted[i].floorVal += 1;
+      const idx = i % sorted.length;
+      if (sorted[idx]) {
+        sorted[idx].floorVal += 1;
+      }
     }
   }
 
@@ -312,16 +315,16 @@ function calculateDashboardStats(rawData, filters) {
   publicadasCount = filteredPublicadas.length;
 
   filtered.forEach(item => {
-    const estadoClean = (item.estado || 'Ingresada').trim();
+    const estadoClean = (item.estado || 'Ingresada').trim().toLowerCase();
     
     // Contar publicadas / pendientes de publicación
     const hasFolio = !!item.folio_lobby;
     
-    if (estadoClean === 'Aceptada' && item.fecha_agendada && (!hasFolio || !publicadosFolios.has(item.folio_lobby))) {
+    if (estadoClean === 'aceptada' && item.fecha_agendada && (!hasFolio || !publicadosFolios.has(item.folio_lobby))) {
       pendientesPublicacionCount++;
     }
 
-    if (estadoClean === 'Ingresada') {
+    if (estadoClean === 'ingresada') {
       pendientesCount++;
       const diffDays = item.dias_restantes_sh !== undefined ? item.dias_restantes_sh : 0;
       if (diffDays < 0) {
@@ -377,7 +380,7 @@ function calculateDashboardStats(rawData, filters) {
   const [pctPublicadas, pctPendientesPublicacion] = roundPercentagesTo100([
     publicadasCount,
     pendientesPublicacionCount
-  ], aceptadasCount);
+  ], publicadasCount + pendientesPublicacionCount);
 
   // Calcular porcentajes para respondidas (RDP vs RFP relativas a respondidas)
   const [pctRdp, pctRfp] = roundPercentagesTo100([rdpCount, rfpCount], respondidasCount);
@@ -418,9 +421,9 @@ function getStandardizedPlazoText(item, isPendiente) {
     }
   }
 
-  const estadoClean = (item.estado || 'Ingresada').trim();
+  const estadoClean = (item.estado || 'Ingresada').trim().toLowerCase();
 
-  if (estadoClean === 'Ingresada') {
+  if (estadoClean === 'ingresada') {
     const diffDays = item.dias_restantes_sh !== undefined ? item.dias_restantes_sh : 0;
     if (diffDays < 0) {
       return `FDP (-${Math.abs(diffDays)}d)`;
@@ -461,7 +464,7 @@ function processReportData(rawData, filters) {
   rawData.forEach(item => {
     // Determinar estado lógico virtual
     let itemEstado = (item.estado || 'Ingresada').trim();
-    const isPendiente = itemEstado === 'Aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+    const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
     if (isPendiente) {
       itemEstado = 'Pendiente de publicación';
     }
@@ -523,7 +526,7 @@ function processReportData(rawData, filters) {
 
     // Determinar estado lógico virtual
     let itemEstado = (item.estado || 'Ingresada').trim();
-    const isPendiente = itemEstado === 'Aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+    const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
     if (isPendiente) {
       itemEstado = 'Pendiente de publicación';
     }
@@ -708,5 +711,16 @@ function animateNumberCount(elementId, targetValue, duration = 800) {
     }
   };
   window.requestAnimationFrame(step);
+}
+
+// Función utilitaria Debounce
+function debounce(fn, delay) {
+  let timer = null;
+  return function (...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
 }
 

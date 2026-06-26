@@ -27,3 +27,7 @@ implementation_plan.md
 iniciar_servidor.bat
 scratch/
 
+# Build and log files
+dist/
+*.log
+

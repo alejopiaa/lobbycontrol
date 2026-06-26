@@ -696,7 +696,7 @@ function renderPublicadas(container) {
     } else {
       const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
       let filtered = (dataStore.solicitudes || []).filter(item => {
-        if (item.estado !== 'Aceptada') return false;
+        if ((item.estado || '').toLowerCase() !== 'aceptada') return false;
         if (!item.fecha_agendada) return false;
         if (publicadosFolios.has(item.folio_lobby)) return false;
         return true;
@@ -1423,7 +1423,7 @@ function renderUsuarios(container) {
             </div>
             <div class="space-y-4">
               <p class="text-xs text-slate-300 leading-relaxed">
-                Inicie la sincronización incremental para actualizar la base de datos local con los registros de solicitudes, audiencias y sujetos obligados desde el archivo de datos local.
+                Seleccione el archivo de datos Excel ('.xlsx') y luego haga clic en "Procesar e Importar Excel" para actualizar los datos locales y subirlos a SharePoint. O haga clic en "Sincronizar desde SharePoint" para descargar cualquier versión más reciente de la nube.
               </p>
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
@@ -1431,12 +1431,26 @@ function renderUsuarios(container) {
                   <span class="text-xs font-mono text-heading font-semibold break-all">lobby_data.xlsx</span>
                 </div>
                 <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
-                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Ruta Completa en Servidor</span>
+                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Ruta en Servidor (%APPDATA%)</span>
                   <span class="text-[10px] font-mono text-heading font-semibold break-all" title="${dataStore.dbHealth?.excelPath || '-'}">${dataStore.dbHealth?.excelPath || '-'}</span>
                 </div>
                 <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
                   <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Última Sincronización</span>
                   <span class="text-xs font-mono text-heading font-semibold break-all">${lastSyncStr}</span>
+                </div>
+              </div>
+
+              <!-- Selector de Archivo Excel con soporte de Drag & Drop -->
+              <div class="border-2 border-dashed border-slate-700/60 rounded-xl p-5 text-center hover:border-brand-500 transition-colors cursor-pointer bg-slate-950/40 relative" 
+                   onclick="document.getElementById('import-excel-file').click()"
+                   ondragover="event.preventDefault(); this.classList.add('border-brand-500')"
+                   ondragleave="this.classList.remove('border-brand-500')"
+                   ondrop="event.preventDefault(); this.classList.remove('border-brand-500'); if(event.dataTransfer.files.length) { document.getElementById('import-excel-file').files = event.dataTransfer.files; handleExcelFileSelected({target: document.getElementById('import-excel-file')}); }">
+                <input type="file" id="import-excel-file" accept=".xlsx" class="hidden" onchange="handleExcelFileSelected(event)">
+                <div class="space-y-2 pointer-events-none">
+                  <i data-lucide="file-spreadsheet" class="h-8 w-8 text-slate-400 mx-auto"></i>
+                  <p class="text-xs font-semibold text-slate-300" id="excel-file-label">Haz clic para buscar o arrastra aquí tu archivo Excel</p>
+                  <p class="text-[10px] text-slate-500" id="excel-file-details">Solo formato .xlsx (Ley de Lobby)</p>
                 </div>
               </div>
               
@@ -1451,14 +1465,19 @@ function renderUsuarios(container) {
               </div>
 
               <div class="flex flex-col sm:flex-row gap-3 pt-2">
-                <button id="btn-import-sync" onclick="triggerImport()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2">
-                  <i data-lucide="play-circle" class="h-4 w-4"></i>
-                  <span>Sincronizar Ahora</span>
+                <button id="btn-import-sync" onclick="triggerImport()" disabled class="flex-1 py-3 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2">
+                  <i data-lucide="file-up" class="h-4 w-4"></i>
+                  <span>Procesar e Importar Excel</span>
                 </button>
                 
-                <button onclick="window.location.href='/api/admin/backup'" class="py-3 px-6 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2">
+                <button id="btn-sharepoint-sync" onclick="triggerSharepointSync()" class="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                  <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+                  <span>Sincronizar desde SharePoint</span>
+                </button>
+                
+                <button onclick="window.location.href='/api/admin/backup'" class="py-3 px-6 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2 shrink-0">
                   <i data-lucide="download" class="h-4 w-4"></i>
-                  <span>Respaldar Base de Datos</span>
+                  <span>Respaldar BD</span>
                 </button>
               </div>
             </div>
@@ -2013,6 +2032,8 @@ function renderReportes(container) {
  * Presenta una pantalla de autenticación premium integrada en la SPA.
  */
 function renderLogin(container) {
+  const isElectron = window.location.search.includes('platform=electron') || window.navigator.userAgent.toLowerCase().includes('electron');
+
   container.innerHTML = `
     <div class="min-h-[80vh] flex items-center justify-center p-4">
       <div class="glass-card w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-800 space-y-6 relative overflow-hidden animate-fade-in">
@@ -2029,7 +2050,7 @@ function renderLogin(container) {
         <div class="flex flex-col items-center text-center space-y-3 relative z-10">
           <img src="/logo_secum.png" alt="Secretaría Municipal Maipú" class="h-20 w-auto object-contain mb-2">
           <div>
-            <h1 class="text-2xl font-extrabold text-heading tracking-tight text-white">LobbyTracker</h1>
+            <h1 class="text-2xl font-extrabold text-heading tracking-tight text-white">LobbyControl</h1>
             <p class="text-xs text-body-muted mt-1 font-medium">Gestión de Audiencias - Ley N° 20.730</p>
           </div>
         </div>
@@ -2040,52 +2061,89 @@ function renderLogin(container) {
           <span id="login-error-text">Credenciales inválidas. Inténtelo de nuevo.</span>
         </div>
 
-        <!-- Formulario -->
-        <form onsubmit="event.preventDefault(); login(document.getElementById('login-email').value, document.getElementById('login-password').value);" autocomplete="off" class="space-y-4 relative z-10">
-          <!-- Correo -->
-          <div class="space-y-1">
-            <label for="login-email" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">Correo Electrónico</label>
-            <div class="relative">
-              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <i data-lucide="mail" class="h-4 w-4"></i>
-              </span>
-              <input type="email" id="login-email" required placeholder="ejemplo@correo.com" autocomplete="off" value=""
-                     class="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-500">
-            </div>
-          </div>
-
-          <!-- Contraseña -->
-          <div class="space-y-1">
-            <div class="flex justify-between items-center">
-              <label for="login-password" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">Contraseña</label>
-            </div>
-            <div class="relative">
-              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <i data-lucide="lock" class="h-4 w-4"></i>
-              </span>
-              <input type="password" id="login-password" required placeholder="••••••••" autocomplete="new-password" value=""
-                     class="w-full pl-9 pr-10 py-2.5 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-500">
-              <button type="button" onclick="togglePasswordVisibility('login-password', 'login-password-eye')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors" title="Mostrar contraseña">
-                <i id="login-password-eye" data-lucide="eye" class="h-4 w-4"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- Botón de Envío -->
-          <button type="submit" 
-                  class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-brand-500/20 active:scale-[0.98] mt-6 flex items-center justify-center gap-2">
-            <span>Iniciar Sesión</span>
-            <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+        <!-- Opción Microsoft SSO (Solo en Electron) -->
+        ${isElectron ? `
+        <div id="sso-container" class="space-y-4 relative z-10 text-center">
+          <button onclick="triggerSsoLogin()" 
+                  class="w-full py-3 bg-[#2f2f2f] hover:bg-[#3f3f3f] text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg mt-2 flex items-center justify-center gap-2.5 border border-slate-700 active:scale-[0.98]">
+            <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 0H11V11H0V0Z" fill="#F25022"/>
+              <path d="M12 0H23V11H12V0Z" fill="#7FBA00"/>
+              <path d="M0 12H11V23H0V12Z" fill="#00A4EF"/>
+              <path d="M12 12H23V23H12V12Z" fill="#FFB900"/>
+            </svg>
+            <span>Iniciar sesión con cuenta corporativa</span>
           </button>
-        </form>
+          
+          <button onclick="document.getElementById('local-form-container').classList.remove('hidden'); document.getElementById('sso-container').classList.add('hidden');" 
+                  class="text-[10px] text-brand-400 hover:text-brand-300 font-semibold underline transition-colors cursor-pointer bg-transparent border-none">
+            Ingreso alternativo con clave local
+          </button>
+        </div>
+        ` : ''}
+
+        <!-- Formulario Local -->
+        <div id="local-form-container" class="${isElectron ? 'hidden' : ''} space-y-4">
+          <form onsubmit="event.preventDefault(); login(document.getElementById('login-email').value, document.getElementById('login-password').value);" autocomplete="off" class="space-y-4 relative z-10">
+            <!-- Correo -->
+            <div class="space-y-1">
+              <label for="login-email" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">Correo Electrónico</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <i data-lucide="mail" class="h-4 w-4"></i>
+                </span>
+                <input type="email" id="login-email" required placeholder="ejemplo@correo.com" autocomplete="off" value=""
+                       class="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-500">
+              </div>
+            </div>
+
+            <!-- Contraseña -->
+            <div class="space-y-1">
+              <div class="flex justify-between items-center">
+                <label for="login-password" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">Contraseña</label>
+              </div>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <i data-lucide="lock" class="h-4 w-4"></i>
+                </span>
+                <input type="password" id="login-password" required placeholder="••••••••" autocomplete="new-password" value=""
+                       class="w-full pl-9 pr-10 py-2.5 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-500">
+                <button type="button" onclick="togglePasswordVisibility('login-password', 'login-password-eye')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors" title="Mostrar contraseña">
+                  <i id="login-password-eye" data-lucide="eye" class="h-4 w-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Botón de Envío -->
+            <button type="submit" 
+                    class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-brand-500/20 active:scale-[0.98] mt-6 flex items-center justify-center gap-2">
+              <span>Iniciar Sesión</span>
+              <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+            </button>
+          </form>
+
+          ${isElectron ? `
+          <div class="text-center mt-2">
+            <button onclick="document.getElementById('local-form-container').classList.add('hidden'); document.getElementById('sso-container').classList.remove('hidden');" 
+                    class="text-[10px] text-slate-400 hover:text-slate-300 transition-colors bg-transparent border-none cursor-pointer">
+              Volver al inicio de sesión Microsoft
+            </button>
+          </div>
+          ` : ''}
+        </div>
 
         <!-- Pie de página de login -->
         <div class="text-center text-[10px] text-body-muted pt-2 relative z-10 border-t border-slate-900/60">
-          <p>LobbyTracker - Gestión de Audiencias</p>
+          <p>LobbyControl - Gestión de Audiencias</p>
         </div>
       </div>
     </div>
   `;
+
+  // Inicializar íconos de Lucide tras inyectar el HTML
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 }
 
 // =========================================================================
@@ -2327,4 +2385,284 @@ function changeDbSubTab(subTabName) {
     renderUsuarios(container);
   }
 }
+
+// ==========================================
+// VISTA: CENTRO DE ALERTAS
+// ==========================================
+let activeAlertasTab = 'no_leidas';
+let alertasSearchQuery = '';
+
+function renderAlertasCentro(container) {
+  if (!container) return;
+
+  const allAlerts = getActiveAlertsList(true);
+  const unreadAlerts = allAlerts.filter(w => w.estado_gestion !== 'leida');
+  const readAlerts = allAlerts.filter(w => w.estado_gestion === 'leida');
+
+  const activeList = activeAlertasTab === 'no_leidas' ? unreadAlerts : readAlerts;
+  const filteredList = activeList.filter(w => {
+    if (!alertasSearchQuery) return true;
+    const query = alertasSearchQuery.toLowerCase();
+    return (
+      (w.sujeto_pasivo || '').toLowerCase().includes(query) ||
+      (w.folio || '').toLowerCase().includes(query) ||
+      (w.text || '').toLowerCase().includes(query)
+    );
+  });
+
+  const tabsHtml = `
+    <div class="flex border-b border-[var(--border-ui)] mb-6 gap-2">
+      <button onclick="switchAlertasTab('no_leidas')" class="px-4 py-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+        activeAlertasTab === 'no_leidas'
+          ? 'border-brand-500 text-[var(--text-primary)] font-bold'
+          : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+      }">
+        <i data-lucide="bell" class="h-4 w-4"></i>
+        No leídas
+        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">
+          ${unreadAlerts.length}
+        </span>
+      </button>
+      <button onclick="switchAlertasTab('leidas')" class="px-4 py-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+        activeAlertasTab === 'leidas'
+          ? 'border-brand-500 text-[var(--text-primary)] font-bold'
+          : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+      }">
+        <i data-lucide="archive" class="h-4 w-4"></i>
+        Leídas / Historial
+        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 font-bold">
+          ${readAlerts.length}
+        </span>
+      </button>
+    </div>
+  `;
+
+  let actionButtonsHtml = '';
+  if (activeAlertasTab === 'no_leidas' && unreadAlerts.length > 0) {
+    actionButtonsHtml = `
+      <button onclick="bulkChangeAlertaEstado('leida')" class="btn-secondary px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap">
+        <i data-lucide="check-check" class="h-4 w-4 text-emerald-600 dark:text-emerald-400"></i>
+        Descartar todo
+      </button>
+    `;
+  } else if (activeAlertasTab === 'leidas' && readAlerts.length > 0) {
+    actionButtonsHtml = `
+      <button onclick="bulkChangeAlertaEstado('borrada')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/10 hover:bg-rose-100 dark:hover:bg-rose-900/20 border border-rose-200 dark:border-rose-800/30 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap">
+        <i data-lucide="trash-2" class="h-4 w-4"></i>
+        Borrar historial
+      </button>
+    `;
+  }
+
+  let listHtml = '';
+  if (filteredList.length === 0) {
+    const isSearch = !!alertasSearchQuery;
+    listHtml = `
+      <div class="text-center py-16 border border-dashed border-[var(--border-ui)] rounded-2xl bg-slate-900/5 dark:bg-slate-900/10">
+        <i data-lucide="${isSearch ? 'search' : (activeAlertasTab === 'no_leidas' ? 'check-circle' : 'archive')}" class="h-12 w-12 ${isSearch ? 'text-[var(--text-tertiary)]' : (activeAlertasTab === 'no_leidas' ? 'text-emerald-500/80' : 'text-[var(--text-tertiary)]')} mx-auto mb-3"></i>
+        <h3 class="text-sm font-bold text-[var(--text-primary)]">${isSearch ? 'Sin resultados' : (activeAlertasTab === 'no_leidas' ? '¡Todo al día!' : 'Historial vacío')}</h3>
+        <p class="text-xs text-[var(--text-tertiary)] mt-1 max-w-md mx-auto">
+          ${isSearch ? 'Intente buscar con otros términos o revise los filtros.' : (activeAlertasTab === 'no_leidas' ? 'No tienes alertas pendientes de lectura.' : 'Aquí se guardarán las alertas que descartes desde la campanita.')}
+        </p>
+      </div>
+    `;
+  } else {
+    listHtml = `
+      <div class="grid grid-cols-1 gap-3.5">
+        ${filteredList.map(w => {
+          const typeBadge = w.type === 'solicitud' 
+            ? `<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Solicitud</span>`
+            : `<span class="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Publicación</span>`;
+          
+          const urgencyBadge = w.color === 'red'
+            ? `<span class="flex h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
+            : `<span class="flex h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0 mt-1.5"></span>`;
+ 
+          const dateIconHtml = `<i data-lucide="calendar" class="h-3.5 w-3.5 inline text-[var(--text-tertiary)] mr-1 align-text-bottom"></i>`;
+ 
+          const toggleReadBtn = w.estado_gestion === 'leida'
+            ? `<button onclick="changeAlertaEstado('${w.type}', '${w.id}', null)" class="alert-action-btn btn-unread" title="Reactivar alerta (devolver a campanita)">
+                 <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+               </button>`
+            : `<button onclick="changeAlertaEstado('${w.type}', '${w.id}', 'leida')" class="alert-action-btn btn-read" title="Marcar como leída (descartar de campanita)">
+                 <i data-lucide="check" class="h-4 w-4"></i>
+               </button>`;
+ 
+          return `
+            <div class="glass-card px-6 py-5 rounded-2xl ${w.color === 'red' ? 'card-alert-urgent' : 'card-alert-warning'} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 dark:hover:bg-slate-900/10 group">
+              <div class="flex gap-3.5 items-start text-left min-w-0">
+                ${urgencyBadge}
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                    ${typeBadge}
+                    <span class="text-xs text-[var(--text-secondary)] font-medium">Folio: <span class="font-mono text-[var(--text-primary)] font-bold">${w.folio}</span></span>
+                  </div>
+                  <h4 class="text-sm font-bold text-[var(--text-primary)] truncate">${w.sujeto_pasivo || 'Sujeto Pasivo'}</h4>
+                  <p class="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">${w.text}</p>
+                  <div class="mt-2 text-[10px] text-[var(--text-tertiary)] font-mono flex items-center gap-1">
+                    ${dateIconHtml} Límite: <span class="text-[var(--text-secondary)] font-semibold">${formatDate(w.deadline)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <button onclick="goToAlertItem('${w.type}', '${w.folio}')" class="alert-action-btn btn-view" title="Ir al registro original">
+                  <i data-lucide="eye" class="h-4 w-4"></i>
+                </button>
+                ${toggleReadBtn}
+                <button onclick="deleteAlerta('${w.type}', '${w.id}')" class="alert-action-btn btn-delete" title="Borrar permanentemente del historial">
+                  <i data-lucide="trash-2" class="h-4 w-4"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+ 
+  container.innerHTML = `
+    <div class="space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <h2 class="text-2xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-2.5">
+            <i data-lucide="bell" class="h-6 w-6 text-brand-400"></i>
+            Centro de Alertas
+          </h2>
+          <p class="text-xs text-[var(--text-tertiary)]">Gestión de alertas preventivas por vencimiento de plazos legales.</p>
+        </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <div class="relative w-full md:w-64">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--text-tertiary)]">
+              <i data-lucide="search" class="h-4 w-4"></i>
+            </span>
+            <input type="text" id="search-alertas" oninput="onAlertasSearch(this.value)" placeholder="Buscar por folio, nombre..." value="${escapeHtmlAttr(alertasSearchQuery)}" class="w-full py-2.5 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors text-[var(--text-primary)]">
+          </div>
+          ${actionButtonsHtml}
+        </div>
+      </div>
+
+      ${tabsHtml}
+      
+      <div class="mt-4">
+        ${listHtml}
+      </div>
+    </div>
+  `;
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+function switchAlertasTab(tab) {
+  activeAlertasTab = tab;
+  const container = document.getElementById('main-content');
+  renderAlertasCentro(container);
+}
+
+function onAlertasSearch(val) {
+  alertasSearchQuery = val;
+  const container = document.getElementById('main-content');
+  renderAlertasCentro(container);
+}
+
+// Acción individual: Cambiar estado (leída / no leída)
+async function changeAlertaEstado(type, id, estado) {
+  try {
+    const res = await fetch('/api/alertas/gestionar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alertas: [{ tipo: type, solicitud_id: id, estado: estado }]
+      })
+    });
+    if (res.ok) {
+      showToast(estado === 'leida' ? 'Alerta marcada como leída.' : 'Alerta marcada como no leída.');
+      await fetchAlertas();
+    } else {
+      showToast('Error al actualizar el estado de la alerta.', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Error de red al actualizar la alerta.', 'error');
+  }
+}
+
+// Acción individual: Borrar alerta (estado = 'borrada')
+function deleteAlerta(type, id) {
+  openConfirmModal(
+    'Eliminar Alerta del Historial',
+    '¿Estás seguro de que deseas eliminar permanentemente esta alerta del historial? Ya no volverá a aparecer en el Centro de Alertas.',
+    async () => {
+      try {
+        const res = await fetch('/api/alertas/gestionar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alertas: [{ tipo: type, solicitud_id: id, estado: 'borrada' }]
+          })
+        });
+        if (res.ok) {
+          showToast('Alerta eliminada con éxito.');
+          await fetchAlertas();
+        } else {
+          showToast('Error al eliminar la alerta.', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error de red al eliminar la alerta.', 'error');
+      }
+    }
+  );
+}
+
+// Acción bulk: Marcar todas como leídas o borrar todo el historial
+function bulkChangeAlertaEstado(estado) {
+  const allAlerts = getActiveAlertsList(true);
+  let targetAlerts = [];
+  let modalTitle = '';
+  let modalText = '';
+
+  if (estado === 'leida') {
+    targetAlerts = allAlerts.filter(w => w.estado_gestion !== 'leida');
+    if (targetAlerts.length === 0) return;
+    modalTitle = 'Descartar todas las Alertas';
+    modalText = '¿Estás seguro de que deseas marcar todas las alertas actuales como leídas?';
+  } else if (estado === 'borrada') {
+    targetAlerts = allAlerts.filter(w => w.estado_gestion === 'leida');
+    if (targetAlerts.length === 0) return;
+    modalTitle = 'Limpiar Historial de Alertas';
+    modalText = '¿Estás seguro de que deseas borrar permanentemente todo el historial de alertas leídas? Esta acción no se puede deshacer.';
+  }
+
+  const performBulk = async () => {
+    try {
+      const alertasToManage = targetAlerts.map(w => ({
+        tipo: w.type,
+        solicitud_id: w.id,
+        estado: estado
+      }));
+
+      const res = await fetch('/api/alertas/gestionar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alertas: alertasToManage })
+      });
+
+      if (res.ok) {
+        showToast(estado === 'leida' ? 'Todas las alertas fueron marcadas como leídas.' : 'Historial de alertas limpio con éxito.');
+        await fetchAlertas();
+      } else {
+        showToast('Error al procesar la acción en lote.', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error de red al realizar la acción en lote.', 'error');
+    }
+  };
+
+  openConfirmModal(modalTitle, modalText, performBulk);
+}
+
 

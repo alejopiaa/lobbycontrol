@@ -1,5 +1,6 @@
 // Variables de estado global
 let currentUser = null;
+let selectedExcelFileBase64 = null;
 let currentView = 'dashboard';
 let activeAdminTab = 'usuarios';
 let dataStore = {
@@ -188,6 +189,44 @@ function updateHeaderUserSection() {
   }
 }
 
+async function triggerSsoLogin() {
+  const loginErrorEl = document.getElementById('login-error');
+  const loginErrorTextEl = document.getElementById('login-error-text');
+  
+  if (loginErrorEl) loginErrorEl.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/auth/trigger-sso', { method: 'POST' });
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      currentUser = data.user;
+      showToast('Sesión iniciada con éxito via SSO');
+      
+      const header = document.querySelector('header');
+      if (header) header.classList.remove('hidden');
+      
+      updateHeaderUserSection();
+      fetchAlertas();
+      if (typeof initSessionTimeout === 'function') initSessionTimeout();
+      switchView('dashboard');
+      // Recargar la app para sincronizar los nuevos datos de base de datos
+      window.location.reload();
+    } else {
+      if (loginErrorEl && loginErrorTextEl) {
+        loginErrorTextEl.textContent = data.error || 'No se pudo iniciar sesión con Microsoft.';
+        loginErrorEl.classList.remove('hidden');
+      }
+    }
+  } catch (err) {
+    console.error('Error en SSO:', err);
+    if (loginErrorEl && loginErrorTextEl) {
+      loginErrorTextEl.textContent = 'Error de red al conectar con el inicio de sesión corporativo.';
+      loginErrorEl.classList.remove('hidden');
+    }
+  }
+}
+
 async function login(correo, password) {
   const loginErrorEl = document.getElementById('login-error');
   const loginErrorTextEl = document.getElementById('login-error-text');
@@ -301,16 +340,7 @@ function changePublicadasSubTab(subTabName) {
   updateListView('publicadas');
 }
 
-// Función utilitaria Debounce
-function debounce(fn, delay) {
-  let timer = null;
-  return function (...args) {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      fn.apply(this, args);
-    }, delay);
-  };
-}
+// Nota: debounce fue movido a helpers.js para estar disponible antes en la carga de scripts
 
 // Renderizados diferidos por debounce para mantener el foco en la posición correcta del cursor
 const debouncedSearchRender = debounce((viewName, text, inputId) => {
@@ -606,6 +636,8 @@ async function switchView(viewName) {
           await fetchDashboardData(signal);
         }
         await fetchPaginatedList(viewName, signal);
+      } else if (viewName === 'alertas') {
+        await fetchAlertas(signal);
       } else {
         await fetchData(viewName, signal);
       }
@@ -638,6 +670,7 @@ async function switchView(viewName) {
     }
     console.error(err);
     showToast('Error de red al obtener datos del servidor local.', 'error');
+    hideLoader(true); // Ocultar spinner y restaurar clics
     renderError();
   }
 }
@@ -853,19 +886,38 @@ async function fetchActiveSujetoIds(signal) {
 
 // Construir caché única de años, nombres y cargos del sujeto pasivo
 function buildDashboardDropdownCache() {
-  const nombresSet = new Set();
-  const cargosSet = new Set();
-  const sujetosActivosRepresentadosSet = new Set();
+  const rawNombresSet = new Set();
+  const rawCargosSet = new Set();
+  const rawSujetosActivosRepresentadosSet = new Set();
 
   const dataset = (dataStore.dashboardRawData && dataStore.dashboardRawData.length) ? dataStore.dashboardRawData : 
                   ((dataStore.solicitudes && dataStore.solicitudes.length) ? dataStore.solicitudes : 
                   ((dataStore.publicadas && dataStore.publicadas.length) ? dataStore.publicadas : []));
 
   dataset.forEach(item => {
-    if (item.sujeto_pasivo) nombresSet.add(normalizeName(item.sujeto_pasivo));
-    if (item.cargo) cargosSet.add(getCargoClean(item.cargo));
-    if (item.sujeto_activo) sujetosActivosRepresentadosSet.add(normalizeName(item.sujeto_activo));
-    if (item.representado) sujetosActivosRepresentadosSet.add(normalizeName(item.representado));
+    if (item.sujeto_pasivo) rawNombresSet.add(item.sujeto_pasivo);
+    if (item.cargo) rawCargosSet.add(item.cargo);
+    if (item.sujeto_activo) rawSujetosActivosRepresentadosSet.add(item.sujeto_activo);
+    if (item.representado) rawSujetosActivosRepresentadosSet.add(item.representado);
+  });
+
+  // Normalizar solo el conjunto único de valores para evitar sobrecarga de CPU en base de datos grande
+  const nombresSet = new Set();
+  rawNombresSet.forEach(n => {
+    const normalized = normalizeName(n);
+    if (normalized) nombresSet.add(normalized);
+  });
+
+  const cargosSet = new Set();
+  rawCargosSet.forEach(c => {
+    const cleaned = getCargoClean(c);
+    if (cleaned) cargosSet.add(cleaned);
+  });
+
+  const sujetosActivosRepresentadosSet = new Set();
+  rawSujetosActivosRepresentadosSet.forEach(s => {
+    const normalized = normalizeName(s);
+    if (normalized) sujetosActivosRepresentadosSet.add(normalized);
   });
 
   // Años válidos desde 2015 al año actual
@@ -1444,6 +1496,9 @@ function renderView() {
     case 'reportes':
       renderReportes(main);
       break;
+    case 'alertas':
+      renderAlertasCentro(main);
+      break;
   }
   lucide.createIcons();
   updateThemeIcons();
@@ -1536,6 +1591,89 @@ function openConfirmModal(title, message, onConfirm) {
   }
 
   // Actualizar iconos de Lucide
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+function renderAlertasWidget() {
+  const container = document.getElementById('alerts-widget-container');
+  if (!container) return;
+
+  if (!currentUser || !dataStore.alertas) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const warnings = getActiveAlertsList(false);
+  const hasWarnings = warnings.length > 0;
+
+  container.innerHTML = `
+    <button id="alerts-toggle-btn" onclick="toggleAlertsDropdown(event)" class="relative h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Alertas de Plazos">
+      <i data-lucide="bell" class="h-4 w-4"></i>
+      ${hasWarnings ? `
+        <span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-[var(--bg-header)] animate-pulse">
+          ${warnings.length}
+        </span>
+      ` : ''}
+    </button>
+    
+    <div id="alerts-dropdown" class="hidden absolute right-0 mt-2 w-80 glass-card text-[var(--text-primary)] rounded-2xl p-4 z-50 flex flex-col gap-3">
+      <div class="flex items-center justify-between border-b border-[var(--border-ui)] pb-2">
+        <h3 class="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+          <i data-lucide="alert-circle" class="h-3.5 w-3.5 text-brand-500 dark:text-brand-400"></i>
+          Alertas de Plazos
+        </h3>
+        ${hasWarnings ? `
+          <button onclick="dismissAllAlertas(event)" class="text-[10px] text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-bold transition-all duration-150 flex items-center gap-1 hover:underline cursor-pointer" title="Descartar todas las alertas actuales">
+            <i data-lucide="check-check" class="h-3.5 w-3.5"></i> Descartar todo
+          </button>
+        ` : `
+          <span class="text-[10px] text-[var(--text-tertiary)] font-medium">0 activas</span>
+        `}
+      </div>
+      
+      <div class="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+        ${!hasWarnings ? `
+          <div class="text-center py-6 text-[var(--text-tertiary)] text-xs">
+            <i data-lucide="check-circle" class="h-8 w-8 text-emerald-500/80 mx-auto mb-2"></i>
+            <span>No hay alertas pendientes</span>
+            <p class="text-[10px] text-[var(--text-tertiary)] mt-0.5">Todos los plazos están al día</p>
+          </div>
+        ` : warnings.map(w => `
+          <div class="p-2.5 rounded-xl border border-[var(--border-ui)] border-l-4 ${
+            w.color === 'red' ? 'border-l-rose-500 bg-rose-500/[0.03] dark:bg-rose-950/10' : 'border-l-amber-500 bg-amber-500/[0.03] dark:bg-amber-950/10'
+          } hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors flex gap-2.5 items-start text-left relative group">
+            <span class="flex h-2 w-2 rounded-full mt-1.5 shrink-0 ${
+              w.color === 'red' ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+            }"></span>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-semibold text-[var(--text-primary)] mb-0.5 flex justify-between gap-2">
+                <span class="truncate pr-4">${w.sujeto_pasivo || 'Sujeto Pasivo'}</span>
+                <span class="text-[9px] text-[var(--text-tertiary)] font-mono tracking-tighter shrink-0">${formatDate(w.deadline)}</span>
+              </div>
+              <p class="text-[10px] text-[var(--text-secondary)] leading-normal">${w.text}</p>
+              <div class="mt-1 flex items-center gap-2">
+                <button onclick="goToAlertItem('${w.type}', '${w.folio}')" class="text-[9px] text-brand-500 dark:text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 font-semibold flex items-center gap-0.5 transition-colors">
+                  Ir al registro <i data-lucide="arrow-right" class="h-2.5 w-2.5"></i>
+                </button>
+              </div>
+            </div>
+            <button onclick="dismissAlerta(event, '${w.type}', '${w.id}')" class="absolute top-2 right-2 text-[var(--text-tertiary)] hover:text-rose-500 transition-colors duration-150 rounded p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100" title="Descartar alerta">
+              <i data-lucide="x" class="h-3 w-3"></i>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="border-t border-[var(--border-ui)] pt-2 text-center mt-1">
+        <button onclick="switchView('alertas'); toggleAlertsDropdown(event);" class="text-[11px] text-brand-500 dark:text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 font-semibold hover:underline flex items-center justify-center gap-1 w-full py-1 cursor-pointer">
+          <i data-lucide="layout-list" class="h-3 w-3"></i> Ver todas (Centro de Alertas)
+        </button>
+      </div>
+    </div>
+  `;
+
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }
@@ -2067,14 +2205,14 @@ async function exportReportToPDF() {
     const overdueCount = processedData.filter(isFdpItem).length;
     const compliantCount = processedData.filter(isDdpItem).length;
 
-    // Generar las filas de la tabla
     const rowsArray = processedData.map(item => {
       let stateColor = '#475569';
       let stateBg = '#f1f5f9';
-      if (item.estado === 'Aceptada') { stateColor = '#15803d'; stateBg = '#f0fdf4'; }
-      else if (item.estado === 'Pendiente de publicación') { stateColor = '#0369a1'; stateBg = '#e0f2fe'; }
-      else if (item.estado === 'Rechazada') { stateColor = '#b91c1c'; stateBg = '#fef2f2'; }
-      else if (item.estado === 'Cancelada' || item.estado === 'Suspendida') { stateColor = '#b45309'; stateBg = '#fffbeb'; }
+      const stateLower = (item.estado || '').toLowerCase();
+      if (stateLower === 'aceptada') { stateColor = '#15803d'; stateBg = '#f0fdf4'; }
+      else if (stateLower === 'pendiente de publicación') { stateColor = '#0369a1'; stateBg = '#e0f2fe'; }
+      else if (stateLower === 'rechazada') { stateColor = '#b91c1c'; stateBg = '#fef2f2'; }
+      else if (stateLower === 'cancelada' || stateLower === 'suspendida') { stateColor = '#b45309'; stateBg = '#fffbeb'; }
 
       const isOverdue = isOverdueItem(item);
       const plazoColor = isOverdue ? '#b91c1c' : '#15803d';
@@ -2316,6 +2454,10 @@ function triggerImport() {
   const progressStatus = document.getElementById('import-progress-status');
 
   if (!btn) return;
+  if (!selectedExcelFileBase64) {
+    showToast('Por favor, seleccione primero un archivo Excel.', 'error');
+    return;
+  }
 
   // CAPA DE SEGURIDAD: Confirmar mediante modal premium
   openConfirmModal(
@@ -2341,7 +2483,11 @@ function triggerImport() {
 
       try {
         const res = await fetch('/api/admin/importar', {
-          method: 'POST'
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ fileData: selectedExcelFileBase64 })
         });
 
         if (res.ok) {
@@ -2354,7 +2500,23 @@ function triggerImport() {
             const totalUpdates = (stats.sh?.updates || 0) + (stats.ph?.updates || 0) + (stats.sph?.updates || 0);
             const totalDeletes = (stats.sh?.deletes || 0) + (stats.ph?.deletes || 0) + (stats.sph?.deletes || 0);
 
-            showToast(`Importación exitosa: ${totalInserts} nuevos, ${totalUpdates} actualizados, ${totalDeletes} eliminados.`);
+            const msg = `Importación local exitosa: ${totalInserts} nuevos, ${totalUpdates} actualizados, ${totalDeletes} eliminados.`;
+            if (stats.sharepoint) {
+              if (stats.sharepoint.uploaded) {
+                showToast(msg + ' ✓ Subido con éxito a SharePoint.', 'success');
+              } else {
+                const isOmit = stats.sharepoint.error && stats.sharepoint.error.startsWith('Omitido');
+                if (isOmit) {
+                  showToast(msg + ' ⚠️ No se subió a SharePoint (requiere sesión SSO activa).', 'warning');
+                } else if (!stats.sharepoint.error) {
+                  showToast(msg + ' ✓ La base de datos ya está al día.', 'success');
+                } else {
+                  showToast(`${msg} ❌ Error al subir a SharePoint: ${stats.sharepoint.error}`, 'error');
+                }
+              }
+            } else {
+              showToast(msg, 'success');
+            }
             fetchAlertas();
             // Invalidar caché de datos para que las sugerencias de búsqueda
             // reflejen los nombres actualizados en la próxima navegación.
@@ -2378,11 +2540,21 @@ function triggerImport() {
         console.error('Error gatillando importación:', err);
         showToast('Error de red al conectar con el servidor para la importación.', 'error');
       } finally {
-        // 2. Desbloquear interfaz
+        // Limpiar el selector de archivos
+        selectedExcelFileBase64 = null;
+        const fileInput = document.getElementById('import-excel-file');
+        if (fileInput) fileInput.value = '';
+        
+        const label = document.getElementById('excel-file-label');
+        const details = document.getElementById('excel-file-details');
+        if (label) label.textContent = 'Haz clic para buscar o arrastra aquí tu archivo Excel';
+        if (details) details.textContent = 'Solo formato .xlsx (Ley de Lobby)';
+
+        // 2. Desbloquear y restaurar interfaz en estado inactivo
         if (btn) {
-          btn.disabled = false;
-          btn.classList.remove('glass-input-disabled', 'cursor-not-allowed', 'opacity-60');
-          btn.innerHTML = `<i data-lucide="play-circle" class="h-4 w-4"></i> <span>Sincronizar Ahora</span>`;
+          btn.disabled = true;
+          btn.className = 'flex-1 py-3 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
+          btn.innerHTML = `<i data-lucide="file-up" class="h-4 w-4"></i> <span>Procesar e Importar Excel</span>`;
         }
 
         if (btnRegistrar) {
@@ -2400,6 +2572,129 @@ function triggerImport() {
       }
     }
   );
+}
+
+// Sincronizar desde SharePoint de forma manual (obtener última base de la nube)
+async function triggerSharepointSync() {
+  const btn = document.getElementById('btn-sharepoint-sync');
+  const syncBtn = document.getElementById('btn-import-sync');
+  const btnRegistrar = document.getElementById('btn-registrar-usuario');
+
+  if (!btn) return;
+
+  // Bloquear los controles mientras se descarga la base
+  btn.disabled = true;
+  btn.classList.add('opacity-60', 'cursor-not-allowed');
+  btn.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4 animate-spin"></i> <span>Sincronizando...</span>`;
+  
+  if (syncBtn) syncBtn.disabled = true;
+  if (btnRegistrar) btnRegistrar.disabled = true;
+  
+  lucide.createIcons();
+
+  try {
+    const res = await fetch('/api/admin/sincronizar-desde-sharepoint', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(data.message, 'success');
+      // Si hubo una descarga de base de datos nueva, refrescamos la vista actual
+      if (data.updated) {
+        await switchView(currentView);
+      }
+    } else {
+      showToast(data.error || 'Error al sincronizar con SharePoint.', 'error');
+    }
+  } catch (err) {
+    console.error('Error en sincronización manual:', err);
+    showToast('Error de red al conectar con el servidor para la sincronización.', 'error');
+  } finally {
+    // Restaurar los botones
+    btn.disabled = false;
+    btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    btn.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4"></i> <span>Sincronizar desde SharePoint</span>`;
+    
+    if (btnRegistrar) btnRegistrar.disabled = false;
+    
+    // Restaurar estado de botón de importación dependiendo de si hay archivo seleccionado
+    if (syncBtn) {
+      if (selectedExcelFileBase64) {
+        syncBtn.disabled = false;
+      } else {
+        syncBtn.disabled = true;
+      }
+    }
+
+    lucide.createIcons();
+    fetchAndUpdateDbTimestamp();
+  }
+}
+
+// Manejar selección del archivo Excel y conversión a Base64
+function handleExcelFileSelected(event) {
+  const input = event.target;
+  const file = input.files ? input.files[0] : null;
+  const label = document.getElementById('excel-file-label');
+  const details = document.getElementById('excel-file-details');
+  const btn = document.getElementById('btn-import-sync');
+
+  if (!file) {
+    selectedExcelFileBase64 = null;
+    if (label) label.textContent = 'Haz clic para buscar o arrastra aquí tu archivo Excel';
+    if (details) details.textContent = 'Solo formato .xlsx (Ley de Lobby)';
+    if (btn) {
+      btn.disabled = true;
+      btn.className = 'flex-1 py-3 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
+      btn.innerHTML = `<i data-lucide="file-up" class="h-4 w-4"></i> <span>Procesar e Importar Excel</span>`;
+      lucide.createIcons();
+    }
+    return;
+  }
+
+  // Validar extensión
+  if (!file.name.endsWith('.xlsx')) {
+    showToast('El archivo seleccionado debe tener la extensión .xlsx', 'error');
+    input.value = '';
+    handleExcelFileSelected({ target: input });
+    return;
+  }
+
+  if (label) {
+    label.textContent = `Archivo seleccionado: ${file.name}`;
+  }
+  if (details) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    details.textContent = `Tamaño: ${sizeMB} MB - Listo para sincronizar`;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const base64Index = dataUrl.indexOf(';base64,');
+    if (base64Index !== -1) {
+      selectedExcelFileBase64 = dataUrl.substring(base64Index + 8);
+    } else {
+      selectedExcelFileBase64 = dataUrl;
+    }
+    
+    // Activar botón de sincronización
+    if (btn) {
+      btn.disabled = false;
+      btn.className = 'flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer';
+    }
+  };
+  
+  reader.onerror = function(err) {
+    console.error('Error leyendo archivo:', err);
+    showToast('Error al leer el archivo seleccionado.', 'error');
+  };
+  
+  reader.readAsDataURL(file);
 }
 // ============================================================================
 // FUNCIONES DE CONTROL DE AUDITORÍA SEMANAL
@@ -2941,8 +3236,8 @@ function initDashboardCharts() {
     const month = parseInt(parts[1], 10) - 1;
     if (month < 0 || month >= 12) return;
 
-    const estadoClean = (item.estado || 'Ingresada').trim();
-    if (estadoClean === 'Ingresada') {
+    const estadoClean = (item.estado || 'Ingresada').trim().toLowerCase();
+    if (estadoClean === 'ingresada') {
       const diffDays = item.dias_restantes_sh !== undefined ? item.dias_restantes_sh : 0;
       if (diffDays < 0) {
         fueraPlazoMonthly[month]++;
@@ -3090,79 +3385,36 @@ function toggleTopAutoridadesActive() {
 // ==========================================
 
 // Cargar alertas de plazos legales desde el backend
-async function fetchAlertas() {
+// Cargar alertas de plazos legales desde el backend
+async function fetchAlertas(signal) {
   if (!currentUser) return;
   try {
-    const res = await fetch('/api/alertas');
+    const res = await fetch('/api/alertas', { signal });
     if (res.ok) {
       dataStore.alertas = await res.json();
       renderAlertasWidget();
+      if (currentView === 'alertas') {
+        const main = document.getElementById('main-content');
+        if (main && typeof renderAlertasCentro === 'function') {
+          renderAlertasCentro(main);
+        }
+      }
     }
   } catch (err) {
-    console.error('Error al obtener alertas:', err);
-  }
-}
-
-// Obtener alertas descartadas de localStorage
-function getDismissedAlertas() {
-  try {
-    const dismissed = localStorage.getItem('lobby_dismissed_alerts');
-    return dismissed ? JSON.parse(dismissed) : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-// Descartar una alerta y recargar el widget
-function dismissAlerta(event, type, id) {
-  if (event) event.stopPropagation();
-  try {
-    const dismissed = getDismissedAlertas();
-    dismissed[`${type}_${id}`] = true;
-    localStorage.setItem('lobby_dismissed_alerts', JSON.stringify(dismissed));
-    renderAlertasWidget();
-  } catch (e) {
-    console.error('Error descartando alerta:', e);
-  }
-}
-
-// Descartar todas las alertas visibles
-function dismissAllAlertas(event) {
-  if (event) event.stopPropagation();
-  try {
-    const dismissed = getDismissedAlertas();
-    if (dataStore.alertas) {
-      (dataStore.alertas.ingresadas || []).forEach(item => {
-        dismissed[`solicitud_${item.id}`] = true;
-      });
-      (dataStore.alertas.pendientesPub || []).forEach(item => {
-        dismissed[`publicacion_${item.id}`] = true;
-      });
+    if (err.name !== 'AbortError') {
+      console.error('Error al obtener alertas:', err);
     }
-    localStorage.setItem('lobby_dismissed_alerts', JSON.stringify(dismissed));
-    renderAlertasWidget();
-    showToast('Todas las alertas actuales han sido descartadas.');
-  } catch (e) {
-    console.error('Error descartando todas las alertas:', e);
   }
 }
 
-// Renderizar el semáforo y dropdown de alertas en el header
-function renderAlertasWidget() {
-  const container = document.getElementById('alerts-widget-container');
-  if (!container) return;
-
-  if (!currentUser || !dataStore.alertas) {
-    container.innerHTML = '';
-    return;
-  }
+// Obtiene el listado completo y procesado de alertas (sin filtrar por descartadas si full=true)
+function getActiveAlertsList(full = false) {
+  if (!dataStore.alertas) return [];
 
   const warnings = [];
-  const dismissed = getDismissedAlertas();
 
   (dataStore.alertas.ingresadas || []).forEach(item => {
-    const key = `solicitud_${item.id}`;
-    if (dismissed[key]) return;
+    if (!full && (item.estado_gestion === 'leida' || item.estado_gestion === 'borrada')) return;
 
     if (item.dias_restantes_sh === undefined) return;
     const diffDays = item.dias_restantes_sh;
@@ -3177,7 +3429,8 @@ function renderAlertasWidget() {
           deadline: item.fecha_limite_sh,
           diff: diffDays,
           color: 'red',
-          text: `Folio ${item.folio_lobby || 'Sin Folio'} - Solicitud vencida hace ${Math.abs(diffDays)}d hábiles`
+          text: `Folio ${item.folio_lobby || 'Sin Folio'} - Solicitud vencida hace ${Math.abs(diffDays)}d hábiles`,
+          estado_gestion: item.estado_gestion
         });
       }
     } else if (diffDays <= 1) {
@@ -3189,14 +3442,14 @@ function renderAlertasWidget() {
         deadline: item.fecha_limite_sh,
         diff: diffDays,
         color: 'yellow',
-        text: `Folio ${item.folio_lobby || 'Sin Folio'} - Solicitud por vencer (${diffDays}d hábiles restantes)`
+        text: `Folio ${item.folio_lobby || 'Sin Folio'} - Solicitud por vencer (${diffDays}d hábiles restantes)`,
+        estado_gestion: item.estado_gestion
       });
     }
   });
 
   (dataStore.alertas.pendientesPub || []).forEach(item => {
-    const key = `publicacion_${item.id}`;
-    if (dismissed[key]) return;
+    if (!full && (item.estado_gestion === 'leida' || item.estado_gestion === 'borrada')) return;
 
     if (item.dias_restantes_publicacion === undefined) return;
     const diffDays = item.dias_restantes_publicacion;
@@ -3211,7 +3464,8 @@ function renderAlertasWidget() {
           deadline: item.fecha_limite_publicacion,
           diff: diffDays,
           color: 'red',
-          text: `Folio ${item.folio_lobby || 'Sin Folio'} - Publicación atrasada hace ${Math.abs(diffDays)}d`
+          text: `Folio ${item.folio_lobby || 'Sin Folio'} - Publicación atrasada hace ${Math.abs(diffDays)}d`,
+          estado_gestion: item.estado_gestion
         });
       }
     } else if (diffDays <= 5) {
@@ -3223,7 +3477,8 @@ function renderAlertasWidget() {
         deadline: item.fecha_limite_publicacion,
         diff: diffDays,
         color: 'yellow',
-        text: `Folio ${item.folio_lobby || 'Sin Folio'} - Pendiente publicar (${diffDays}d restantes)`
+        text: `Folio ${item.folio_lobby || 'Sin Folio'} - Pendiente publicar (${diffDays}d restantes)`,
+        estado_gestion: item.estado_gestion
       });
     }
   });
@@ -3235,70 +3490,64 @@ function renderAlertasWidget() {
     return a.diff - b.diff;
   });
 
-  const hasWarnings = warnings.length > 0;
+  return warnings;
+}
 
-  container.innerHTML = `
-    <button id="alerts-toggle-btn" onclick="toggleAlertsDropdown(event)" class="relative h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Alertas de Plazos">
-      <i data-lucide="bell" class="h-4 w-4"></i>
-      ${hasWarnings ? `
-        <span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-[var(--bg-header)] animate-pulse">
-          ${warnings.length}
-        </span>
-      ` : ''}
-    </button>
-    
-    <div id="alerts-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-800 text-slate-200 backdrop-blur-md rounded-2xl shadow-2xl p-4 z-50 flex flex-col gap-3">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-        <h3 class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-          <i data-lucide="alert-circle" class="h-3.5 w-3.5 text-brand-400"></i>
-          Alertas de Plazos
-        </h3>
-        ${hasWarnings ? `
-          <button onclick="dismissAllAlertas(event)" class="text-[10px] text-rose-500 hover:text-rose-400 font-bold transition-all duration-150 flex items-center gap-1 hover:underline cursor-pointer" title="Descartar todas las alertas actuales">
-            <i data-lucide="check-check" class="h-3.5 w-3.5"></i> Descartar todo
-          </button>
-        ` : `
-          <span class="text-[10px] text-slate-400 font-medium">0 activas</span>
-        `}
-      </div>
-      
-      <div class="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-        ${!hasWarnings ? `
-          <div class="text-center py-6 text-slate-500 text-xs">
-            <i data-lucide="check-circle" class="h-8 w-8 text-emerald-500/80 mx-auto mb-2"></i>
-            <span>No hay alertas pendientes</span>
-            <p class="text-[10px] text-slate-500 mt-0.5">Todos los plazos están al día</p>
-          </div>
-        ` : warnings.map(w => `
-          <div class="p-2.5 rounded-xl border border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/40 transition-colors flex gap-2.5 items-start text-left relative group">
-            <span class="flex h-2 w-2 rounded-full mt-1.5 shrink-0 ${
-              w.color === 'red' ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-            }"></span>
-            <div class="flex-1 min-w-0">
-              <div class="text-xs font-semibold text-slate-300 mb-0.5 flex justify-between gap-2">
-                <span class="truncate pr-4">${w.sujeto_pasivo || 'Sujeto Pasivo'}</span>
-                <span class="text-[9px] text-slate-500 font-mono tracking-tighter shrink-0">${formatDate(w.deadline)}</span>
-              </div>
-              <p class="text-[10px] text-slate-400 leading-normal">${w.text}</p>
-              <div class="mt-1 flex items-center gap-2">
-                <button onclick="goToAlertItem('${w.type}', '${w.folio}')" class="text-[9px] text-brand-400 hover:text-brand-300 font-semibold flex items-center gap-0.5 transition-colors">
-                  Ir al registro <i data-lucide="arrow-right" class="h-2.5 w-2.5"></i>
-                </button>
-              </div>
-            </div>
-            <button onclick="dismissAlerta(event, '${w.type}', '${w.id}')" class="absolute top-2 right-2 text-slate-500 hover:text-rose-400 transition-colors duration-150 rounded p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100" title="Descartar alerta">
-              <i data-lucide="x" class="h-3 w-3"></i>
-            </button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
-    window.lucide.createIcons();
+// Descartar una alerta y recargar el widget
+async function dismissAlerta(event, type, id) {
+  if (event) event.stopPropagation();
+  try {
+    const res = await fetch('/api/alertas/gestionar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alertas: [{ tipo: type, solicitud_id: id, estado: 'leida' }]
+      })
+    });
+    if (res.ok) {
+      showToast('Alerta descartada.');
+      await fetchAlertas();
+    } else {
+      showToast('Error al descartar la alerta.', 'error');
+    }
+  } catch (e) {
+    console.error('Error descartando alerta:', e);
   }
 }
+
+// Descartar todas las alertas visibles
+async function dismissAllAlertas(event) {
+  if (event) event.stopPropagation();
+  try {
+    const warningList = getActiveAlertsList(false);
+    if (warningList.length === 0) {
+      showToast('No hay alertas activas para descartar.');
+      return;
+    }
+
+    const alertasToManage = warningList.map(w => ({
+      tipo: w.type,
+      solicitud_id: w.id,
+      estado: 'leida'
+    }));
+
+    const res = await fetch('/api/alertas/gestionar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertas: alertasToManage })
+    });
+
+    if (res.ok) {
+      showToast('Todas las alertas actuales han sido descartadas.');
+      await fetchAlertas();
+    } else {
+      showToast('Error al descartar las alertas.', 'error');
+    }
+  } catch (e) {
+    console.error('Error descartando todas las alertas:', e);
+  }
+}
+
 
 // Alternar visibilidad del dropdown de alertas
 function toggleAlertsDropdown(event) {
@@ -3307,11 +3556,49 @@ function toggleAlertsDropdown(event) {
   if (!dropdown) return;
   const isHidden = dropdown.classList.contains('hidden');
   
+  // Cerrar otros dropdowns
+  const profileDropdown = document.getElementById('profile-dropdown');
+  if (profileDropdown) profileDropdown.classList.add('hidden');
+
   if (isHidden) {
     dropdown.classList.remove('hidden');
   } else {
     dropdown.classList.add('hidden');
   }
+}
+
+// Alternar visibilidad del dropdown del perfil de usuario
+function toggleProfileDropdown(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('profile-dropdown');
+  if (!dropdown) return;
+  const isHidden = dropdown.classList.contains('hidden');
+  
+  // Cerrar otros dropdowns
+  const alertsDropdown = document.getElementById('alerts-dropdown');
+  if (alertsDropdown) alertsDropdown.classList.add('hidden');
+
+  if (isHidden) {
+    dropdown.classList.remove('hidden');
+  } else {
+    dropdown.classList.add('hidden');
+  }
+}
+
+// Abrir modal de edición de perfil desde el dropdown flotante
+function triggerEditProfile(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('profile-dropdown');
+  if (dropdown) dropdown.classList.add('hidden');
+  openProfileModal();
+}
+
+// Ir al Centro de Alertas desde el dropdown flotante
+function triggerAlertCenter(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('profile-dropdown');
+  if (dropdown) dropdown.classList.add('hidden');
+  switchView('alertas');
 }
 
 // Navegar directamente a un registro desde una alerta
@@ -3343,11 +3630,19 @@ function goToAlertItem(type, folio) {
   }
 }
 
-// Cerrar el dropdown al hacer clic fuera
+// Cerrar los dropdowns al hacer clic fuera
 document.addEventListener('click', (event) => {
+  // Alertas
   const container = document.getElementById('alerts-widget-container');
   const dropdown = document.getElementById('alerts-dropdown');
   if (container && dropdown && !container.contains(event.target)) {
     dropdown.classList.add('hidden');
+  }
+
+  // Perfil de Usuario
+  const profileContainer = document.getElementById('user-profile-menu');
+  const profileDropdown = document.getElementById('profile-dropdown');
+  if (profileContainer && profileDropdown && !profileContainer.contains(event.target)) {
+    profileDropdown.classList.add('hidden');
   }
 });

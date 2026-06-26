@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 3000;
 
 // Semáforo de control para importaciones concurrentes
 let isImporting = false;
+let latestSharepointCookie = null;
 
 // Helper para extraer cookies firmadas
 function getCookie(req, name) {
@@ -45,9 +46,9 @@ function injectDynamicFields(items, callback) {
     const itemsArray = Array.isArray(items) ? items : [items];
     
     itemsArray.forEach(item => {
-      const estadoClean = (item.estado || 'Ingresada').trim();
+      const estadoClean = (item.estado || 'Ingresada').trim().toLowerCase();
       
-      if (estadoClean === 'Ingresada') {
+      if (estadoClean === 'ingresada') {
         if (item.fecha_limite_sh) {
           try {
             const parts = item.fecha_limite_sh.split('-');
@@ -65,7 +66,7 @@ function injectDynamicFields(items, callback) {
           item.dias_restantes_sh = 0;
           item.estado_cumplimiento_sh = 'PENDIENTE_EN_PLAZO';
         }
-      } else if (estadoClean === 'Aceptada' && item.fecha_agendada) {
+      } else if (estadoClean === 'aceptada' && item.fecha_agendada) {
         const isPublished = item.folio_lobby && publishedFolios.has(item.folio_lobby);
         if (!isPublished) {
           // Calcular si tiene retraso de publicación
@@ -135,14 +136,24 @@ function invalidatePublishedFoliosCache() {
   _publishedFoliosCacheTime = 0;
 }
 
-// Middleware para parsear JSON y datos de formularios
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Middleware para parsear JSON y datos de formularios con límites ampliados para carga de Excel en Base64
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Loggear todas las peticiones entrantes para diagnóstico con código de respuesta
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    console.log(`[HTTP res] ${req.method} ${req.url} - Status: ${res.statusCode} (${Date.now() - start}ms)`);
+  });
+  next();
+});
+
 
 // Middleware de autenticación global para la API
 app.use('/api', (req, res, next) => {
   // Las rutas de login y última modificación son públicas
-  if (req.path === '/auth/login' || req.path === '/db-last-update') {
+  if (req.path === '/auth/login' || req.path === '/auth/sso' || req.path === '/auth/trigger-sso' || req.path === '/db-last-update') {
     return next();
   }
   
@@ -238,8 +249,173 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   });
 });
 
-app.post('/api/auth/logout', (req, res) => {
+// Endpoint para Inicio de Sesión Único (SSO) institucional
+app.post('/api/auth/sso', (req, res) => {
+  const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+  if (!isLocal) {
+    return res.status(403).json({ error: 'Acceso no autorizado: Solo se permiten inicios de sesión SSO desde localhost.' });
+  }
+
+  const { email, nombre, cookieHeader } = req.body;
+  if (cookieHeader) {
+    latestSharepointCookie = cookieHeader;
+  }
+  if (!email || !email.toLowerCase().trim().endsWith('@maipu.cl')) {
+    return res.status(400).json({ error: 'Correo institucional inválido o no pertenece a @maipu.cl.' });
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+
+  // Buscar al usuario en la base de datos local SQLite para validar acceso
+  db.get('SELECT * FROM usuarios WHERE correo = ?', [cleanEmail], async (err, user) => {
+    if (err) return res.status(500).json({ error: 'Error de base de datos: ' + err.message });
+
+    const handleSession = (finalUser) => {
+      const token = auth.signToken({
+        id: finalUser.id,
+        correo: finalUser.correo,
+        nombre: finalUser.nombre,
+        rol: finalUser.rol,
+        rut: finalUser.rut || '',
+        asistido_rut: finalUser.asistido_rut || ''
+      });
+
+      res.cookie('lobby_session', token, {
+        httpOnly: true,
+        maxAge: 8 * 60 * 60 * 1000, // 8 horas de sesión laboral para SSO
+        sameSite: 'lax',
+        path: '/'
+      });
+
+      // Disparar sincronización en segundo plano CON RETARDO
+      // El retardo evita la race condition entre la carga del dashboard y el hot-swap de la BD
+      const { checkAndSyncDatabase } = require('./src/config/db-sync');
+      setTimeout(() => {
+        checkAndSyncDatabase(db, cookieHeader)
+          .then((updated) => {
+            console.log(`[SSO Sync] Sincronización en login terminada. ¿Hubo cambios?: ${updated}`);
+          })
+          .catch((syncErr) => {
+            console.error('[SSO Sync] Error al sincronizar en login:', syncErr.message);
+          });
+      }, 5000); // 5 segundos de margen para que el dashboard cargue primero
+
+      res.json({
+        message: 'SSO exitoso',
+        user: {
+          id: finalUser.id,
+          correo: finalUser.correo,
+          nombre: finalUser.nombre,
+          rol: finalUser.rol
+        }
+      });
+    };
+
+    if (!user) {
+      console.warn(`[SSO] Acceso denegado: El correo ${cleanEmail} no está registrado en la base de datos local.`);
+      try {
+        const { clearAllSsoData } = require('./src/config/sharepoint-auth');
+        await clearAllSsoData();
+      } catch (clearErr) {
+        console.error('[SSO] Error al limpiar almacenamiento tras rechazo de usuario:', clearErr.message);
+      }
+      return res.status(403).json({ error: 'Acceso denegado: Tu correo corporativo no está registrado en el sistema. Solicita acceso al administrador.' });
+    } else {
+      handleSession(user);
+    }
+  });
+});
+
+// Endpoint para disparar interactivamente el inicio de sesión de Microsoft desde el navegador
+app.post('/api/auth/trigger-sso', (req, res) => {
+  if (!process.versions.electron) {
+    return res.status(400).json({ error: 'SSO institucional solo está disponible al ejecutar la aplicación de escritorio.' });
+  }
+
+  const { loginWithMicrosoft } = require('./src/config/sharepoint-auth');
+  loginWithMicrosoft()
+    .then(async ({ userProfile, cookieHeader }) => {
+      if (cookieHeader) {
+        latestSharepointCookie = cookieHeader;
+      }
+      const email = userProfile.Email.toLowerCase().trim();
+      const nombre = userProfile.Title || email.split('@')[0];
+
+      db.get('SELECT * FROM usuarios WHERE correo = ?', [email], async (err, user) => {
+        if (err) return res.status(500).json({ error: 'Error de base de datos: ' + err.message });
+
+        const handleSession = (finalUser) => {
+          const token = auth.signToken({
+            id: finalUser.id,
+            correo: finalUser.correo,
+            nombre: finalUser.nombre,
+            rol: finalUser.rol,
+            rut: finalUser.rut || '',
+            asistido_rut: finalUser.asistido_rut || ''
+          });
+
+          res.cookie('lobby_session', token, {
+            httpOnly: true,
+            maxAge: 8 * 60 * 60 * 1000,
+            sameSite: 'lax',
+            path: '/'
+          });
+
+          // Sincronizar en segundo plano tras el login interactivo exitoso
+          const { checkAndSyncDatabase } = require('./src/config/db-sync');
+          checkAndSyncDatabase(db, cookieHeader)
+            .then((updated) => {
+              console.log(`[SSO Trigger Sync] Sincronización finalizada. ¿Hubo cambios?: ${updated}`);
+            })
+            .catch((syncErr) => {
+              console.error('[SSO Trigger Sync] Error al sincronizar:', syncErr.message);
+            });
+
+          res.json({
+            success: true,
+            user: {
+              id: finalUser.id,
+              correo: finalUser.correo,
+              nombre: finalUser.nombre,
+              rol: finalUser.rol
+            }
+          });
+        };
+
+        if (!user) {
+          console.warn(`[SSO Trigger] Acceso denegado: El correo ${email} no está registrado en la base de datos local.`);
+          try {
+            const { clearAllSsoData } = require('./src/config/sharepoint-auth');
+            await clearAllSsoData();
+          } catch (clearErr) {
+            console.error('[SSO Trigger] Error al limpiar almacenamiento tras rechazo de usuario:', clearErr.message);
+          }
+          return res.status(403).json({ error: 'Acceso denegado: Tu correo corporativo no está registrado en el sistema. Solicita acceso al administrador.' });
+        } else {
+          handleSession(user);
+        }
+      });
+    })
+    .catch((err) => {
+      console.warn('[SSO Trigger] Login cancelado o fallido:', err.message);
+      res.status(401).json({ error: err.message });
+    });
+});
+
+app.post('/api/auth/logout', async (req, res) => {
   res.clearCookie('lobby_session', { path: '/' });
+
+  // Si estamos en Electron, limpiar también las cookies y almacenamiento de SharePoint para permitir cambio de usuario
+  if (process.versions.electron) {
+    try {
+      const { clearAllSsoData } = require('./src/config/sharepoint-auth');
+      await clearAllSsoData();
+      console.log('[SSO Logout] Datos de sesión corporativa eliminados de Electron con éxito.');
+    } catch (err) {
+      console.error('[SSO Logout] Error al limpiar datos de Electron:', err.message);
+    }
+  }
+
   res.json({ message: 'Sesión cerrada correctamente.' });
 });
 
@@ -315,6 +491,7 @@ app.put('/api/perfil', (req, res) => {
       const query = 'UPDATE usuarios SET nombre = ?, correo = ?, rut = ?, password_hash = ? WHERE id = ?';
       db.run(query, [updateNombre, updateCorreo, updateRut, updatePasswordHash, userId], function(err) {
         if (err) return res.status(500).json({ error: err.message });
+        db.recalculateAndSignDatabase();
         
         // Regenerar el payload de la sesión
         const updatedPayload = {
@@ -434,6 +611,7 @@ app.post('/api/usuarios', (req, res) => {
       }
       return res.status(500).json({ error: err.message });
     }
+    db.recalculateAndSignDatabase();
     res.status(201).json({ id: this.lastID, correo, nombre, rol: rol || 'Analista', rut: rut || '', asistido_rut: asistido_rut || '' });
   });
 });
@@ -448,6 +626,7 @@ app.put('/api/usuarios/:id', (req, res) => {
     db.run(query, [correo, nombre, rol, password_hash, rut || '', asistido_rut || '', id], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      db.recalculateAndSignDatabase();
       res.json({ id, correo, nombre, rol, rut: rut || '', asistido_rut: asistido_rut || '' });
     });
   } else {
@@ -455,6 +634,7 @@ app.put('/api/usuarios/:id', (req, res) => {
     db.run(query, [correo, nombre, rol, rut || '', asistido_rut || '', id], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       if (this.changes === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
+      db.recalculateAndSignDatabase();
       res.json({ id, correo, nombre, rol, rut: rut || '', asistido_rut: asistido_rut || '' });
     });
   }
@@ -470,6 +650,7 @@ app.delete('/api/usuarios/:id', (req, res) => {
   db.run('DELETE FROM usuarios WHERE id = ?', id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    db.recalculateAndSignDatabase();
     res.json({ message: 'Usuario eliminado correctamente', id });
   });
 });
@@ -493,7 +674,7 @@ app.get('/api/solicitudes', (req, res) => {
   }
 
   if (pendingPub) {
-    whereClauses.push(`estado = 'Aceptada'`);
+    whereClauses.push(`LOWER(estado) = 'aceptada'`);
     whereClauses.push(`fecha_agendada IS NOT NULL AND fecha_agendada != '' AND fecha_agendada != '-'`);
     whereClauses.push(`(folio_lobby IS NULL OR folio_lobby = '' OR folio_lobby NOT IN (SELECT folio_lobby FROM publicadas_ph WHERE folio_lobby IS NOT NULL AND folio_lobby != ''))`);
   }
@@ -554,7 +735,7 @@ app.get('/api/solicitudes', (req, res) => {
     const finalWhereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     if (all) {
-      const query = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id DESC`;
+      const query = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
       db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         injectDynamicFields(rows, () => {
@@ -567,7 +748,7 @@ app.get('/api/solicitudes', (req, res) => {
       const offset = (page - 1) * limit;
 
       const countQuery = `SELECT COUNT(*) AS total FROM solicitudes_sh ${finalWhereSql}`;
-      const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id DESC LIMIT ? OFFSET ?`;
+      const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC LIMIT ? OFFSET ?`;
 
       db.get(countQuery, params, (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -595,7 +776,7 @@ app.get('/api/solicitudes', (req, res) => {
     const finalWhereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     if (all) {
-      const query = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id DESC`;
+      const query = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
       db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         injectDynamicFields(rows, () => {
@@ -608,7 +789,7 @@ app.get('/api/solicitudes', (req, res) => {
       const offset = (page - 1) * limit;
 
       const countQuery = `SELECT COUNT(*) AS total FROM solicitudes_sh ${finalWhereSql}`;
-      const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id DESC LIMIT ? OFFSET ?`;
+      const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC LIMIT ? OFFSET ?`;
 
       db.get(countQuery, params, (err, countRow) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -648,21 +829,26 @@ app.get('/api/alertas', (req, res) => {
 
   // 1. Obtener solicitudes "Ingresada"
   const queryIngresadas = `
-    SELECT id, folio_lobby, sujeto_pasivo, fecha_ingreso, fecha_limite_sh, estado_cumplimiento_sh
+    SELECT solicitudes_sh.id, solicitudes_sh.folio_lobby, solicitudes_sh.sujeto_pasivo, solicitudes_sh.fecha_ingreso, solicitudes_sh.fecha_limite_sh, solicitudes_sh.estado_cumplimiento_sh, a.estado AS estado_gestion
     FROM solicitudes_sh
-    WHERE estado = 'Ingresada' ${userWhereSql}
-    ORDER BY fecha_limite_sh ASC
+    LEFT JOIN alertas_gestionadas a ON a.tipo = 'solicitud' AND a.solicitud_id = solicitudes_sh.id
+    WHERE LOWER(solicitudes_sh.estado) = 'ingresada'
+      AND (a.estado IS NULL OR a.estado != 'borrada')
+      ${userWhereSql}
+    ORDER BY solicitudes_sh.fecha_limite_sh ASC
   `;
 
   // 2. Obtener publicaciones pendientes
   const queryPendientesPub = `
-    SELECT id, folio_lobby, sujeto_pasivo, fecha_agendada, fecha_limite_publicacion
+    SELECT solicitudes_sh.id, solicitudes_sh.folio_lobby, solicitudes_sh.sujeto_pasivo, solicitudes_sh.fecha_agendada, solicitudes_sh.fecha_limite_publicacion, a.estado AS estado_gestion
     FROM solicitudes_sh
-    WHERE estado = 'Aceptada'
-      AND fecha_agendada IS NOT NULL AND fecha_agendada != '' AND fecha_agendada != '-'
-      AND (folio_lobby IS NULL OR folio_lobby = '' OR folio_lobby NOT IN (SELECT folio_lobby FROM publicadas_ph WHERE folio_lobby IS NOT NULL AND folio_lobby != ''))
+    LEFT JOIN alertas_gestionadas a ON a.tipo = 'publicacion' AND a.solicitud_id = solicitudes_sh.id
+    WHERE LOWER(solicitudes_sh.estado) = 'aceptada'
+      AND solicitudes_sh.fecha_agendada IS NOT NULL AND solicitudes_sh.fecha_agendada != '' AND solicitudes_sh.fecha_agendada != '-'
+      AND (solicitudes_sh.folio_lobby IS NULL OR solicitudes_sh.folio_lobby = '' OR solicitudes_sh.folio_lobby NOT IN (SELECT folio_lobby FROM publicadas_ph WHERE folio_lobby IS NOT NULL AND folio_lobby != ''))
+      AND (a.estado IS NULL OR a.estado != 'borrada')
       ${userWhereSql}
-    ORDER BY fecha_limite_publicacion ASC
+    ORDER BY solicitudes_sh.fecha_limite_publicacion ASC
   `;
 
   db.all(queryIngresadas, userParams, (err, ingresadas) => {
@@ -677,6 +863,68 @@ app.get('/api/alertas', (req, res) => {
           });
         });
       });
+    });
+  });
+});
+
+// RUTA API: ACTUALIZAR EL ESTADO DE ALERTA (MARCAR COMO LEÍDA/BORRADA)
+app.post('/api/alertas/gestionar', (req, res) => {
+  const { alertas } = req.body;
+  if (!alertas || !Array.isArray(alertas) || alertas.length === 0) {
+    return res.status(400).json({ error: 'Faltan parámetros o el formato de alertas es inválido' });
+  }
+
+  db.serialize(() => {
+    let hasError = false;
+    let processedCount = 0;
+
+    const finalize = () => {
+      processedCount++;
+      if (processedCount === alertas.length) {
+        if (hasError) {
+          return res.status(500).json({ error: 'Hubo un error procesando algunas alertas' });
+        }
+        // Recalcular firma digital de la base de datos al realizar una modificación legítima
+        db.recalculateAndSignDatabase();
+        res.json({ success: true, message: 'Alertas gestionadas correctamente' });
+      }
+    };
+
+    alertas.forEach(alerta => {
+      const { tipo, solicitud_id, estado } = alerta;
+      if (!tipo || !solicitud_id) {
+        hasError = true;
+        finalize();
+        return;
+      }
+
+      if (estado === null || estado === undefined || estado === '') {
+        // Marcar como no leída (remover de alertas_gestionadas)
+        db.run(
+          `DELETE FROM alertas_gestionadas WHERE tipo = ? AND solicitud_id = ?`,
+          [tipo, solicitud_id],
+          (err) => {
+            if (err) {
+              console.error('Error al remover alerta gestionada:', err.message);
+              hasError = true;
+            }
+            finalize();
+          }
+        );
+      } else {
+        // Insertar o actualizar el estado ('leida' o 'borrada')
+        db.run(
+          `INSERT OR REPLACE INTO alertas_gestionadas (tipo, solicitud_id, estado, fecha_actualizacion) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
+          [tipo, solicitud_id, estado],
+          (err) => {
+            if (err) {
+              console.error('Error al insertar/actualizar alerta gestionada:', err.message);
+              hasError = true;
+            }
+            finalize();
+          }
+        );
+      }
     });
   });
 });
@@ -746,7 +994,7 @@ app.get('/api/publicadas', (req, res) => {
   const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
   if (all) {
-    const query = `SELECT * FROM publicadas_ph ${whereSql} ORDER BY id DESC`;
+    const query = `SELECT id, id_lobby, folio_lobby, estado, forma, lugar, comuna, sujeto_pasivo, cargo, sujeto_activo, rut, genero, tipo, representado, fecha_inicio, fecha_termino, duracion, fecha_publicacion, cumplimiento, id_solicitud_lobby FROM publicadas_ph ${whereSql} ORDER BY id_lobby DESC`;
     db.all(query, params, (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows);
@@ -757,7 +1005,7 @@ app.get('/api/publicadas', (req, res) => {
     const offset = (page - 1) * limit;
 
     const countQuery = `SELECT COUNT(*) AS total FROM publicadas_ph ${whereSql}`;
-    const dataQuery = `SELECT * FROM publicadas_ph ${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`;
+    const dataQuery = `SELECT * FROM publicadas_ph ${whereSql} ORDER BY id_lobby DESC LIMIT ? OFFSET ?`;
 
     db.get(countQuery, params, (err, countRow) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -783,7 +1031,7 @@ app.get('/api/sujetos_pasivos', (req, res) => {
   if (req.user.rol === 'Sujeto Pasivo' || req.user.rol === 'Asistente técnico') {
     return res.status(403).json({ error: 'Acceso denegado. No autorizado para consultar sujetos pasivos.' });
   }
-  db.all('SELECT * FROM sujetos_pasivos_sph ORDER BY id DESC', [], (err, rows) => {
+  db.all('SELECT * FROM sujetos_pasivos_sph ORDER BY fecha_incorporacion DESC', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -819,24 +1067,60 @@ app.post('/api/admin/importar', (req, res) => {
   if (isImporting) {
     return res.status(409).json({ error: 'Ya hay un proceso de sincronización activo. Por favor, espere a que finalice.' });
   }
+
+  const { fileData } = req.body;
+  const fs = require('fs');
+  const dbDir = db.getUserDataDir();
+  const excelFile = process.env.IS_ELECTRON === 'true'
+    ? path.join(dbDir, 'lobby_data.xlsx')
+    : (path.isAbsolute(process.env.EXCEL_PATH || 'lobby_data.xlsx')
+        ? (process.env.EXCEL_PATH || 'lobby_data.xlsx')
+        : path.join(__dirname, process.env.EXCEL_PATH || 'lobby_data.xlsx'));
+
+  if (fileData) {
+    try {
+      // Asegurar que la carpeta contenedora exista
+      const excelDir = path.dirname(excelFile);
+      if (!fs.existsSync(excelDir)) {
+        fs.mkdirSync(excelDir, { recursive: true });
+      }
+
+      // Decodificar Base64 y guardar el archivo Excel
+      const buffer = Buffer.from(fileData, 'base64');
+      fs.writeFileSync(excelFile, buffer);
+      console.log(`Excel recibido y guardado con éxito en: ${excelFile}`);
+    } catch (writeErr) {
+      console.error('Error al guardar el archivo Excel subido:', writeErr);
+      return res.status(500).json({ error: `No se pudo guardar el archivo Excel en el servidor: ${writeErr.message}` });
+    }
+  }
+
   isImporting = true;
 
   const { fork } = require('child_process');
-  const child = fork(path.join(__dirname, 'scripts', 'import_lobby.js'));
+  const child = fork(
+    path.join(__dirname, 'scripts', 'import_lobby.js'),
+    [],
+    {
+      env: {
+        ...process.env,
+        IS_ELECTRON: process.env.IS_ELECTRON,
+        EXE_DIR: process.env.EXE_DIR,
+        USER_DATA_DIR: process.env.USER_DATA_DIR || path.dirname(dbDir), // Pasar el directorio raíz de AppData para evitar duplicados "data/data"
+        SHAREPOINT_COOKIES: latestSharepointCookie,
+        IMPORT_USER_NAME: req.user.nombre,
+        IMPORT_USER_EMAIL: req.user.correo
+      }
+    }
+  );
 
   let finished = false;
 
   // Control de aborto: si el cliente cierra la pestaña, recarga o pierde la conexión
-  req.on('close', () => {
+  res.on('close', () => {
     if (!finished && child.exitCode === null) {
       console.log('Cliente desconectado de la petición de importación. Terminando subproceso hijo...');
       child.kill('SIGTERM');
-
-      db.run(
-        'INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)',
-        [`${req.user.nombre} (${req.user.correo})`, 'Cancelado', 'La importación fue cancelada por desconexión o recarga de la página.'],
-        (e) => { if (e) console.error(e); }
-      );
     }
   });
 
@@ -844,12 +1128,6 @@ app.post('/api/admin/importar', (req, res) => {
     if (message && message.type === 'import_stats') {
       finished = true;
       isImporting = false;
-
-      db.run(
-        'INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)',
-        [`${req.user.nombre} (${req.user.correo})`, 'Exitoso', JSON.stringify(message.stats)],
-        (err) => { if (err) console.error('Error al registrar historial_sincronizaciones:', err.message); }
-      );
 
       res.json({
         success: true,
@@ -863,14 +1141,7 @@ app.post('/api/admin/importar', (req, res) => {
     if (!finished) {
       finished = true;
       isImporting = false;
-
-      db.run(
-        'INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)',
-        [`${req.user.nombre} (${req.user.correo})`, 'Fallido', `Error de proceso: ${err.message}`],
-        (e) => { if (e) console.error(e); }
-      );
-
-      res.status(500).json({ error: 'Error interno durante el procesamiento del archivo Excel.' });
+      res.status(500).json({ error: 'Error interno durante el procesamiento del archivo Excel: ' + err.message });
     }
   });
 
@@ -878,20 +1149,38 @@ app.post('/api/admin/importar', (req, res) => {
     if (!finished) {
       finished = true;
       isImporting = false;
-
-      // Si salió con código 0 y no enviamos respuesta aún, es porque no disparó import_stats (ej. error lógico o aborto manual)
-      const estado = code === 0 || code === null ? 'Cancelado' : 'Fallido';
-      const desc = code === 0 || code === null ? 'El proceso terminó inesperadamente o fue abortado.' : `El proceso secundario salió con código de error ${code}.`;
-
-      db.run(
-        'INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)',
-        [`${req.user.nombre} (${req.user.correo})`, estado, desc],
-        (e) => { if (e) console.error(e); }
-      );
-
       res.status(500).json({ error: `El proceso de importación finalizó inesperadamente con código de salida ${code}.` });
     }
   });
+});
+
+// ==========================================
+// RUTA API: SINCRONIZAR DESDE SHAREPOINT (ADMINISTRADOR)
+// ==========================================
+app.post('/api/admin/sincronizar-desde-sharepoint', (req, res) => {
+  if (req.user.rol !== 'Administrador') {
+    return res.status(403).json({ error: 'Acceso denegado. Se requieren privilegios de Administrador.' });
+  }
+
+  if (!latestSharepointCookie) {
+    return res.status(400).json({ error: 'No hay credenciales corporativas activas en el servidor. Por favor, inicie sesión con su Cuenta Institucional (SSO) para poder sincronizar desde SharePoint.' });
+  }
+
+  const { checkAndSyncDatabase } = require('./src/config/db-sync');
+  checkAndSyncDatabase(db, latestSharepointCookie)
+    .then((updated) => {
+      res.json({
+        success: true,
+        updated,
+        message: updated 
+          ? 'Sincronización completada: Se descargó y aplicó una nueva versión de la base de datos desde SharePoint.' 
+          : 'La base de datos local ya está al día con la versión de SharePoint.'
+      });
+    })
+    .catch((err) => {
+      console.error('Error al sincronizar con SharePoint:', err);
+      res.status(500).json({ error: `Error al sincronizar con SharePoint: ${err.message}` });
+    });
 });
 
 // ==========================================
@@ -925,12 +1214,13 @@ app.get('/api/admin/db-health', (req, res) => {
   }
 
   const fs = require('fs');
-  const dbFile = path.isAbsolute(process.env.DATABASE_PATH || 'lobby.db')
-    ? (process.env.DATABASE_PATH || 'lobby.db')
-    : path.join(__dirname, process.env.DATABASE_PATH || 'lobby.db');
-  const excelFile = path.isAbsolute(process.env.EXCEL_PATH || 'lobby_data.xlsx')
-    ? (process.env.EXCEL_PATH || 'lobby_data.xlsx')
-    : path.join(__dirname, process.env.EXCEL_PATH || 'lobby_data.xlsx');
+  const dbDir = db.getUserDataDir();
+  const dbFile = db.getDbPath();
+  const excelFile = process.env.IS_ELECTRON === 'true'
+    ? path.join(dbDir, 'lobby_data.xlsx')
+    : (path.isAbsolute(process.env.EXCEL_PATH || 'lobby_data.xlsx')
+        ? (process.env.EXCEL_PATH || 'lobby_data.xlsx')
+        : path.join(__dirname, process.env.EXCEL_PATH || 'lobby_data.xlsx'));
 
   let dbSize = 'No encontrado';
   try {
@@ -1004,12 +1294,12 @@ app.get('/api/admin/auditoria/valores-actuales', (req, res) => {
 
   const querySol = `
     SELECT 
-      SUM(CASE WHEN estado = 'Ingresada' THEN 1 ELSE 0 END) AS ingresada,
-      SUM(CASE WHEN estado = 'Aceptada' THEN 1 ELSE 0 END) AS aceptada,
-      SUM(CASE WHEN estado = 'Rechazada' THEN 1 ELSE 0 END) AS rechazada,
-      SUM(CASE WHEN estado = 'Suspendida' THEN 1 ELSE 0 END) AS suspendida,
-      SUM(CASE WHEN estado = 'Cancelada' THEN 1 ELSE 0 END) AS cancelada,
-      SUM(CASE WHEN estado = 'Encomendada' THEN 1 ELSE 0 END) AS encomendada
+      SUM(CASE WHEN LOWER(estado) = 'ingresada' THEN 1 ELSE 0 END) AS ingresada,
+      SUM(CASE WHEN LOWER(estado) = 'aceptada' THEN 1 ELSE 0 END) AS aceptada,
+      SUM(CASE WHEN LOWER(estado) = 'rechazada' THEN 1 ELSE 0 END) AS rechazada,
+      SUM(CASE WHEN LOWER(estado) = 'suspendida' THEN 1 ELSE 0 END) AS suspendida,
+      SUM(CASE WHEN LOWER(estado) = 'cancelada' THEN 1 ELSE 0 END) AS cancelada,
+      SUM(CASE WHEN LOWER(estado) = 'encomendada' THEN 1 ELSE 0 END) AS encomendada
     FROM solicitudes_sh
   `;
 
@@ -1047,6 +1337,7 @@ app.post('/api/admin/auditoria', (req, res) => {
   const usuario = req.user.nombre || req.user.correo;
   db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, usuario], function(err) {
     if (err) return res.status(500).json({ error: err.message });
+    db.recalculateAndSignDatabase();
     res.status(201).json({ id: this.lastID, message: 'Registro de auditoría guardado exitosamente.' });
   });
 });
@@ -1068,6 +1359,7 @@ app.put('/api/admin/auditoria/:id', (req, res) => {
   db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, estado || null, id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'Registro no encontrado.' });
+    db.recalculateAndSignDatabase();
     res.json({ message: 'Registro de auditoría actualizado exitosamente.' });
   });
 });
@@ -1080,6 +1372,7 @@ app.delete('/api/admin/auditoria/:id', (req, res) => {
   db.run('DELETE FROM auditoria_semanal WHERE id = ?', id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'Registro no encontrado.' });
+    db.recalculateAndSignDatabase();
     res.json({ message: 'Registro de auditoría eliminado exitosamente.' });
   });
 });
@@ -1119,6 +1412,7 @@ app.post('/api/reportes/registrar', (req, res) => {
             console.error(err);
             return res.status(500).json({ error: 'Error al registrar el reporte en la base de datos.' });
           }
+          db.recalculateAndSignDatabase();
           res.json({ success: true, codigo_reporte });
         }
       );
@@ -1223,6 +1517,14 @@ app.get('/api/admin/inspector/data', (req, res) => {
       });
     });
   });
+});
+
+// Manejo de errores global no controlados
+app.use((err, req, res, next) => {
+  console.error('❌ ERROR INTERNO EN SERVIDOR:', err.stack || err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'Error interno en el servidor local: ' + err.message });
+  }
 });
 
 // Levantar el servidor

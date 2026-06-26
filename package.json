@@ -2,13 +2,17 @@
   "name": "lobby-management-mvp",
   "version": "1.0.0",
   "description": "MVP de gestión local de audiencias de la Ley de Lobby",
-  "main": "server.js",
+  "main": "main.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch-path=server.js --watch-path=database.js server.js",
+    "dev": "node --watch server.js",
     "import-lobby": "node scripts/import_lobby.js",
     "check-db": "node scripts/check_db.js",
-    "inspect-db": "node scripts/inspect.js"
+    "inspect-db": "node scripts/inspect.js",
+    "repair-excel": "node scripts/repair_excel.js",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [
     "lobby",
@@ -24,5 +28,37 @@
     "express-rate-limit": "^8.5.2",
     "sqlite3": "^5.1.7",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.lobbycontrol.app",
+    "productName": "LobbyControl",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "package.json",
+      "main.js",
+      "server.js",
+      "src/**/*",
+      "public/**/*",
+      "scripts/**/*"
+    ],
+    "win": {
+      "target": [
+        "dir"
+      ],
+      "icon": "public/icon.ico"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "scripts/**/*"
+    ],
+    "extraFiles": [
+      "data/**/*"
+    ]
   }
 }

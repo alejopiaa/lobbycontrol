@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LobbyControl - Análisis de Sincronización Automática</title>
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Mermaid.js for Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  </script>
+  
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --primary-dark: #172554;
+      --secondary: #0d9488;
+      --secondary-light: #14b8a6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius: 12px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      color: var(--primary-dark);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Header Banner */
+    .header-banner {
+      background: linear-gradient(135deg, var(--primary) 0%, #1e40af 50%, var(--secondary) 100%);
+      color: #ffffff;
+      padding: 60px 0 80px 0;
+      position: relative;
+      overflow: hidden;
+      border-bottom-left-radius: 24px;
+      border-bottom-right-radius: 24px;
+      margin-bottom: -40px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .header-banner::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      right: -10%;
+      width: 400px;
+      height: 400px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .header-banner h1 {
+      color: #ffffff;
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      letter-spacing: -0.025em;
+    }
+
+    .header-banner p {
+      font-size: 1.15rem;
+      color: rgba(255, 255, 255, 0.9);
+      max-width: 700px;
+      font-weight: 300;
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Layout Wrapper */
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 30px;
+      margin-top: 0;
+    }
+
+    @media (max-width: 968px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      padding: 24px;
+      height: fit-content;
+      position: sticky;
+      top: 20px;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+      z-index: 10;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 8px;
+      transition: var(--transition);
+      font-size: 0.95rem;
+    }
+
+    .nav-item a:hover {
+      background-color: var(--bg-page);
+      color: var(--primary);
+    }
+
+    .nav-item.active a {
+      background-color: #eff6ff;
+      color: var(--primary-light);
+      border-left: 4px solid var(--primary-light);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    /* Main Content Area */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    /* Card Component */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      padding: 35px;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-title {
+      font-size: 1.6rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .card-title i {
+      color: var(--primary-light);
+    }
+
+    /* Subgraphs */
+    .flow-steps {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 25px;
+    }
+
+    @media (max-width: 768px) {
+      .flow-steps {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .flow-step-card {
+      background: var(--bg-page);
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid var(--primary-light);
+      position: relative;
+    }
+
+    .flow-step-card.admin {
+      border-left-color: var(--primary-light);
+    }
+
+    .flow-step-card.user {
+      border-left-color: var(--secondary);
+    }
+
+    .flow-step-number {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: rgba(0, 0, 0, 0.05);
+      line-height: 1;
+    }
+
+    .flow-step-card h4 {
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Diagram Wrapper */
+    .diagram-container {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 25px;
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Callout Alert */
+    .callout {
+      background: #eff6ff;
+      border-left: 4px solid var(--primary-light);
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      display: flex;
+      gap: 15px;
+    }
+
+    .callout.tip {
+      background: #f0fdf4;
+      border-left-color: var(--success);
+    }
+
+    .callout.warning {
+      background: #fffbeb;
+      border-left-color: var(--warning);
+    }
+
+    .callout-icon {
+      font-size: 1.3rem;
+    }
+
+    .callout.tip .callout-icon { color: var(--success); }
+    .callout.warning .callout-icon { color: var(--warning); }
+    .callout-content h4 {
+      margin-bottom: 4px;
+    }
+
+    /* Table Design */
+    .styled-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 25px 0;
+      font-size: 0.95rem;
+      text-align: left;
+    }
+
+    .styled-table th {
+      background-color: var(--bg-page);
+      color: var(--primary-dark);
+      font-weight: 700;
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .styled-table td {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: top;
+    }
+
+    .styled-table tbody tr:hover {
+      background-color: #f8fafc;
+    }
+
+    /* Code Block styling */
+    pre {
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Consolas', 'Courier New', Courier, monospace;
+      font-size: 0.9rem;
+      margin: 15px 0;
+      position: relative;
+    }
+
+    code {
+      font-family: inherit;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #94a3b8;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+    }
+
+    /* Utility URL Tool */
+    .tool-box {
+      background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+      border: 1px solid #99f6e4;
+      border-radius: 8px;
+      padding: 25px;
+      margin-top: 20px;
+    }
+
+    .tool-box h4 {
+      color: #115e59;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    @media (max-width: 600px) {
+      .form-group {
+        flex-direction: column;
+      }
+    }
+
+    .form-control {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--secondary-light);
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+    }
+
+    .btn {
+      background-color: var(--secondary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background-color: #0f766e;
+    }
+
+    .btn-copy {
+      background-color: var(--primary-light);
+    }
+
+    .btn-copy:hover {
+      background-color: #2563eb;
+    }
+
+    .tool-result {
+      background: #ffffff;
+      padding: 15px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      margin-top: 15px;
+      word-break: break-all;
+      min-height: 50px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .success-text { color: var(--success); font-weight: 600; }
+    .warning-text { color: var(--warning); font-weight: 600; }
+    .error-text { color: var(--danger); font-weight: 600; }
+
+    /* Checklist Tracker */
+    .checklist {
+      list-style: none;
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-page);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .checklist-item:hover {
+      background: #f1f5f9;
+    }
+
+    .checklist-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      cursor: pointer;
+      accent-color: var(--primary-light);
+    }
+
+    .checklist-item.checked {
+      opacity: 0.65;
+      text-decoration: line-through;
+    }
+
+    .checklist-item-text {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    /* Tabs for Code Changes */
+    .tabs-wrapper {
+      margin-top: 20px;
+    }
+
+    .tabs-buttons {
+      display: flex;
+      gap: 10px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 1px;
+      margin-bottom: 15px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-family: inherit;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: var(--transition);
+    }
+
+    .tab-btn:hover {
+      color: var(--primary);
+    }
+
+    .tab-btn.active {
+      color: var(--primary-light);
+      border-bottom-color: var(--primary-light);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Code explanation badges */
+    .file-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: var(--primary-light);
+      font-size: 0.8rem;
+      font-family: monospace;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Banner -->
+  <header class="header-banner">
+    <div class="container">
+      <div class="badge-bar">
+        <span class="badge"><i class="fa-solid fa-code-fork"></i> Alternativa B</span>
+        <span class="badge"><i class="fa-solid fa-cloud-arrow-down"></i> OneDrive / SharePoint</span>
+        <span class="badge"><i class="fa-solid fa-shield-halved"></i> Seguridad Corporativa</span>
+      </div>
+      <h1 style="margin-top: 15px;">Propuesta de Sincronización Automática</h1>
+      <p>Distribución eficiente y descentralizada de la base de datos local SQLite para usuarios de LobbyControl utilizando el almacenamiento institucional.</p>
+    </div>
+  </header>
+
+  <!-- Main Body Content -->
+  <main class="container" style="margin-top: 60px;">
+    <div class="layout">
+      
+      <!-- Sticky Sidebar -->
+      <aside class="sidebar">
+        <ul class="nav-list">
+          <li class="nav-item active"><a href="#arquitectura"><i class="fa-solid fa-sitemap"></i> Arquitectura</a></li>
+          <li class="nav-item"><a href="#flujo"><i class="fa-solid fa-arrows-spin"></i> Flujo del Sistema</a></li>
+          <li class="nav-item"><a href="#configuracion"><i class="fa-solid fa-gears"></i> Configuración</a></li>
+          <li class="nav-item"><a href="#codigo"><i class="fa-solid fa-code"></i> Código Propuesto</a></li>
+          <li class="nav-item"><a href="#viabilidad"><i class="fa-solid fa-chart-line"></i> Viabilidad</a></li>
+          <li class="nav-item"><a href="#pasos"><i class="fa-solid fa-list-check"></i> Siguientes Pasos</a></li>
+        </ul>
+      </aside>
+
+      <!-- Main Content Area -->
+      <div class="content-area">
+
+        <!-- 1. Arquitectura -->
+        <section id="arquitectura" class="card">
+          <h2 class="card-title"><i class="fa-solid fa-sitemap"></i> 1. Arquitectura de la Solución</h2>
+          <p style="margin-bottom: 20px;">
+            Dado que la base de datos <strong>SQLite</strong> compila toda la información en un único archivo físico (<code>lobby.db</code>), la distribución se realiza de forma estática, emulando un sistema de actualización de parches de software.
+          </p>
+
+          <div class="diagram-container">
+            <div class="mermaid">
+              flowchart TD
+                  %% Styling Classes
+                  classDef admin fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+                  classDef cloud fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#e65100;
+                  classDef user fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+                  classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+
+                  subgraph PC_Admin ["💻 PC Administrador (Editor/Dev)"]
+                      A["1. Carga Excel Local<br><i>(lobby_data.xlsx)</i>"]:::admin --> B["2. Sincronización Incremental"]:::admin
+                      B --> C[("💾 lobby.db Local Admin")]:::admin
+                      C -->|Genera metadata| D["version.json + lobby.db"]:::admin
+                      D -->|Copia local| E["OneDrive de Windows"]:::admin
+                  end
+
+                  subgraph Nube ["☁️ Microsoft OneDrive / SharePoint"]
+                      E -->|Sincronización Automática| F(("Enlaces de Descarga Directa")):::cloud
+                  end
+
+                  subgraph PC_Usuario ["👥 PC Usuario (Clientes)"]
+                      F -->|Consulta al iniciar| G["Control de Versión local"]:::user
+                      G -->|Comparación Remoto vs Local| H{"¿Nueva Versión?"}:::user
+                      H -->|Sí| I["Descarga lobby.db.tmp"]:::process
+                      I --> J["Reemplazo de Archivo Seguro"]:::process
+                      J --> K[("💾 lobby.db Local Usuario")]:::user
+                      H -->|No| L["Usar DB Local Actual"]:::user
+                  end
+
+                  style PC_Admin fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,stroke-dasharray: 5 5
+                  style Nube fill:#fffbeb,stroke:#fde68a,stroke-width:1px,stroke-dasharray: 5 5
+                  style PC_Usuario fill:#f0fdf4,stroke:#bbf7d0,stroke-width:1px,stroke-dasharray: 5 5
+            </div>
+          </div>
+
+          <div class="callout">
+            <span class="callout-icon">💡</span>
+            <div class="callout-content">
+              <h4>Base de Datos Portable</h4>
+              <p>Esta solución elimina la necesidad de configurar servidores de bases de datos relacionales en la nube (ej. PostgreSQL o Supabase), manteniendo el costo de infraestructura en <strong>$0</strong>.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Flujo Detallado -->
+        <section id="flujo" class="card">
+          <h2 class="card-title"><i class="fa-solid fa-arrows-spin"></i> 2. Flujo Detallado del Sistema</h2>
+          
+          <h3 style="margin-top: 15px; color: var(--primary);">📤 Fase A: El Administrador Actualiza y Publica</h3>
+          <div class="flow-steps">
+            <div class="flow-step-card admin">
+              <span class="flow-step-number">01</span>
+              <h4>Sincronización de Excel</h4>
+              <p>El Administrador importa el archivo <code>lobby_data.xlsx</code>. El backend procesa los registros y los graba en su <code>lobby.db</code> local.</p>
+            </div>
+            <div class="flow-step-card admin">
+              <span class="flow-step-number">02</span>
+              <h4>Generación de Metadatos</h4>
+              <p>Se genera un archivo ligero <code>version.json</code> que contiene la marca de tiempo de la actualización, el tamaño del archivo y el hash MD5.</p>
+            </div>
+            <div class="flow-step-card admin">
+              <span class="flow-step-number">03</span>
+              <h4>Copia a Carpeta Local Sync</h4>
+              <p>La aplicación copia <code>lobby.db</code> y <code>version.json</code> al directorio de OneDrive configurado localmente en Windows.</p>
+            </div>
+            <div class="flow-step-card admin">
+              <span class="flow-step-number">04</span>
+              <h4>Sincronización OneDrive</h4>
+              <p>El cliente nativo de OneDrive en Windows detecta los archivos modificados y los sube de manera inmediata a la nube.</p>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 35px; color: var(--secondary);">📥 Fase B: El Usuario Común Inicia la Aplicación</h3>
+          <div class="flow-steps">
+            <div class="flow-step-card user">
+              <span class="flow-step-number">01</span>
+              <h4>Verificación de Versión</h4>
+              <p>Al iniciar la aplicación, se realiza una consulta rápida (HTTP GET) al archivo <code>version.json</code> remoto para verificar si hay datos nuevos.</p>
+            </div>
+            <div class="flow-step-card user">
+              <span class="flow-step-number">02</span>
+              <h4>Comparación Remota vs Local</h4>
+              <p>Se contrasta la marca de tiempo (o hash) del archivo descargado con el valor almacenado en la tabla de configuración local.</p>
+            </div>
+            <div class="flow-step-card user">
+              <span class="flow-step-number">03</span>
+              <h4>Descarga en Temporal</h4>
+              <p>Si hay una nueva versión, se descarga la base de datos directamente al archivo temporal <code>data/lobby.db.tmp</code>.</p>
+            </div>
+            <div class="flow-step-card user">
+              <span class="flow-step-number">04</span>
+              <h4>Cierre, Reemplazo y Re-apertura</h4>
+              <p>Se cierran de forma segura todas las conexiones SQLite, se sustituye el archivo <code>lobby.db</code> y se vuelve a conectar la BD en Express de forma transparente.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Configuración -->
+        <section id="configuracion" class="card">
+          <h2 class="card-title"><i class="fa-solid fa-gears"></i> 3. Configuración en OneDrive / SharePoint</h2>
+          <p>
+            Para permitir la descarga sin requerir autenticación interactiva, los enlaces compartidos deben configurarse con acceso de lectura (público o interno para la organización).
+          </p>
+
+          <div class="callout tip">
+            <span class="callout-icon">💡</span>
+            <div class="callout-content">
+              <h4>Fórmula para Enlace de Descarga Directa</h4>
+              <p>Los enlaces comunes de OneDrive/SharePoint muestran una vista web. Para obtener el archivo binario directo, use las siguientes conversiones:</p>
+              <ul style="margin-left: 20px; margin-top: 10px;">
+                <li><strong>SharePoint Institucional (Maipú):</strong> Añada <code>&download=1</code> al final del enlace compartido.</li>
+                <li><strong>OneDrive Personal:</strong> Genere el código "Insertar" (Embed) y reemplace <code>/embed?</code> por <code>/download?</code>.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Interactive Tool -->
+          <div class="tool-box">
+            <h4><i class="fa-solid fa-wand-magic-sparkles"></i> Conversor de Enlaces Directos de OneDrive/SharePoint</h4>
+            <p style="font-size: 0.9rem; color: #1e293b;">Pega el enlace que obtienes al compartir desde tu OneDrive para convertirlo en el enlace directo requerido para las variables del <code>.env</code>.</p>
+            
+            <div class="form-group">
+              <input type="text" id="url-input" class="form-control" placeholder="Pega el enlace de OneDrive o SharePoint aquí...">
+              <button onclick="convertUrl()" class="btn"><i class="fa-solid fa-rotate"></i> Convertir</button>
+            </div>
+
+            <div class="tool-result">
+              <div id="url-output">Introduce una URL para convertir...</div>
+              <button id="copy-url-btn" onclick="copyConvertedUrl()" class="btn btn-copy" style="display: none;"><i class="fa-solid fa-copy"></i> Copiar</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. Cambios Técnicos -->
+        <section id="codigo" class="card">
+          <h2 class="card-title"><i class="fa-solid fa-code"></i> 4. Cambios Técnicos Propuestos</h2>
+          
+          <div class="tabs-wrapper">
+            <div class="tabs-buttons">
+              <button class="tab-btn active" onclick="switchTab(event, 'tab-admin')">📤 A. Script Importación (Admin)</button>
+              <button class="tab-btn" onclick="switchTab(event, 'tab-client')">📥 B. Utilidad de Sincronización (Cliente)</button>
+            </div>
+
+            <!-- Tab 1: Admin Sync -->
+            <div id="tab-admin" class="tab-pane active">
+              <div class="file-badge">scripts/import_lobby.js</div>
+              <p style="margin-bottom: 10px; font-size: 0.95rem;">Modificación al final de la importación exitosa para copiar los datos a la carpeta sincronizada en OneDrive Windows.</p>
+              
+              <pre><button class="copy-btn" onclick="copyCode(this)"><i class="fa-solid fa-copy"></i> Copiar</button><code>function finalizeImport() {
+  if (totalChanges > 0) {
+    saveLastImportTimestamp((err) => {
+      const timestampStr = new Date().toISOString(); // Formato estándar
+      const versionData = {
+        last_import_timestamp: timestampStr,
+        db_size: fs.statSync(dbPath).size,
+        db_hash: calculateFileMd5(dbPath)
+      };
+      
+      fs.writeFileSync(
+        path.join(path.dirname(dbPath), 'version.json'), 
+        JSON.stringify(versionData, null, 2)
+      );
+
+      // Copiar a la ruta configurada en .env de OneDrive
+      if (process.env.ONEDRIVE_SYNC_PATH) {
+        try {
+          const destDb = path.join(process.env.ONEDRIVE_SYNC_PATH, 'lobby.db');
+          const destJson = path.join(process.env.ONEDRIVE_SYNC_PATH, 'version.json');
+          fs.copyFileSync(dbPath, destDb);
+          fs.copyFileSync(path.join(path.dirname(dbPath), 'version.json'), destJson);
+          console.log('✓ Copiado exitoso a OneDrive para distribución automática.');
+        } catch (copyErr) {
+          console.error('Error al copiar a la ruta de OneDrive:', copyErr.message);
+        }
+      }
+    });
+  }
+}</code></pre>
+            </div>
+
+            <!-- Tab 2: Client Sync -->
+            <div id="tab-client" class="tab-pane">
+              <div class="file-badge">src/config/db-sync.js</div>
+              <p style="margin-bottom: 10px; font-size: 0.95rem;">Nueva utilidad en los clientes que se encarga de descargar la base de datos de forma segura al abrir la aplicación.</p>
+              
+              <pre><button class="copy-btn" onclick="copyCode(this)"><i class="fa-solid fa-copy"></i> Copiar</button><code>const fs = require('fs');
+const path = require('path');
+const https = require('https');
+
+function downloadFile(url, destPath) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    https.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        return reject(new Error(`Error de descarga: Código ${response.statusCode}`));
+      }
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close(resolve);
+      });
+    }).on('error', (err) => {
+      fs.unlinkSync(destPath);
+      reject(err);
+    });
+  });
+}
+
+async function checkAndSyncDatabase(dbConnectionManager) {
+  const versionUrl = process.env.REMOTE_VERSION_URL;
+  const dbUrl = process.env.REMOTE_DB_URL;
+  
+  if (!versionUrl || !dbUrl) return;
+
+  const localVersionPath = path.join(__dirname, '../../data/version.json');
+  const localDbPath = path.join(__dirname, '../../data/lobby.db');
+  const tempDbPath = path.join(__dirname, '../../data/lobby.db.tmp');
+  const tempVersionPath = path.join(__dirname, '../../data/version.json.tmp');
+
+  try {
+    await downloadFile(versionUrl, tempVersionPath);
+    const remoteVersion = JSON.parse(fs.readFileSync(tempVersionPath, 'utf8'));
+    
+    let localVersion = { last_import_timestamp: 'Nunca' };
+    if (fs.existsSync(localVersionPath)) {
+      localVersion = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+    }
+
+    if (remoteVersion.last_import_timestamp !== localVersion.last_import_timestamp) {
+      console.log('Nueva versión disponible. Iniciando actualización...');
+      await downloadFile(dbUrl, tempDbPath);
+      
+      // Bloque de Reemplazo Seguro
+      await dbConnectionManager.closeConnection();
+      fs.copyFileSync(tempDbPath, localDbPath);
+      fs.copyFileSync(tempVersionPath, localVersionPath);
+      
+      fs.unlinkSync(tempDbPath);
+      fs.unlinkSync(tempVersionPath);
+      await dbConnectionManager.openConnection();
+      console.log('✓ Base de datos sincronizada correctamente.');
+    } else {
+      console.log('Base de datos al día.');
+      fs.unlinkSync(tempVersionPath);
+    }
+  } catch (err) {
+    console.error('Fallo en sincronización remota:', err.message);
+  }
+}</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. Viabilidad -->
+        <section id="viabilidad" class="card">
+          <h2 class="card-title"><i class="fa-solid fa-chart-line"></i> 5. Análisis de Impacto y Viabilidad</h2>
+          <p>
+            Evaluación general de la implementación de la propuesta usando OneDrive/SharePoint Corporativo.
+          </p>
+
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Criterio</th>
+                <th style="width: 50%;">Detalles y Solución Técnica</th>
+                <th style="width: 25%;">Evaluación</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>💰 Costos de Operación</strong></td>
+                <td>Se reutiliza la cuenta de Microsoft 365 de la Municipalidad. No es necesario contratar hosting adicional o plataformas como Supabase.</td>
+                <td><span class="success-text"><i class="fa-solid fa-circle-check"></i> $0 USD</span></td>
+              </tr>
+              <tr>
+                <td><strong>🔒 Seguridad de Datos</strong></td>
+                <td>Los archivos viajan encriptados por HTTPS y son alojados en la nube privada y segura de la Municipalidad de Maipú. No se exponen credenciales críticas.</td>
+                <td><span class="success-text"><i class="fa-solid fa-shield"></i> Alta Seguridad</span></td>
+              </tr>
+              <tr>
+                <td><strong>🚀 Experiencia de Usuario</strong></td>
+                <td>Proceso invisible y veloz al iniciar la aplicación. La descarga e importación no toma más de 5 segundos.</td>
+                <td><span class="success-text"><i class="fa-solid fa-star"></i> Excelente</span></td>
+              </tr>
+              <tr>
+                <td><strong>🛠️ Esfuerzo de Soporte</strong></td>
+                <td>Configuración única de rutas. Sin infraestructura permanente que monitorizar o que se pueda apagar.</td>
+                <td><span class="success-text"><i class="fa-solid fa-wrench"></i> Muy Bajo</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- 6. Siguientes Pasos -->
+        <section id="pasos" class="card">
+          <h2 class="card-title"><i class="fa-solid fa-list-check"></i> 6. Siguientes Pasos Propuestos</h2>
+          <p>Puedes marcar el progreso de las tareas aquí (se guardará localmente en tu navegador):</p>
+          
+          <ul class="checklist">
+            <li class="checklist-item" onclick="toggleChecklist(this, 1)">
+              <input type="checkbox" id="chk-1" onclick="event.stopPropagation(); updateChecklistState(this, 1);">
+              <div class="checklist-item-text">Crear carpeta compartida en OneDrive Maipú y obtener los enlaces directos.</div>
+            </li>
+            <li class="checklist-item" onclick="toggleChecklist(this, 2)">
+              <input type="checkbox" id="chk-2" onclick="event.stopPropagation(); updateChecklistState(this, 2);">
+              <div class="checklist-item-text">Configurar variables de entorno (<code>.env</code>) de prueba en la app.</div>
+            </li>
+            <li class="checklist-item" onclick="toggleChecklist(this, 3)">
+              <input type="checkbox" id="chk-3" onclick="event.stopPropagation(); updateChecklistState(this, 3);">
+              <div class="checklist-item-text">Modificar el administrador de conexión de SQLite en Express para cerrar conexiones dinámicamente.</div>
+            </li>
+            <li class="checklist-item" onclick="toggleChecklist(this, 4)">
+              <input type="checkbox" id="chk-4" onclick="event.stopPropagation(); updateChecklistState(this, 4);">
+              <div class="checklist-item-text">Implementar y validar el flujo de descarga al iniciar la app.</div>
+            </li>
+          </ul>
+        </section>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // Tab switching logic
+    function switchTab(evt, tabId) {
+      // Hide all panes
+      const tabPanes = document.querySelectorAll('.tab-pane');
+      tabPanes.forEach(pane => pane.classList.remove('active'));
+
+      // Deactivate all buttons
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+
+      // Show current pane and activate current button
+      document.getElementById(tabId).classList.add('active');
+      evt.currentTarget.classList.add('active');
+    }
+
+    // Direct Download URL converter logic
+    function convertUrl() {
+      const input = document.getElementById('url-input').value.trim();
+      const outputEl = document.getElementById('url-output');
+      const copyBtn = document.getElementById('copy-url-btn');
+      
+      if (!input) {
+        outputEl.innerHTML = '<span class="error-text">Introduce una URL para convertir...</span>';
+        copyBtn.style.display = 'none';
+        return;
+      }
+      
+      try {
+        let url = new URL(input);
+        
+        if (url.hostname.includes('sharepoint.com') || url.hostname.includes('onedrive.live.com')) {
+          url.searchParams.set('download', '1');
+          outputEl.innerHTML = `<span class="success-text">${url.href}</span>`;
+          copyBtn.style.display = 'inline-flex';
+          copyBtn.setAttribute('data-url', url.href);
+        } else {
+          // General direct query parameter add-on
+          if (url.href.includes('?')) {
+            url.href += '&download=1';
+          } else {
+            url.href += '?download=1';
+          }
+          outputEl.innerHTML = `<span class="warning-text">Dominio no común, modificado a:</span><br>${url.href}`;
+          copyBtn.style.display = 'inline-flex';
+          copyBtn.setAttribute('data-url', url.href);
+        }
+      } catch (e) {
+        outputEl.innerHTML = `<span class="error-text">URL inválida. Recuerda incluir http:// o https://</span>`;
+        copyBtn.style.display = 'none';
+      }
+    }
+
+    function copyConvertedUrl() {
+      const copyBtn = document.getElementById('copy-url-btn');
+      const url = copyBtn.getAttribute('data-url');
+      if (url) {
+        navigator.clipboard.writeText(url).then(() => {
+          const originalText = copyBtn.innerHTML;
+          copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> ¡Copiado!';
+          setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+          }, 2000);
+        });
+      }
+    }
+
+    // Code copy logic
+    function copyCode(btn) {
+      const code = btn.nextElementSibling.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> ¡Copiado!';
+        setTimeout(() => {
+          btn.innerHTML = '<i class="fa-solid fa-copy"></i> Copiar';
+        }, 2000);
+      });
+    }
+
+    // Checklist interactive state logic
+    function toggleChecklist(itemEl, stepNum) {
+      const checkbox = itemEl.querySelector('input[type="checkbox"]');
+      checkbox.checked = !checkbox.checked;
+      updateChecklistState(checkbox, stepNum);
+    }
+
+    function updateChecklistState(checkbox, stepNum) {
+      const itemEl = checkbox.closest('.checklist-item');
+      if (checkbox.checked) {
+        itemEl.classList.add('checked');
+      } else {
+        itemEl.classList.remove('checked');
+      }
+      localStorage.setItem('lobby_sync_step_' + stepNum, checkbox.checked ? 'true' : 'false');
+    }
+
+    // Load checklist state from localStorage
+    document.addEventListener('DOMContentLoaded', () => {
+      for (let i = 1; i <= 4; i++) {
+        const val = localStorage.getItem('lobby_sync_step_' + i);
+        if (val === 'true') {
+          const chk = document.getElementById('chk-' + i);
+          if (chk) {
+            chk.checked = true;
+            chk.closest('.checklist-item').classList.add('checked');
+          }
+        }
+      }
+    });
+
+    // Smooth navigation highlighting
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section');
+      const navItems = document.querySelectorAll('.nav-item');
+      let currentSectionId = '';
+
+      sections.forEach(sec => {
+        const rect = sec.getBoundingClientRect();
+        if (rect.top <= 120 && rect.bottom >= 120) {
+          currentSectionId = sec.getAttribute('id');
+        }
+      });
+
+      if (currentSectionId) {
+        navItems.forEach(item => {
+          item.classList.remove('active');
+          if (item.querySelector('a').getAttribute('href') === '#' + currentSectionId) {
+            item.classList.add('active');
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>

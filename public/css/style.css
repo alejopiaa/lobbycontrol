@@ -873,3 +873,110 @@ html:not(.dark) .session-timeout-modal {
 html:not(.dark) .sto-title  { color: #1e293b; }
 html:not(.dark) .sto-body   { color: #64748b; }
 html:not(.dark) .sto-countdown { color: #1e293b; }
+
+/* ============================================================
+   BOTONES DE ACCIÓN Y TARJETAS EN CENTRO DE ALERTAS
+   ============================================================ */
+
+/* Estilos de botones de acción de alerta */
+.alert-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 0.75rem; /* 12px, rounded-xl */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: 1px solid var(--border-ui);
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+.alert-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.alert-action-btn:active {
+  transform: translateY(0);
+}
+
+/* Modificadores de color específicos en hover para cada botón */
+.alert-action-btn.btn-view:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: var(--brand-color) !important;
+}
+
+.alert-action-btn.btn-read:hover {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  color: #10b981 !important; /* emerald */
+}
+
+.alert-action-btn.btn-unread:hover {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #f59e0b !important; /* amber */
+}
+
+.alert-action-btn.btn-delete:hover {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #ef4444 !important; /* rose */
+}
+
+/* Modo oscuro para botones */
+html.dark .alert-action-btn {
+  background-color: rgba(15, 23, 42, 0.4);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-tertiary);
+}
+
+html.dark .alert-action-btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .alert-action-btn.btn-view:hover {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #60a5fa !important;
+}
+
+html.dark .alert-action-btn.btn-read:hover {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+}
+
+html.dark .alert-action-btn.btn-unread:hover {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fbbf24 !important;
+}
+
+html.dark .alert-action-btn.btn-delete:hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+/* Estilos de tarjeta con bordes izquierdos de severidad */
+.card-alert-urgent {
+  border-left: 4px solid #ef4444 !important; /* rose-500 */
+  background: rgba(239, 68, 68, 0.02) !important;
+}
+
+html.dark .card-alert-urgent {
+  background: rgba(239, 68, 68, 0.04) !important;
+}
+
+.card-alert-warning {
+  border-left: 4px solid #f59e0b !important; /* amber-500 */
+  background: rgba(245, 158, 11, 0.02) !important;
+}
+
+html.dark .card-alert-warning {
+  background: rgba(245, 158, 11, 0.04) !important;
+}

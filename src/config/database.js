@@ -1,27 +1,193 @@
 require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const auth = require('../middleware/auth');
 
-const dbPath = path.isAbsolute(process.env.DATABASE_PATH || 'lobby.db')
-  ? (process.env.DATABASE_PATH || 'lobby.db')
-  : path.join(__dirname, '..', '..', process.env.DATABASE_PATH || 'lobby.db');
+const os = require('os');
 
-// Conectar a la base de datos SQLite (se creará el archivo si no existe)
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error al abrir la base de datos SQLite:', err.message);
-  } else {
-    console.log('Conectado a la base de datos local SQLite:', dbPath);
-    db.run('PRAGMA journal_mode = WAL', (err) => {
-      if (err) {
-        console.error('Error al activar WAL en SQLite:', err.message);
-      } else {
-        console.log('Modo WAL (Write-Ahead Logging) activado en SQLite.');
+let dbPath;
+let dbDir;
+
+if (process.versions.electron || process.env.IS_ELECTRON === 'true') {
+  // En Electron portable, guardamos de forma segura en la carpeta oculta AppData/Local/LobbyControl del usuario
+  // Esto no requiere permisos de administrador y oculta la base de datos del usuario común
+  const baseDir = process.versions.electron 
+    ? require('electron').app.getPath('userData')
+    : path.join(os.homedir(), 'AppData', 'Local', 'LobbyControl');
+    
+  dbDir = path.join(baseDir, 'data');
+  dbPath = path.join(dbDir, 'lobby.db');
+} else {
+  // Configuración estándar para desarrollo local web
+  dbPath = path.isAbsolute(process.env.DATABASE_PATH || 'lobby.db')
+    ? (process.env.DATABASE_PATH || 'lobby.db')
+    : path.join(__dirname, '..', '..', process.env.DATABASE_PATH || 'lobby.db');
+  dbDir = path.dirname(dbPath);
+}
+
+// Asegurar que la carpeta de destino de la base de datos exista
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+// Verificar firma digital del archivo de base de datos para depuración (sin acción destructiva)
+if (fs.existsSync(dbPath)) {
+  const localVersionPath = path.join(dbDir, 'version.json');
+  if (fs.existsSync(localVersionPath)) {
+    try {
+      const crypto = require('crypto');
+      const versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+      
+      if (versionData.db_signature) {
+        const dbBuffer = fs.readFileSync(dbPath);
+        const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
+          .update(dbBuffer)
+          .digest('hex');
+          
+        if (calculatedSignature !== versionData.db_signature) {
+          console.log('ℹ️ [Firma DB] La firma digital local difiere debido a modificaciones recientes en la base de datos.');
+        } else {
+          console.log('✓ Firma digital de base de datos local verificada correctamente.');
+        }
       }
-    });
+    } catch (sigErr) {
+      console.warn('Advertencia en verificación de firma de inicio:', sigErr.message);
+    }
   }
-});
+}
+
+// Conectar a la base de datos SQLite usando una referencia activa
+let activeDb = null;
+
+function connectDb(targetPath) {
+  activeDb = new sqlite3.Database(targetPath, (err) => {
+    if (err) {
+      console.error('Error al abrir la base de datos SQLite:', err.message);
+    } else {
+      console.log('Conectado a la base de datos local SQLite:', targetPath);
+      activeDb.run('PRAGMA busy_timeout = 30000');
+      activeDb.run('PRAGMA journal_mode = WAL', (err) => {
+        if (err) {
+          console.error('Error al activar WAL en SQLite:', err.message);
+        } else {
+          console.log('Modo WAL (Write-Ahead Logging) activado en SQLite.');
+        }
+      });
+    }
+  });
+}
+
+// Inicializar la conexión
+connectDb(dbPath);
+
+// Crear proxy delegador para permitir intercambio en caliente (hot-swapping)
+const db = {
+  all: (...args) => {
+    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('BD no disponible: reconectando...')); return; }
+    return activeDb.all(...args);
+  },
+  run: (...args) => {
+    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('BD no disponible: reconectando...')); return; }
+    return activeDb.run(...args);
+  },
+  get: (...args) => {
+    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('BD no disponible: reconectando...')); return; }
+    return activeDb.get(...args);
+  },
+  prepare: (...args) => {
+    if (!activeDb) throw new Error('BD no disponible: reconectando...');
+    return activeDb.prepare(...args);
+  },
+  serialize: (...args) => {
+    if (!activeDb) return;
+    return activeDb.serialize(...args);
+  },
+  close: (...args) => activeDb ? activeDb.close(...args) : undefined,
+  // Métodos de administración de conexión
+  getDbPath: () => dbPath,
+  getUserDataDir: () => dbDir,
+  closeConnection: () => {
+    return new Promise((resolve, reject) => {
+      if (!activeDb) return resolve();
+      activeDb.close((err) => {
+        if (err) {
+          console.error('Error al cerrar la conexión de SQLite:', err.message);
+          reject(err);
+        } else {
+          console.log('Conexión de SQLite cerrada exitosamente.');
+          activeDb = null;
+          resolve();
+        }
+      });
+    });
+  },
+  openConnection: (targetPath) => {
+    return new Promise((resolve, reject) => {
+      const p = targetPath || dbPath;
+      activeDb = new sqlite3.Database(p, (err) => {
+        if (err) {
+          console.error('Error al reabrir la base de datos SQLite:', err.message);
+          reject(err);
+        } else {
+          console.log('Base de datos SQLite reabierta con éxito:', p);
+          activeDb.run('PRAGMA busy_timeout = 30000');
+          activeDb.run('PRAGMA journal_mode = WAL', (pragmaErr) => {
+            if (pragmaErr) console.error('Error al activar WAL:', pragmaErr.message);
+            
+            // Asegurar que las tablas locales personalizadas existen tras reabrir (sincronización con SharePoint)
+            activeDb.run(`
+              CREATE TABLE IF NOT EXISTS alertas_gestionadas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT NOT NULL,
+                solicitud_id INTEGER NOT NULL,
+                estado TEXT NOT NULL,
+                fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(tipo, solicitud_id)
+              )
+            `, (tableErr) => {
+              if (tableErr) {
+                console.error('Error creando tabla alertas_gestionadas tras reabrir:', tableErr.message);
+              } else {
+                console.log('✓ Tabla alertas_gestionadas verificada tras reabrir base de datos.');
+              }
+              resolve();
+            });
+          });
+        }
+      });
+    });
+  },
+  recalculateAndSignDatabase: () => {
+    try {
+      const crypto = require('crypto');
+      const localVersionPath = path.join(dbDir, 'version.json');
+      if (fs.existsSync(dbPath)) {
+        const dbBuffer = fs.readFileSync(dbPath);
+        const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
+          .update(dbBuffer)
+          .digest('hex');
+        
+        let versionData = { last_import_timestamp: 'Nunca' };
+        if (fs.existsSync(localVersionPath)) {
+          try {
+            versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+          } catch (e) {}
+        }
+        
+        versionData.db_size = dbBuffer.length;
+        versionData.db_signature = calculatedSignature;
+        
+        fs.writeFileSync(localVersionPath, JSON.stringify(versionData, null, 2));
+        console.log('✓ [Sign Database] Firma digital local de base de datos recalculada y guardada.');
+      }
+    } catch (err) {
+      console.error('Error al recalcular firma local de la base de datos:', err.message);
+    }
+  }
+};
+
+
 
 // Inicialización de las tablas de forma secuencial
 db.serialize(() => {
@@ -86,6 +252,7 @@ db.serialize(() => {
       sujeto_pasivo_id INTEGER,
       sujeto_activo TEXT,
       rut TEXT,
+      genero TEXT,
       representado TEXT,
       materia TEXT,
       especificacion_materia TEXT,
@@ -111,18 +278,6 @@ db.serialize(() => {
       db.run('CREATE INDEX IF NOT EXISTS idx_publicadas_sujeto_pasivo ON publicadas_ph (sujeto_pasivo)');
       db.run('CREATE INDEX IF NOT EXISTS idx_publicadas_fecha_inicio ON publicadas_ph (fecha_inicio)');
       
-      // Migración para agregar row_hash a solicitudes_sh si ya existía la tabla sin esa columna
-      db.all("PRAGMA table_info(solicitudes_sh)", [], (err, rows) => {
-        if (!err && rows) {
-          const hasRowHash = rows.some(r => r.name === 'row_hash');
-          if (!hasRowHash) {
-            db.run("ALTER TABLE solicitudes_sh ADD COLUMN row_hash TEXT", (err) => {
-              if (err) console.error('Error migrando row_hash en solicitudes_sh:', err.message);
-              else console.log('Columna row_hash agregada con éxito a la tabla solicitudes_sh.');
-            });
-          }
-        }
-      });
     }
   });
 
@@ -307,60 +462,71 @@ db.serialize(() => {
     }
   });
 
+  // 10. Tabla: alertas_gestionadas (Estado de lectura/borrado de alertas)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alertas_gestionadas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      solicitud_id INTEGER NOT NULL,
+      estado TEXT NOT NULL,
+      fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tipo, solicitud_id)
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creando tabla alertas_gestionadas:', err.message);
+    }
+  });
+
 });
 
 
 function rebuildActiveSujetoIdsTable() {
   db.serialize(() => {
+    db.run('BEGIN IMMEDIATE TRANSACTION', (txErr) => {
+      if (txErr) {
+        console.error('Error al iniciar transacción para vigentes:', txErr.message);
+        return;
+      }
+    });
+
     db.run('DELETE FROM sujetos_pasivos_vigentes', (err) => {
       if (err) {
         console.error('Error al limpiar sujetos_pasivos_vigentes:', err.message);
+        db.run('ROLLBACK');
         return;
       }
-      
-      const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      
-      db.all('SELECT id_sujeto_lobby, fecha_termino FROM sujetos_pasivos_sph', [], (err, rows) => {
-        if (err) {
-          console.error('Error al consultar sujetos_pasivos_sph para vigencia:', err.message);
-          return;
-        }
-        
-        if (!rows || rows.length === 0) return;
-        
-        const insertStmt = db.prepare('INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby) VALUES (?)');
-        let count = 0;
-        
-        rows.forEach(sp => {
-          const ft = sp.fecha_termino;
-          let vigente = false;
-          if (!ft) {
-            vigente = true;
+    });
+
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    db.run(`
+      INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby)
+      SELECT DISTINCT id_sujeto_lobby
+      FROM sujetos_pasivos_sph
+      WHERE id_sujeto_lobby IS NOT NULL
+        AND (
+          fecha_termino IS NULL
+          OR TRIM(fecha_termino) = ''
+          OR LOWER(TRIM(fecha_termino)) IN ('indefinido', 'indefinicio', 'null', '-')
+          OR LOWER(TRIM(fecha_termino)) LIKE '%indefin%'
+          OR TRIM(fecha_termino) >= ?
+        )
+    `, [todayStr], function(insertErr) {
+      if (insertErr) {
+        console.error('Error al poblar sujetos_pasivos_vigentes:', insertErr.message);
+        db.run('ROLLBACK');
+      } else {
+        const changes = this ? this.changes : 0;
+        db.run('COMMIT', (commitErr) => {
+          if (commitErr) {
+            console.error('Error al hacer COMMIT de vigentes:', commitErr.message);
+            db.run('ROLLBACK');
           } else {
-            const clean = ft.trim().toLowerCase();
-            if (clean === '' || clean === 'indefinido' || clean === 'indefinicio' || clean === 'null' || clean === '-' || clean.includes('indefin')) {
-              vigente = true;
-            } else {
-              try {
-                if (clean >= todayStr) {
-                  vigente = true;
-                }
-              } catch (e) {}
-            }
-          }
-          
-          if (vigente && sp.id_sujeto_lobby) {
-            insertStmt.run(sp.id_sujeto_lobby);
-            count++;
+            console.log(`✓ Tabla sujetos_pasivos_vigentes inicializada: ${changes} registros vigentes creados.`);
           }
         });
-        
-        insertStmt.finalize((err) => {
-          if (!err) {
-            console.log(`✓ Tabla sujetos_pasivos_vigentes inicializada: ${count} registros vigentes creados.`);
-          }
-        });
-      });
+      }
     });
   });
 }

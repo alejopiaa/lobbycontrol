@@ -1,18 +1,39 @@
 // date-utils.js - Centralized date and holiday calculations (DRY backend)
 
-const chileanHolidayCache = {};
+const staticHolidays = new Set();
+let holidaysInitialized = false;
+
+function initializeHolidays() {
+  const start = 2015;
+  const end = 2030;
+  for (let year = start; year <= end; year++) {
+    for (let month = 0; month < 12; month++) {
+      const numDays = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      for (let day = 1; day <= numDays; day++) {
+        const testDate = new Date(Date.UTC(year, month, day));
+        if (calculateIsChileanHoliday(testDate)) {
+          staticHolidays.add(`${year}-${month}-${day}`);
+        }
+      }
+    }
+  }
+}
 
 function isChileanHoliday(date) {
+  const y = date.getUTCFullYear();
   const m = date.getUTCMonth();
   const d = date.getUTCDate();
-  const y = date.getUTCFullYear();
-  const cacheKey = `${y}-${m}-${d}`;
-  if (chileanHolidayCache[cacheKey] !== undefined) {
-    return chileanHolidayCache[cacheKey];
+  
+  if (y >= 2015 && y <= 2030) {
+    if (!holidaysInitialized) {
+      initializeHolidays();
+      holidaysInitialized = true;
+    }
+    return staticHolidays.has(`${y}-${m}-${d}`);
   }
-  const result = calculateIsChileanHoliday(date);
-  chileanHolidayCache[cacheKey] = result;
-  return result;
+  
+  // Fallback para fechas fuera del rango precalculado
+  return calculateIsChileanHoliday(date);
 }
 
 function calculateIsChileanHoliday(date) {

@@ -1,5 +1,5 @@
 {
-  "name": "lobby-management-mvp",
+  "name": "lobbycontrol",
   "version": "1.0.0",
   "description": "MVP de gestión local de audiencias de la Ley de Lobby",
   "main": "main.js",

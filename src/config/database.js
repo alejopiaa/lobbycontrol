@@ -9,25 +9,27 @@ const os = require('os');
 let dbPath;
 let dbDir;
 
-// Detectar si estamos en Electron y si la aplicación está empaquetada
-let isPackaged = false;
+// Detectar si estamos en Electron y si la aplicación está en producción
 let electronApp = null;
+let isDev = false;
 if (process.versions.electron) {
   try {
     const electron = require('electron');
     electronApp = electron.app;
-    isPackaged = electronApp ? electronApp.isPackaged : false;
+    isDev = process.defaultApp || /node_modules[\\/]electron[\\/]/.test(process.execPath);
   } catch (e) {}
+} else {
+  isDev = true; // Si no es Electron (por ejemplo, scripts de consola en desarrollo)
 }
 
-// Usar la ruta de producción si la app está empaquetada o si se fuerza por variable de entorno
-const useProductionPath = isPackaged || process.env.PRODUCTION_DB === 'true';
+// Usar la ruta de producción si no estamos en desarrollo, si se define USER_DATA_DIR, o si se fuerza por variable de entorno
+const useProductionPath = !isDev || !!process.env.USER_DATA_DIR || process.env.PRODUCTION_DB === 'true';
 
 if (useProductionPath) {
-  // En producción (empaquetado), guardamos de forma segura en la carpeta oculta AppData/Local/LobbyControl
-  const baseDir = electronApp
+  // En producción (empaquetado), guardamos de forma segura en la carpeta de datos de usuario de Electron
+  const baseDir = process.env.USER_DATA_DIR || (electronApp
     ? electronApp.getPath('userData')
-    : path.join(os.homedir(), 'AppData', 'Local', 'LobbyControl');
+    : path.join(os.homedir(), 'AppData', 'Local', 'LobbyControl'));
     
   dbDir = path.join(baseDir, 'data');
   dbPath = path.join(dbDir, 'lobby.db');

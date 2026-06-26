@@ -7,7 +7,6 @@
     "import-lobby": "node scripts/import_lobby.js",
     "check-db": "node scripts/check_db.js",
     "inspect-db": "node scripts/inspect.js",
-    "repair-excel": "node scripts/repair_excel.js",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --dir",
     "postinstall": "electron-builder install-app-deps"
@@ -42,7 +41,7 @@
       "server.js",
       "src/**/*",
       "public/**/*",
-      "scripts/**/*"
+      "scripts/import_lobby.js"
     ],
     "win": {
       "target": [
@@ -52,10 +51,7 @@
     },
     "asar": true,
     "asarUnpack": [
-      "scripts/**/*"
-    ],
-    "extraFiles": [
-      "data/**/*"
+      "scripts/import_lobby.js"
     ]
   }
 }

@@ -1091,6 +1091,9 @@ app.post('/api/admin/importar', (req, res) => {
 
   isImporting = true;
 
+  const electron = require('electron');
+  const isPackaged = electron && electron.app ? electron.app.isPackaged : false;
+
   const { fork } = require('child_process');
   const child = fork(
     path.join(__dirname, 'scripts', 'import_lobby.js'),
@@ -1098,6 +1101,7 @@ app.post('/api/admin/importar', (req, res) => {
     {
       env: {
         ...process.env,
+        PRODUCTION_DB: isPackaged ? 'true' : 'false',
         IS_ELECTRON: process.env.IS_ELECTRON,
         EXE_DIR: process.env.EXE_DIR,
         USER_DATA_DIR: process.env.USER_DATA_DIR || path.dirname(dbDir), // Pasar el directorio raíz de AppData para evitar duplicados "data/data"

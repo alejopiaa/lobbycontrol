@@ -9,17 +9,30 @@ const os = require('os');
 let dbPath;
 let dbDir;
 
-if (process.versions.electron || process.env.IS_ELECTRON === 'true') {
-  // En Electron portable, guardamos de forma segura en la carpeta oculta AppData/Local/LobbyControl del usuario
-  // Esto no requiere permisos de administrador y oculta la base de datos del usuario común
-  const baseDir = process.versions.electron 
-    ? require('electron').app.getPath('userData')
+// Detectar si estamos en Electron y si la aplicación está empaquetada
+let isPackaged = false;
+let electronApp = null;
+if (process.versions.electron) {
+  try {
+    const electron = require('electron');
+    electronApp = electron.app;
+    isPackaged = electronApp ? electronApp.isPackaged : false;
+  } catch (e) {}
+}
+
+// Usar la ruta de producción si la app está empaquetada o si se fuerza por variable de entorno
+const useProductionPath = isPackaged || process.env.PRODUCTION_DB === 'true';
+
+if (useProductionPath) {
+  // En producción (empaquetado), guardamos de forma segura en la carpeta oculta AppData/Local/LobbyControl
+  const baseDir = electronApp
+    ? electronApp.getPath('userData')
     : path.join(os.homedir(), 'AppData', 'Local', 'LobbyControl');
     
   dbDir = path.join(baseDir, 'data');
   dbPath = path.join(dbDir, 'lobby.db');
 } else {
-  // Configuración estándar para desarrollo local web
+  // Configuración estándar para desarrollo local (scripts o Electron en desarrollo)
   dbPath = path.isAbsolute(process.env.DATABASE_PATH || 'lobby.db')
     ? (process.env.DATABASE_PATH || 'lobby.db')
     : path.join(__dirname, '..', '..', process.env.DATABASE_PATH || 'lobby.db');

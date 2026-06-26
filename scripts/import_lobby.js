@@ -171,7 +171,7 @@ function uploadFileToSharePoint(
 let dbPath;
 let excelPath;
 
-if (process.env.IS_ELECTRON === "true") {
+if (process.env.PRODUCTION_DB === "true") {
   const baseDir =
     process.env.USER_DATA_DIR ||
     path.join(require("os").homedir(), "AppData", "Local", "LobbyControl");

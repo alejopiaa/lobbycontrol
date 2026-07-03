@@ -3216,7 +3216,7 @@ function showAgendaDetailsModal(eventId) {
           <div>
             <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Activo (Lobbista/Gestor)</span>
             <p class="text-slate-200 font-semibold mt-0.5">${escapeHtml(item.sujeto_activo || 'Sin Lobbista')}</p>
-            \${item.rut ? `<p class="text-[10px] text-slate-400 font-mono mt-0.5">RUT: \${escapeHtml(item.rut)}</p>` : ''}
+            ${item.rut ? '<p class="text-[10px] text-slate-400 font-mono mt-0.5">RUT: ' + escapeHtml(item.rut) + '</p>' : ''}
           </div>
           <div>
             <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Representado</span>
@@ -3231,21 +3231,12 @@ function showAgendaDetailsModal(eventId) {
           <p class="text-xs text-slate-200 font-semibold mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || 'Sin especificar')}</p>
         </div>
 
-        \${item.especificacion_materia ? `
-          <div>
-            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span>
-            <p class="text-xs text-slate-300 mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">\${escapeHtml(item.especificacion_materia)}</p>
-          </div>
-        ` : ''}
+        ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span><p class="text-xs text-slate-300 mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">' + escapeHtml(item.especificacion_materia) + '</p></div>' : ''}
       </div>
 
       <!-- Footer -->
       <div class="flex justify-end gap-3 pt-2">
-        \${item.id_lobby ? `
-          <a href="https://www.leylobby.gob.cl/admin/solicitudes/\${item.id_lobby}" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">
-            Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
-          </a>
-        ` : ''}
+        ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ''}
         <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
           Cerrar
         </button>
@@ -3287,19 +3278,13 @@ function renderAgenda(container) {
           
           <!-- View selector -->
           <div class="flex items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 gap-0.5">
-            \${['month', 'week', 'day'].map(view => {
+            ${['month', 'week', 'day'].map(view => {
               const label = view === 'month' ? 'Mes' : view === 'week' ? 'Semana' : 'Día';
               const active = calendarViewMode === view;
-              return `
-                <button onclick="changeCalendarViewMode('\${view}')" 
-                        class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer \${
-                          active 
-                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/10' 
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                        }">
-                  \${label}
-                </button>
-              `;
+              const activeClass = active 
+                ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/10' 
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50';
+              return '<button onclick="changeCalendarViewMode(\'' + view + '\')" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ' + activeClass + '">' + label + '</button>';
             }).join('')}
           </div>
         </div>
@@ -3312,7 +3297,7 @@ function renderAgenda(container) {
           <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500"></i>
           <input type="text" id="search-calendar" oninput="onCalendarSearch(this.value)" 
                  placeholder="Filtrar por lobbista, autoridad, folio o materia..." 
-                 value="\${escapeHtmlAttr(searchVal)}" 
+                 value="${escapeHtmlAttr(searchVal)}" 
                  class="w-full py-2 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors text-[var(--text-primary)]">
         </div>
         

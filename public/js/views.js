@@ -2888,9 +2888,8 @@ function drawCalendarBodyOnly() {
     const query = calendarFilters.search.toLowerCase().trim();
     filtered = filtered.filter(e => 
       (e.sujeto_pasivo || '').toLowerCase().includes(query) ||
-      (e.sujeto_activo || '').toLowerCase().includes(query) ||
-      (e.folio_lobby || '').toLowerCase().includes(query) ||
-      (e.materia || '').toLowerCase().includes(query)
+      (e.cargo_limpio || e.cargo || '').toLowerCase().includes(query) ||
+      (e.folio_lobby || '').toLowerCase().includes(query)
     );
   }
   
@@ -2918,10 +2917,10 @@ function drawMonthView(container, events) {
   gridStartDate.setDate(gridStartDate.getDate() - prevMonthDaysCount);
   
   let html = `
-    <div class="grid grid-cols-7 gap-px bg-slate-800/80 rounded-2xl overflow-hidden border border-slate-800/60 shadow-xl">
+    <div class="grid grid-cols-7 gap-px calendar-grid-wrapper rounded-2xl overflow-hidden border shadow-xl">
       <!-- Headers -->
       ${['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => `
-        <div class="py-3 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/80 border-b border-slate-800/80 select-none">
+        <div class="py-3 text-center text-[10px] font-bold uppercase tracking-wider calendar-header-cell border-b select-none">
           ${day}
         </div>
       `).join('')}
@@ -2939,39 +2938,36 @@ function drawMonthView(container, events) {
     const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr));
     
     html += `
-      <div class="calendar-cell bg-slate-950/40 p-2 flex flex-col justify-between border border-slate-900/40 relative ${
+      <div class="calendar-cell p-2 flex flex-col justify-between border relative ${
         isToday 
-          ? 'ring-1 ring-brand-500/50 bg-brand-500/[0.02]' 
+          ? 'ring-1 ring-brand-500/50' 
           : ''
       }">
         <div class="flex justify-between items-center mb-1.5 select-none">
           <span class="text-xs font-bold ${
             isToday 
               ? 'text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded-lg border border-brand-500/20' 
-              : (isCurrentMonth ? 'text-slate-200' : 'text-slate-600')
-          }">
+              : (isCurrentMonth ? '' : 'opacity-40')
+          }" style="color: ${isToday ? '' : 'var(--text-secondary)'}">
             ${tempDate.getDate()}
           </span>
           ${cellEvents.length > 0 ? `
-            <span class="px-1.5 py-0.5 rounded-lg text-[9px] font-bold bg-slate-800/80 text-slate-400 border border-slate-800/50">
+            <span class="px-1.5 py-0.5 rounded-lg text-[9px] font-bold cal-count-badge border">
               ${cellEvents.length}
             </span>
           ` : ''}
         </div>
-        <div class="flex-1 overflow-y-auto max-h-[84px] space-y-1 custom-scrollbar text-left pr-0.5">
+        <div class="flex-1 overflow-y-auto max-h-[68px] space-y-1 custom-scrollbar text-left pr-0.5">
           ${cellEvents.map(e => {
             const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
             const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
               ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
               : '';
+            const chipClass = isPast ? 'cal-event-past' : 'cal-event-future';
             
             return `
               <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="text-[9px] p-1 rounded-lg truncate cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${
-                     isPast 
-                       ? 'bg-slate-900/60 text-slate-400 border border-slate-800/50 hover:bg-slate-900' 
-                       : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25'
-                   } font-medium flex items-center justify-between gap-1 select-none"
+                   class="text-[9px] p-1 rounded-lg truncate cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${chipClass} border font-medium flex items-center justify-between gap-1 select-none"
                    title="${escapeHtmlAttr(e.sujeto_pasivo)} - ${escapeHtmlAttr(e.materia || '')}">
                 <span class="font-mono text-[8px] font-bold shrink-0 opacity-80">${timeStr}</span>
                 <span class="truncate flex-1">${escapeHtml(e.sujeto_pasivo)}</span>
@@ -2999,7 +2995,7 @@ function drawWeekView(container, events) {
   const today = new Date();
   const todayStr = formatLocalDateYYYYMMDD(today);
   
-  let html = `<div class="grid grid-cols-1 md:grid-cols-7 gap-3.5 h-full">`;
+  let html = `<div class="grid grid-cols-1 md:grid-cols-7 gap-3.5" style="height: 600px;">`;
   const tempDate = new Date(monDate);
   
   for (let i = 0; i < 7; i++) {
@@ -3010,40 +3006,37 @@ function drawWeekView(container, events) {
     const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     
     html += `
-      <div class="glass-card flex flex-col h-full rounded-2xl border ${
+      <div class="cal-week-card glass-card flex flex-col rounded-2xl border ${
         isToday 
-          ? 'border-brand-500 bg-brand-500/[0.01]' 
-          : 'border-slate-800/80 bg-slate-950/20'
-      } p-3.5 min-h-[400px]">
-        <div class="border-b border-slate-800/80 pb-2 mb-3.5 text-center select-none">
-          <p class="text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-400' : 'text-slate-400'}">${dayNames[i]}</p>
-          <p class="text-lg font-bold mt-0.5 ${isToday ? 'text-brand-500' : 'text-slate-200'}">${tempDate.getDate()}</p>
+          ? 'ring-1 ring-brand-500/40' 
+          : ''
+      } p-3.5" style="height: 600px; overflow: hidden;">
+        <div class="border-b pb-2 mb-3.5 text-center select-none" style="border-color: var(--border-ui);">
+          <p class="text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-400' : ''}" style="color: ${isToday ? '' : 'var(--text-tertiary)'}">${dayNames[i]}</p>
+          <p class="text-lg font-bold mt-0.5" style="color: ${isToday ? '' : 'var(--text-primary)'}">${tempDate.getDate()}</p>
         </div>
         <div class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
           ${cellEvents.length === 0 ? `
             <div class="h-full flex items-center justify-center py-20">
-              <p class="text-[10px] text-slate-600 font-medium italic select-none">Sin reuniones</p>
+              <p class="text-[10px] font-medium italic select-none" style="color: var(--cal-empty-text)">Sin reuniones</p>
             </div>
           ` : cellEvents.map(e => {
             const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
             const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
               ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
               : '';
+            const chipClass = isPast ? 'cal-event-past' : 'cal-event-future';
             
             return `
               <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="p-3 rounded-xl border border-slate-800 cursor-pointer text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${
-                     isPast 
-                       ? 'bg-slate-900/30 text-slate-400 border-slate-800/50 hover:bg-slate-900/50' 
-                       : 'bg-emerald-500/5 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/10'
-                   }">
+                   class="p-3 rounded-xl border cursor-pointer text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${chipClass}">
                 <div class="flex items-center justify-between mb-1.5 select-none">
-                  <span class="text-[9px] font-bold font-mono ${isPast ? 'text-slate-500' : 'text-emerald-400'}">${timeStr}</span>
-                  <span class="text-[8px] font-semibold text-slate-500">Folio ${e.folio_lobby || 's/f'}</span>
+                  <span class="text-[9px] font-bold font-mono">${timeStr}</span>
+                  <span class="text-[8px] font-semibold cal-folio-badge px-1 py-0.5 rounded border">Folio ${e.folio_lobby || 's/f'}</span>
                 </div>
-                <h4 class="text-xs font-bold text-slate-200 truncate" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
-                <p class="text-[9px] text-slate-400 truncate mt-0.5" title="${escapeHtmlAttr(e.sujeto_activo || 'Lobbista')}">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</p>
-                <p class="text-[9px] text-slate-400 line-clamp-2 mt-2 italic border-l border-slate-800 pl-2 leading-relaxed" title="${escapeHtmlAttr(e.materia || '')}">${escapeHtml(e.materia || 'Sin materia')}</p>
+                <h4 class="text-xs font-bold truncate" style="color: var(--text-primary)" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <p class="text-[9px] truncate mt-0.5" style="color: var(--text-tertiary)" title="${escapeHtmlAttr(e.sujeto_activo || 'Lobbista')}">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</p>
+                <p class="text-[9px] line-clamp-2 mt-2 italic border-l pl-2 leading-relaxed" style="color: var(--text-tertiary); border-color: var(--border-ui)" title="${escapeHtmlAttr(e.materia || '')}">${escapeHtml(e.materia || 'Sin materia')}</p>
               </div>
             `;
           }).join('')}
@@ -3066,13 +3059,13 @@ function drawDayView(container, events) {
   const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(activeDateStr));
   
   let html = `
-    <div class="max-w-2xl mx-auto glass-card rounded-3xl border border-slate-800/80 p-6 shadow-xl bg-slate-950/20">
-      <div class="border-b border-slate-800/80 pb-4 mb-4 flex justify-between items-center select-none">
+    <div class="max-w-2xl mx-auto cal-day-card glass-card rounded-3xl border p-6 shadow-xl" style="min-height: 600px;">
+      <div class="border-b pb-4 mb-4 flex justify-between items-center select-none" style="border-color: var(--border-ui)">
         <div class="text-left">
-          <h3 class="text-sm font-bold text-slate-200">Reuniones del Día</h3>
-          <p class="text-xs text-slate-400">${formatDate(activeDateStr)}</p>
+          <h3 class="text-sm font-bold" style="color: var(--text-primary)">Reuniones del Día</h3>
+          <p class="text-xs" style="color: var(--text-tertiary)">${formatDate(activeDateStr)}</p>
         </div>
-        <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 border border-slate-800 text-slate-300">
+        <span class="px-2.5 py-1 rounded-lg text-xs font-bold cal-folio-badge border">
           ${cellEvents.length} ${cellEvents.length === 1 ? 'Reunión' : 'Reuniones'}
         </span>
       </div>
@@ -3080,8 +3073,8 @@ function drawDayView(container, events) {
       <div class="space-y-4">
         ${cellEvents.length === 0 ? `
           <div class="py-16 text-center select-none">
-            <i data-lucide="calendar" class="h-10 w-10 text-slate-800 mx-auto mb-3"></i>
-            <p class="text-xs text-slate-500 italic">No hay reuniones programadas para este día.</p>
+            <i data-lucide="calendar" class="h-10 w-10 mx-auto mb-3" style="color: var(--border-ui)"></i>
+            <p class="text-xs italic" style="color: var(--cal-empty-text)">No hay reuniones programadas para este día.</p>
           </div>
         ` : cellEvents.map(e => {
           const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
@@ -3091,35 +3084,31 @@ function drawDayView(container, events) {
           
           return `
             <div onclick="showAgendaDetailsModal(${e.id})" 
-                 class="p-5 rounded-2xl border text-left cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${
-                   isPast 
-                     ? 'bg-slate-900/20 text-slate-400 border-slate-800/40 hover:bg-slate-900/30' 
-                     : 'bg-emerald-500/[0.03] text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/10'
-                 } flex gap-4 items-start">
+                 class="p-5 rounded-2xl border text-left cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${isPast ? 'cal-event-past' : 'cal-event-future'} flex gap-4 items-start">
               <div class="flex flex-col items-center shrink-0 w-16 select-none">
-                <span class="text-xs font-bold font-mono ${isPast ? 'text-slate-500' : 'text-emerald-400'}">${timeStr}</span>
-                <span class="text-[9px] font-semibold text-slate-500 mt-1.5 uppercase tracking-wider">Inicio</span>
+                <span class="text-xs font-bold font-mono">${timeStr}</span>
+                <span class="text-[9px] font-semibold mt-1.5 uppercase tracking-wider" style="color: var(--text-tertiary)">Inicio</span>
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 mb-1.5 flex-wrap select-none">
-                  <span class="bg-slate-800/80 text-slate-400 border border-slate-700/50 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Folio: ${e.folio_lobby || 'Sin Folio'}</span>
+                  <span class="cal-folio-badge border text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Folio: ${e.folio_lobby || 'Sin Folio'}</span>
                 </div>
-                <h4 class="text-sm font-bold text-slate-200 truncate">${escapeHtml(e.sujeto_pasivo)}</h4>
-                <p class="text-xs text-slate-400 font-semibold mt-0.5 truncate">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
+                <h4 class="text-sm font-bold truncate" style="color: var(--text-primary)">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <p class="text-xs font-semibold mt-0.5 truncate" style="color: var(--text-tertiary)">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
                 
                 <div class="mt-3.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold select-none">Sujeto Activo / Lobbista</span>
-                    <span class="text-slate-300 font-medium">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</span>
+                    <span class="text-[10px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Sujeto Activo / Lobbista</span>
+                    <span class="font-medium" style="color: var(--text-secondary)">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</span>
                   </div>
                   <div>
-                    <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold select-none">Representado</span>
-                    <span class="text-slate-300 font-medium">${escapeHtml(e.representado || 'Particular')}</span>
+                    <span class="text-[10px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Representado</span>
+                    <span class="font-medium" style="color: var(--text-secondary)">${escapeHtml(e.representado || 'Particular')}</span>
                   </div>
                 </div>
-                <div class="mt-3.5 pt-2.5 border-t border-slate-900">
-                  <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold select-none">Materia</span>
-                  <p class="text-xs text-slate-400 mt-0.5 leading-relaxed line-clamp-2">${escapeHtml(e.materia || 'Sin especificar')}</p>
+                <div class="mt-3.5 pt-2.5" style="border-top: 1px solid var(--border-ui)">
+                  <span class="text-[10px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Materia</span>
+                  <p class="text-xs mt-0.5 leading-relaxed line-clamp-2" style="color: var(--text-tertiary)">${escapeHtml(e.materia || 'Sin especificar')}</p>
                 </div>
               </div>
             </div>
@@ -3292,23 +3281,28 @@ function renderAgenda(container) {
 
       <!-- Filters & Search -->
       <div class="glass-card p-4 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between">
-        <!-- Search bar -->
-        <div class="relative w-full md:max-w-md">
-          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500"></i>
-          <input type="text" id="search-calendar" oninput="onCalendarSearch(this.value)" 
-                 placeholder="Filtrar por lobbista, autoridad, folio o materia..." 
+        <!-- Search bar with autocomplete -->
+        <div class="relative w-full md:max-w-md" id="cal-search-wrapper">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style="color: var(--text-tertiary)"></i>
+          <input type="text" id="search-calendar" 
+                 oninput="onCalendarSearchInput(this.value)" 
+                 onfocus="onCalendarSearchFocus()"
+                 onkeydown="onCalendarSearchKeydown(event)"
+                 placeholder="Buscar por autoridad, cargo o folio..." 
                  value="${escapeHtmlAttr(searchVal)}" 
-                 class="w-full py-2 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors text-[var(--text-primary)]">
+                 autocomplete="off"
+                 class="w-full py-2 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors" style="color: var(--text-primary)">
+          <div id="cal-suggestions-list" class="cal-suggestions absolute top-full left-0 right-0 mt-1 hidden"></div>
         </div>
         
         <!-- Dinamic Calendar Title -->
-        <div class="text-sm font-bold text-slate-200 text-right pr-2 select-none" id="calendar-title-display">
+        <div class="text-sm font-bold text-right pr-2 select-none" id="calendar-title-display" style="color: var(--text-primary)">
           Cargando...
         </div>
       </div>
 
       <!-- Calendar body container -->
-      <div id="calendar-content-placeholder" class="relative min-h-[400px]">
+      <div id="calendar-content-placeholder" class="relative" style="min-height: 660px;">
         <!-- Rendered dynamically -->
       </div>
     </div>
@@ -3343,13 +3337,110 @@ window.goCalendarToday = function() {
   renderView();
 };
 
-window.onCalendarSearch = function(val) {
+window.onCalendarSearchInput = function(val) {
   calendarFilters.search = val;
   drawCalendarBodyOnly();
+  showCalendarSuggestions(val);
 };
+
+window.onCalendarSearchFocus = function() {
+  const input = document.getElementById('search-calendar');
+  if (input) showCalendarSuggestions(input.value);
+};
+
+window.onCalendarSearchKeydown = function(e) {
+  const list = document.getElementById('cal-suggestions-list');
+  if (!list || list.classList.contains('hidden')) return;
+  
+  const items = list.querySelectorAll('.cal-suggestion-item');
+  if (!items.length) return;
+  
+  let activeIdx = -1;
+  items.forEach((item, i) => { if (item.classList.contains('active')) activeIdx = i; });
+  
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+    activeIdx = (activeIdx + 1) % items.length;
+    items[activeIdx].classList.add('active');
+    items[activeIdx].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+    activeIdx = activeIdx <= 0 ? items.length - 1 : activeIdx - 1;
+    items[activeIdx].classList.add('active');
+    items[activeIdx].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && activeIdx >= 0) {
+    e.preventDefault();
+    const selectedText = items[activeIdx].dataset.value;
+    const input = document.getElementById('search-calendar');
+    if (input) { input.value = selectedText; }
+    calendarFilters.search = selectedText;
+    drawCalendarBodyOnly();
+    list.classList.add('hidden');
+  } else if (e.key === 'Escape') {
+    list.classList.add('hidden');
+  }
+};
+
+function showCalendarSuggestions(val) {
+  const list = document.getElementById('cal-suggestions-list');
+  if (!list) return;
+  
+  const query = (val || '').toLowerCase().trim();
+  if (!query || query.length < 2) {
+    list.classList.add('hidden');
+    return;
+  }
+  
+  // Build unique suggestions from calendarEvents
+  const sugSet = new Set();
+  (calendarEvents || []).forEach(e => {
+    if (e.sujeto_pasivo) sugSet.add(e.sujeto_pasivo);
+    if (e.cargo_limpio) sugSet.add(e.cargo_limpio);
+    else if (e.cargo) { const cl = getCargoClean(e.cargo); if (cl) sugSet.add(cl); }
+    if (e.folio_lobby) sugSet.add(e.folio_lobby);
+  });
+  
+  const matches = [];
+  sugSet.forEach(s => {
+    if (s.toLowerCase().includes(query)) matches.push(s);
+  });
+  matches.sort((a, b) => a.localeCompare(b, 'es'));
+  
+  if (matches.length === 0) {
+    list.classList.add('hidden');
+    return;
+  }
+  
+  list.innerHTML = matches.slice(0, 12).map(m => {
+    const idx = m.toLowerCase().indexOf(query);
+    const before = escapeHtml(m.substring(0, idx));
+    const match = escapeHtml(m.substring(idx, idx + query.length));
+    const after = escapeHtml(m.substring(idx + query.length));
+    return '<div class="cal-suggestion-item" data-value="' + escapeHtmlAttr(m) + '" onclick="selectCalendarSuggestion(this.dataset.value)">' + before + '<strong>' + match + '</strong>' + after + '</div>';
+  }).join('');
+  list.classList.remove('hidden');
+}
+
+window.selectCalendarSuggestion = function(val) {
+  const input = document.getElementById('search-calendar');
+  if (input) { input.value = val; }
+  calendarFilters.search = val;
+  drawCalendarBodyOnly();
+  const list = document.getElementById('cal-suggestions-list');
+  if (list) list.classList.add('hidden');
+};
+
+// Close suggestions on click outside
+document.addEventListener('click', function(e) {
+  const wrapper = document.getElementById('cal-search-wrapper');
+  const list = document.getElementById('cal-suggestions-list');
+  if (wrapper && list && !wrapper.contains(e.target)) {
+    list.classList.add('hidden');
+  }
+});
 
 window.showAgendaDetailsModal = function(eventId) {
   showAgendaDetailsModal(eventId);
 };
-
-

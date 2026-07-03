@@ -990,19 +990,7 @@ html.dark .card-alert-info {
   background: rgba(59, 130, 246, 0.04) !important;
 }
 
-/* Calendar Custom Styles */
-.calendar-cell {
-  min-height: 100px;
-  transition: all 0.15s ease-in-out;
-}
-
-.calendar-cell:hover {
-  background-color: rgba(59, 130, 246, 0.03);
-}
-
-html.dark .calendar-cell:hover {
-  background-color: rgba(59, 130, 246, 0.05);
-}
+/* Calendar Custom Styles — see bottom of file for themed calendar rules */
 
 .calendar-day-header {
   border-bottom: 2px solid var(--border-ui);
@@ -1027,3 +1015,144 @@ html.dark .calendar-cell:hover {
   background-color: rgba(148, 163, 184, 0.3);
   border-radius: 10px;
 }
+
+/* Calendar Theme Adaptive Colors */
+:root {
+  --cal-grid-bg: rgba(0, 0, 0, 0.03);
+  --cal-grid-border: var(--border-ui);
+  --cal-cell-bg: rgba(255, 255, 255, 0.92);
+  --cal-cell-hover: rgba(79, 70, 229, 0.04);
+  --cal-header-bg: #f1f5f9;
+  --cal-header-text: var(--text-tertiary);
+  --cal-past-bg: rgba(100, 116, 139, 0.08);
+  --cal-past-text: #64748b;
+  --cal-past-border: rgba(100, 116, 139, 0.18);
+  --cal-future-bg: rgba(5, 150, 105, 0.08);
+  --cal-future-text: #059669;
+  --cal-future-border: rgba(5, 150, 105, 0.2);
+  --cal-badge-bg: rgba(0, 0, 0, 0.04);
+  --cal-badge-text: var(--text-tertiary);
+  --cal-badge-border: var(--border-ui);
+  --cal-week-card-bg: var(--glass-bg);
+  --cal-day-card-bg: var(--glass-bg);
+  --cal-empty-text: var(--text-tertiary);
+  --cal-folio-bg: rgba(0, 0, 0, 0.04);
+  --cal-folio-text: var(--text-tertiary);
+  --cal-folio-border: var(--border-ui);
+  --cal-suggest-bg: rgba(255, 255, 255, 0.97);
+  --cal-suggest-hover: rgba(79, 70, 229, 0.06);
+  --cal-suggest-border: var(--border-ui);
+}
+
+html.dark {
+  --cal-grid-bg: rgba(255, 255, 255, 0.02);
+  --cal-grid-border: rgba(255, 255, 255, 0.06);
+  --cal-cell-bg: rgba(15, 23, 42, 0.4);
+  --cal-cell-hover: rgba(59, 130, 246, 0.05);
+  --cal-header-bg: rgba(15, 23, 42, 0.8);
+  --cal-header-text: #94a3b8;
+  --cal-past-bg: rgba(30, 41, 59, 0.6);
+  --cal-past-text: #94a3b8;
+  --cal-past-border: rgba(71, 85, 105, 0.5);
+  --cal-future-bg: rgba(16, 185, 129, 0.1);
+  --cal-future-text: #34d399;
+  --cal-future-border: rgba(16, 185, 129, 0.2);
+  --cal-badge-bg: rgba(30, 41, 59, 0.8);
+  --cal-badge-text: #94a3b8;
+  --cal-badge-border: rgba(71, 85, 105, 0.5);
+  --cal-week-card-bg: var(--glass-bg);
+  --cal-day-card-bg: var(--glass-bg);
+  --cal-empty-text: #475569;
+  --cal-folio-bg: rgba(30, 41, 59, 0.8);
+  --cal-folio-text: #94a3b8;
+  --cal-folio-border: rgba(71, 85, 105, 0.5);
+  --cal-suggest-bg: rgba(15, 23, 42, 0.97);
+  --cal-suggest-hover: rgba(129, 140, 248, 0.08);
+  --cal-suggest-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Calendar Cell Fixed Height */
+.calendar-cell {
+  min-height: 110px;
+  height: 110px;
+  transition: all 0.15s ease-in-out;
+  background-color: var(--cal-cell-bg) !important;
+}
+
+.calendar-cell:hover {
+  background-color: var(--cal-cell-hover) !important;
+}
+
+/* Calendar grid wrapper */
+.calendar-grid-wrapper {
+  background-color: var(--cal-grid-bg) !important;
+  border-color: var(--cal-grid-border) !important;
+}
+
+/* Calendar header row */
+.calendar-header-cell {
+  background-color: var(--cal-header-bg) !important;
+  color: var(--cal-header-text) !important;
+}
+
+/* Calendar event chips */
+.cal-event-past {
+  background-color: var(--cal-past-bg) !important;
+  color: var(--cal-past-text) !important;
+  border-color: var(--cal-past-border) !important;
+}
+.cal-event-future {
+  background-color: var(--cal-future-bg) !important;
+  color: var(--cal-future-text) !important;
+  border-color: var(--cal-future-border) !important;
+}
+
+/* Calendar event count badge */
+.cal-count-badge {
+  background-color: var(--cal-badge-bg) !important;
+  color: var(--cal-badge-text) !important;
+  border-color: var(--cal-badge-border) !important;
+}
+
+/* Week/Day view cards */
+.cal-week-card {
+  background-color: var(--cal-week-card-bg) !important;
+  border-color: var(--cal-grid-border) !important;
+}
+.cal-day-card {
+  background-color: var(--cal-day-card-bg) !important;
+  border-color: var(--cal-grid-border) !important;
+}
+
+/* Folio badges in week/day */
+.cal-folio-badge {
+  background-color: var(--cal-folio-bg) !important;
+  color: var(--cal-folio-text) !important;
+  border-color: var(--cal-folio-border) !important;
+}
+
+/* Calendar Autocomplete Suggestions */
+.cal-suggestions {
+  background-color: var(--cal-suggest-bg);
+  border: 1px solid var(--cal-suggest-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.cal-suggestion-item {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background-color 0.1s;
+  color: var(--text-secondary);
+}
+
+.cal-suggestion-item:hover,
+.cal-suggestion-item.active {
+  background-color: var(--cal-suggest-hover);
+  color: var(--text-primary);
+}
+

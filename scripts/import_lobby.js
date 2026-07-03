@@ -175,10 +175,10 @@ if (process.env.PRODUCTION_DB === "true") {
   const baseDir =
     process.env.USER_DATA_DIR ||
     path.join(require("os").homedir(), "AppData", "Local", "LobbyControl");
-  dbPath = path.join(baseDir, "data", "lobby.db");
+  dbPath = path.join(baseDir, "data", "lobby_control.db");
   excelPath = path.join(baseDir, "data", "lobby_data.xlsx");
 } else {
-  dbPath = path.join(__dirname, "..", process.env.DATABASE_PATH || "lobby.db");
+  dbPath = path.join(__dirname, "..", process.env.DATABASE_PATH || "lobby_control.db");
   excelPath = path.join(
     __dirname,
     "..",
@@ -1251,7 +1251,7 @@ db.serialize(() => {
 
                   const localJsonPath = path.join(
                     path.dirname(dbPath),
-                    "version.json",
+                    "version_lobby.json",
                   );
                   fs.writeFileSync(
                     localJsonPath,
@@ -1297,21 +1297,21 @@ db.serialize(() => {
                         const digest = await getRequestDigest(siteUrl, cookies);
                         console.log("[SharePoint Upload] Request Digest obtenido.");
 
-                        console.log("[SharePoint Upload] Subiendo version.json...");
+                        console.log("[SharePoint Upload] Subiendo version_lobby.json...");
                         await uploadFileToSharePoint(
                           siteUrl,
                           folderPath,
-                          "version.json",
+                          "version_lobby.json",
                           localJsonPath,
                           digest,
                           cookies,
                         );
 
-                        console.log("[SharePoint Upload] Subiendo lobby.db (comprimido)...");
+                        console.log("[SharePoint Upload] Subiendo lobby_control.db (comprimido)...");
                         await uploadFileToSharePoint(
                           siteUrl,
                           folderPath,
-                          "lobby.db",
+                          "lobby_control.db",
                           tempGzPath,
                           digest,
                           cookies,
@@ -1356,8 +1356,8 @@ db.serialize(() => {
                   if (process.env.ONEDRIVE_SYNC_PATH) {
                     const odPath = process.env.ONEDRIVE_SYNC_PATH;
                     if (fs.existsSync(odPath)) {
-                      const destJsonPath = path.join(odPath, "version.json");
-                      const destDbPath = path.join(odPath, "lobby.db");
+                      const destJsonPath = path.join(odPath, "version_lobby.json");
+                      const destDbPath = path.join(odPath, "lobby_control.db");
 
                       fs.writeFileSync(
                         destJsonPath,

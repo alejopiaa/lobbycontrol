@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LobbyControl Print Template</title>
+  <!-- Tailwind CSS local -->
+  <script src="/vendor/tailwind.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: white !important;
+      color: #0f172a !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  </style>
+  <style id="dynamic-print-style">
+    @page {
+      size: portrait;
+      margin-top: 22mm;
+      margin-bottom: 20mm;
+      margin-left: 15mm;
+      margin-right: 15mm;
+    }
+  </style>
+</head>
+<body class="bg-white text-slate-900 p-0 m-0">
+  <div id="print-content" class="print-report-flow"></div>
+</body>
+</html>

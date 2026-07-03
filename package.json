@@ -1,7 +1,7 @@
 {
   "name": "lobbycontrol",
-  "version": "1.0.0",
-  "description": "MVP de gestión local de audiencias de la Ley de Lobby",
+  "version": "2.3.0",
+  "description": "Sistema local para la gestión y control de audiencias de la Ley de Lobby",
   "main": "main.js",
   "scripts": {
     "import-lobby": "node scripts/import_lobby.js",
@@ -9,6 +9,7 @@
     "inspect-db": "node scripts/inspect.js",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --dir",
+    "electron:installer": "electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [
@@ -21,7 +22,6 @@
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "express": "^4.19.2",
     "sqlite3": "^5.1.7",
     "xlsx": "^0.18.5"
   },
@@ -39,16 +39,30 @@
       "package.json",
       "main.js",
       "preload.js",
-      "server.js",
       "src/**/*",
       "public/**/*",
       "scripts/import_lobby.js"
     ],
     "win": {
       "target": [
-        "dir"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "icon": "public/icon.ico"
+      "icon": "public/lobby.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LobbyControl",
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false
     },
     "asar": true,
     "asarUnpack": [

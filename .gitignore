@@ -1,33 +1,53 @@
 # Dependency directories
 node_modules/
 
-# Environment variables
+# Environment variables and configs
 .env
+.env.*
 
-# Database files
+# Build and packaging directories
+dist/
+build/
+out/
+release/
+
+# Database files (local and temp)
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
+*.sqlite
+data/*.db
+data/*.sqlite
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal
+data/*.json
+data/*.bak
+*.bak
+data/backup/
+data/sharepoint_upload/
 
-# Excel/Data files
+# Excel files
 *.xlsx
-data/lobby.db*
-data/lobby_data.xlsx
+*.xls
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Editor and OS files
 .vscode/
+.idea/
 .DS_Store
 Thumbs.db
 .clinerules
 .cursorrules
+.agents/
 
-# Temp/helper scripts and plans
+# Temp scripts / plans / scratch files
 implementation_plan.md
 iniciar_servidor.bat
 scratch/
-
-# Build and log files
-dist/
-*.log
-

@@ -185,8 +185,8 @@ function renderDashboard(container) {
               <div class="h-full bg-deadline-pending" style="width: ${stats.pendientes.pctTotal}%"></div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
-              <span>${stats.respondidas.pctTotal}% Respondidas (${stats.totales.respondidas})</span>
-              <span>${stats.pendientes.pctTotal}% Pendientes (${stats.totales.pendientes})</span>
+              <span>${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)} Respondidas (${stats.totales.respondidas})</span>
+              <span>${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)} Pendientes (${stats.totales.pendientes})</span>
             </div>
           </div>
         </div>
@@ -196,7 +196,7 @@ function renderDashboard(container) {
           <div class="text-center">
             <span class="text-xs text-slate-300 font-bold uppercase tracking-widest">Solicitudes Respondidas</span>
             <h3 class="text-4xl font-extrabold text-heading mt-2" id="count-solicitudes-respondidas">${stats.totales.respondidas}</h3>
-            <p class="text-xs text-body-muted font-semibold mt-1">${stats.respondidas.pctTotal}%</p>
+            <p class="text-xs text-body-muted font-semibold mt-1">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)}</p>
           </div>
           <div class="space-y-1.5">
             <div class="w-full h-3 rounded-full overflow-hidden bg-slate-800 flex">
@@ -204,8 +204,8 @@ function renderDashboard(container) {
               <div class="h-full bg-deadline-overdue" style="width: ${stats.respondidas.pctRfp}%"></div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
-              <span>${stats.respondidas.pctRdp}% RDP (${stats.respondidas.rdp})</span>
-              <span>${stats.respondidas.pctRfp}% RFP (${stats.respondidas.rfp})</span>
+              <span>${formatPct(stats.respondidas.pctRdp, stats.respondidas.rdp)} RDP (${stats.respondidas.rdp})</span>
+              <span>${formatPct(stats.respondidas.pctRfp, stats.respondidas.rfp)} RFP (${stats.respondidas.rfp})</span>
             </div>
           </div>
         </div>
@@ -215,7 +215,7 @@ function renderDashboard(container) {
           <div class="text-center">
             <span class="text-xs text-slate-300 font-bold uppercase tracking-widest">Solicitudes Pendientes</span>
             <h3 class="text-4xl font-extrabold text-heading mt-2" id="count-solicitudes-pendientes">${stats.totales.pendientes}</h3>
-            <p class="text-xs text-body-muted font-semibold mt-1">${stats.pendientes.pctTotal}%</p>
+            <p class="text-xs text-body-muted font-semibold mt-1">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)}</p>
           </div>
           <div class="space-y-1.5">
             <div class="w-full h-3 rounded-full overflow-hidden bg-slate-800 flex">
@@ -223,8 +223,8 @@ function renderDashboard(container) {
               <div class="h-full bg-deadline-overdue" style="width: ${stats.pendientes.pctFdp}%"></div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
-              <span>${stats.pendientes.pctDdp}% DDP (${stats.pendientes.ddp})</span>
-              <span>${stats.pendientes.pctFdp}% FDP (${stats.pendientes.fdp})</span>
+              <span>${formatPct(stats.pendientes.pctDdp, stats.pendientes.ddp)} DDP (${stats.pendientes.ddp})</span>
+              <span>${formatPct(stats.pendientes.pctFdp, stats.pendientes.fdp)} FDP (${stats.pendientes.fdp})</span>
             </div>
           </div>
         </div>
@@ -240,7 +240,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-aceptada">${stats.estados.aceptada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.estados.aceptada.pct}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</p>
           </div>
         </div>
 
@@ -252,7 +252,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-rechazada">${stats.estados.rechazada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.estados.rechazada.pct}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</p>
           </div>
         </div>
 
@@ -264,7 +264,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-suspendida">${stats.estados.suspendida.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.estados.suspendida.pct}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</p>
           </div>
         </div>
 
@@ -276,7 +276,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-cancelada">${stats.estados.cancelada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.estados.cancelada.pct}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</p>
           </div>
         </div>
 
@@ -288,7 +288,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-encomendada">${stats.estados.encomendada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.estados.encomendada.pct}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</p>
           </div>
         </div>
 
@@ -300,7 +300,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-publicadas">${stats.totales.publicadas}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.totales.pctPublicadas}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</p>
           </div>
         </div>
 
@@ -312,7 +312,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-pendientesPublicacion">${stats.totales.pendientesPublicacion}</h3>
-            <p class="text-xs text-body-muted font-semibold">${stats.totales.pctPendientesPublicacion}%</p>
+            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</p>
           </div>
         </div>
       </div>
@@ -1334,9 +1334,14 @@ function renderUsuarios(container) {
             <input type="text" id="search-usuarios" oninput="filterUsuarios()" placeholder="Buscar por nombre, correo, rut..." class="w-full py-2.5 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors">
           </div>
           
-          <button id="btn-registrar-usuario" onclick="openUsuarioModal()" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-brand-500/20 shrink-0">
-            <i data-lucide="plus" class="h-4 w-4"></i> Registrar Usuario
-          </button>
+          <div class="flex items-center gap-2.5 w-full sm:w-auto sm:justify-end shrink-0">
+            <button id="btn-sincronizar-usuarios" onclick="confirmarSincronizacionUsuarios(this)" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-emerald-500/20 shrink-0 cursor-pointer">
+              <i data-lucide="cloud-lightning" class="h-4 w-4"></i> Sincronizar usuarios
+            </button>
+            <button id="btn-registrar-usuario" onclick="openUsuarioModal()" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-brand-500/20 shrink-0 cursor-pointer">
+              <i data-lucide="plus" class="h-4 w-4"></i> Registrar Usuario
+            </button>
+          </div>
         </div>
 
         <div class="rounded-2xl overflow-hidden border border-slate-700/40 mt-4 glass-card">
@@ -1475,7 +1480,7 @@ function renderUsuarios(container) {
                   <span>Sincronizar desde SharePoint</span>
                 </button>
                 
-                <button onclick="window.location.href='/api/admin/backup'" class="py-3 px-6 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2 shrink-0">
+                <button onclick="downloadBackup()" class="py-3 px-6 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2 shrink-0">
                   <i data-lucide="download" class="h-4 w-4"></i>
                   <span>Respaldar BD</span>
                 </button>
@@ -1518,6 +1523,8 @@ function renderUsuarios(container) {
         </div>
       </div>
     `;
+  } else if (activeAdminTab === 'logs') {
+    contentHtml = renderLogsTabHtml();
   } else if (activeAdminTab === 'database') {
     contentHtml = renderDatabaseInspectorHtml();
   } else if (activeAdminTab === 'auditoria') {
@@ -1802,6 +1809,10 @@ function renderUsuarios(container) {
           <i data-lucide="database" class="h-4 w-4"></i>
           Base de Datos
         </button>
+        <button onclick="changeAdminTab('logs')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === 'logs' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'} flex items-center gap-2 focus:outline-none shrink-0">
+          <i data-lucide="file-text" class="h-4 w-4"></i>
+          Bitácora de Logs
+        </button>
       </nav>
     </div>
 
@@ -1811,6 +1822,76 @@ function renderUsuarios(container) {
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }
+
+  if (activeAdminTab === 'logs' && typeof refreshAdminLogs === 'function') {
+    setTimeout(refreshAdminLogs, 50);
+  }
+}
+
+// RENDER: PESTAÑA BITÁCORA DE LOGS
+function renderLogsTabHtml() {
+  return `
+    <div class="space-y-4">
+      ${renderGlassCard(`
+        <!-- Header de la bitácora -->
+        <div class="border-b border-slate-800/60 pb-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+              <i data-lucide="file-text" class="h-4.5 w-4.5"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-heading">Bitácora de Errores</h3>
+              <p class="text-[10px] text-slate-500 mt-0.5">Últimos 200 eventos registrados por el sistema</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="logs-count-badge" class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-300 tabular-nums">—</span>
+            <button onclick="refreshAdminLogs()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.95] border border-slate-700">
+              <i data-lucide="refresh-cw" class="h-3 w-3"></i> Actualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- Leyenda de severidad -->
+        <div class="flex items-center gap-4 pt-3 pb-1">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-rose-500"></span>
+            <span class="text-[9px] text-slate-500 font-medium">Crítico</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+            <span class="text-[9px] text-slate-500 font-medium">Advertencia</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-sky-500"></span>
+            <span class="text-[9px] text-slate-500 font-medium">Autenticación</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full bg-slate-500"></span>
+            <span class="text-[9px] text-slate-500 font-medium">Info</span>
+          </div>
+          <span class="ml-auto text-[9px] text-slate-600 italic">Clic en una fila para ver detalles</span>
+        </div>
+
+        <!-- Tabla de logs -->
+        <div class="overflow-x-auto rounded-xl border border-slate-800/60 mt-2">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-slate-900/60 border-b border-slate-800/60">
+                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest w-[140px]">Fecha / Hora</th>
+                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest w-[120px]">Código</th>
+                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Mensaje</th>
+                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest w-[80px]"></th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs">Cargando registros...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `, 'rounded-2xl p-6 shadow-sm')}
+    </div>
+  `;
 }
 
 // RENDER: VISTA REPORTES ANALÍTICOS AVANZADOS
@@ -1844,8 +1925,14 @@ function renderReportes(container) {
           <td class="px-2 text-xs text-slate-200 text-left" title="${escapeHtmlAttr(item.cargoCompleto)}">
             <div class="font-medium text-slate-100 truncate max-w-xs">${escapeHtml(item.cargoCompleto)}</div>
           </td>
-          <td class="px-2 text-xs text-slate-300 text-left w-28">${item.fechaIngreso}</td>
-          <td class="px-2 text-xs text-slate-300 text-left w-28">${item.fechaAgendada}</td>
+          <td class="px-2 text-xs text-left w-32">
+            <div class="font-medium text-slate-200">${item.fechaIngreso}</div>
+            ${item.fechaLimiteRespuesta ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Legal Límite de Respuesta">${item.fechaLimiteRespuesta}</div>` : ''}
+          </td>
+          <td class="px-2 text-xs text-left w-32">
+            <div class="font-medium text-slate-200">${item.fechaAgendada}</div>
+            ${item.fechaLimitePublicacion ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Límite de Publicación">${item.fechaLimitePublicacion}</div>` : ''}
+          </td>
           <td class="px-2 text-xs text-left w-44">
             ${item.badgeText === 'Pendiente de publicación'
               ? `<span class="px-2 py-1 rounded text-[10px] font-semibold ${item.badgeClass} inline-block text-center leading-tight">Pendiente de<br>publicación</span>`
@@ -1902,12 +1989,28 @@ function renderReportes(container) {
     // update export PDF button visibility
     const exportBtnContainer = container.querySelector('#reportes-export-btn-container');
     if (exportBtnContainer) {
-      exportBtnContainer.innerHTML = totalItems > 0 ? `
-        <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
-          <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
-          Exportar PDF
-        </button>
-      ` : '';
+      exportBtnContainer.className = "flex items-center gap-2.5";
+      exportBtnContainer.innerHTML = `
+        <div class="flex items-center gap-2 mr-1">
+          <label class="flex items-center gap-1 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
+            <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-700 bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" checked>
+            <span>Solo vigentes</span>
+          </label>
+          <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-semibold flex items-center gap-1 transition-all shadow-sm">
+            <i data-lucide="files" class="h-3 w-3"></i>
+            Generación Masiva
+          </button>
+        </div>
+        
+        <div class="h-4 w-[1px] bg-slate-700/60 mx-1"></div>
+
+        ${totalItems > 0 ? `
+          <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+            <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
+            Exportar PDF
+          </button>
+        ` : ''}
+      `;
     }
     lucide.createIcons();
     return;
@@ -1937,7 +2040,7 @@ function renderReportes(container) {
             id: 'report-filter-nombre',
             fieldName: 'nombre',
             label: 'Nombre Sujeto Pasivo',
-            placeholder: 'Escribir nombre...',
+            placeholder: 'Vigentes o escribir nombre...',
             value: reportesFilters.nombre,
             hasSuggestions: true
           })}
@@ -1991,7 +2094,20 @@ function renderReportes(container) {
       <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
         <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
           <div class="text-xs text-slate-300" id="reportes-counter">${totalItems} registros coincidentes encontrados</div>
-          <div id="reportes-export-btn-container">
+          <div id="reportes-export-btn-container" class="flex items-center gap-2.5">
+            <div class="flex items-center gap-2 mr-1">
+              <label class="flex items-center gap-1 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
+                <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-700 bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" checked>
+                <span>Solo vigentes</span>
+              </label>
+              <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-semibold flex items-center gap-1 transition-all shadow-sm">
+                <i data-lucide="files" class="h-3 w-3"></i>
+                Generación Masiva
+              </button>
+            </div>
+            
+            <div class="h-4 w-[1px] bg-slate-700/60 mx-1"></div>
+
             ${totalItems > 0 ? `
               <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
                 <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
@@ -2008,8 +2124,14 @@ function renderReportes(container) {
                 <th class="pl-6 pr-2 py-3 w-12 text-left">#</th>
                 <th class="px-2 py-3 w-36 text-left">Folio</th>
                 <th class="px-2 py-3 text-left">Sujeto Pasivo y Cargo</th>
-                <th class="px-2 py-3 w-28 text-left">Fecha Ingreso</th>
-                <th class="px-2 py-3 w-28 text-left">Fecha Agenda</th>
+                <th class="px-2 py-3 w-36 text-left">
+                  <div>Fecha Ingreso</div>
+                  <div class="text-[9px] font-normal text-slate-500 mt-0.5 normal-case tracking-normal">Plazo Respuesta</div>
+                </th>
+                <th class="px-2 py-3 w-36 text-left">
+                  <div>Fecha Agenda</div>
+                  <div class="text-[9px] font-normal text-slate-500 mt-0.5 normal-case tracking-normal">Plazo Publicación</div>
+                </th>
                 <th class="px-2 py-3 w-44 text-left">Estado</th>
                 <th class="pl-2 pr-6 py-3 w-28 text-left">Plazo / Retraso</th>
               </tr>
@@ -2031,8 +2153,19 @@ function renderReportes(container) {
  * RENDER: VISTA DE INICIO DE SESIÓN
  * Presenta una pantalla de autenticación premium integrada en la SPA.
  */
-function renderLogin(container) {
+async function renderLogin(container) {
   const isElectron = window.location.search.includes('platform=electron') || window.navigator.userAgent.toLowerCase().includes('electron');
+
+  let isInitialized = true;
+  if (isElectron) {
+    try {
+      const res = await fetch('/api/auth/status');
+      const data = await res.json();
+      isInitialized = !!(data && data.initialized);
+    } catch (e) {
+      console.warn('Error al verificar estado de inicialización:', e);
+    }
+  }
 
   container.innerHTML = `
     <div class="min-h-[80vh] flex items-center justify-center p-4">
@@ -2064,7 +2197,7 @@ function renderLogin(container) {
         <!-- Opción Microsoft SSO (Solo en Electron) -->
         ${isElectron ? `
         <div id="sso-container" class="space-y-4 relative z-10 text-center">
-          <button onclick="triggerSsoLogin()" 
+          <button id="btn-sso-login" onclick="triggerSsoLogin()" 
                   class="w-full py-3 bg-[#2f2f2f] hover:bg-[#3f3f3f] text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg mt-2 flex items-center justify-center gap-2.5 border border-slate-700 active:scale-[0.98]">
             <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M0 0H11V11H0V0Z" fill="#F25022"/>
@@ -2072,65 +2205,10 @@ function renderLogin(container) {
               <path d="M0 12H11V23H0V12Z" fill="#00A4EF"/>
               <path d="M12 12H23V23H12V12Z" fill="#FFB900"/>
             </svg>
-            <span>Iniciar sesión con cuenta corporativa</span>
-          </button>
-          
-          <button onclick="document.getElementById('local-form-container').classList.remove('hidden'); document.getElementById('sso-container').classList.add('hidden');" 
-                  class="text-[10px] text-brand-400 hover:text-brand-300 font-semibold underline transition-colors cursor-pointer bg-transparent border-none">
-            Ingreso alternativo con clave local
+            <span id="btn-sso-text">Iniciar sesión</span>
           </button>
         </div>
         ` : ''}
-
-        <!-- Formulario Local -->
-        <div id="local-form-container" class="${isElectron ? 'hidden' : ''} space-y-4">
-          <form onsubmit="event.preventDefault(); login(document.getElementById('login-email').value, document.getElementById('login-password').value);" autocomplete="off" class="space-y-4 relative z-10">
-            <!-- Correo -->
-            <div class="space-y-1">
-              <label for="login-email" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">Correo Electrónico</label>
-              <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <i data-lucide="mail" class="h-4 w-4"></i>
-                </span>
-                <input type="email" id="login-email" required placeholder="ejemplo@correo.com" autocomplete="off" value=""
-                       class="w-full pl-9 pr-3 py-2.5 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-500">
-              </div>
-            </div>
-
-            <!-- Contraseña -->
-            <div class="space-y-1">
-              <div class="flex justify-between items-center">
-                <label for="login-password" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">Contraseña</label>
-              </div>
-              <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <i data-lucide="lock" class="h-4 w-4"></i>
-                </span>
-                <input type="password" id="login-password" required placeholder="••••••••" autocomplete="new-password" value=""
-                       class="w-full pl-9 pr-10 py-2.5 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-500">
-                <button type="button" onclick="togglePasswordVisibility('login-password', 'login-password-eye')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors" title="Mostrar contraseña">
-                  <i id="login-password-eye" data-lucide="eye" class="h-4 w-4"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Botón de Envío -->
-            <button type="submit" 
-                    class="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-brand-500/20 active:scale-[0.98] mt-6 flex items-center justify-center gap-2">
-              <span>Iniciar Sesión</span>
-              <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
-            </button>
-          </form>
-
-          ${isElectron ? `
-          <div class="text-center mt-2">
-            <button onclick="document.getElementById('local-form-container').classList.add('hidden'); document.getElementById('sso-container').classList.remove('hidden');" 
-                    class="text-[10px] text-slate-400 hover:text-slate-300 transition-colors bg-transparent border-none cursor-pointer">
-              Volver al inicio de sesión Microsoft
-            </button>
-          </div>
-          ` : ''}
-        </div>
 
         <!-- Pie de página de login -->
         <div class="text-center text-[10px] text-body-muted pt-2 relative z-10 border-t border-slate-900/60">

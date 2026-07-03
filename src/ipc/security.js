@@ -15,14 +15,20 @@ function validateIpcSender(event) {
 
   // 2. Verificar origen del protocolo privilegido
   if (frame.origin !== TRUSTED_ORIGIN) {
-    console.error(`[Alerta de Seguridad] Intento de IPC bloqueado desde origen no autorizado: ${frame.origin}`);
+    console.error(
+      `[Alerta de Seguridad] Intento de IPC bloqueado desde origen no autorizado: ${frame.origin}`,
+    );
     throw new Error("Acceso denegado: Origen de solicitud no autorizado.");
   }
 
   // 3. Bloquear llamadas desde frames secundarios o iframes de terceros
   if (frame.parent !== null) {
-    console.error("[Alerta de Seguridad] Intento de IPC bloqueado desde un frame secundario (iframe).");
-    throw new Error("Acceso denegado: Solo el frame principal puede iniciar llamadas IPC.");
+    console.error(
+      "[Alerta de Seguridad] Intento de IPC bloqueado desde un frame secundario (iframe).",
+    );
+    throw new Error(
+      "Acceso denegado: Solo el frame principal puede iniciar llamadas IPC.",
+    );
   }
 }
 
@@ -33,20 +39,50 @@ function validateIpcSender(event) {
  */
 function safeIpcHandle(channel, handler) {
   const { ipcMain } = require("electron");
-  
+
   ipcMain.handle(channel, async (event, ...args) => {
     try {
       // Aplicar validaciones de seguridad de bajo nivel antes de invocar la lógica
       validateIpcSender(event);
-      return await handler(event, ...args);
+      const res = await handler(event, ...args);
+      // Si el resultado de la ruta API es un error, lo registramos
+      if (res && res.status >= 400) {
+        const { logError } = require("../config/logger");
+        let code = "ERR-GEN-999";
+        const errMsg = (res.data && (res.data.error || res.data.message)) || "Error en la petición API";
+        
+        // Mapear código si viene explícito en el mensaje, o según el status
+        if (errMsg.includes("ERR-")) {
+          const match = errMsg.match(/ERR-\w+-\d+/);
+          if (match) code = match[0];
+        } else {
+          if (res.status === 401) code = "ERR-AUTH-201";
+          else if (res.status === 403) code = "ERR-AUTH-204";
+          else if (res.status === 404) code = "ERR-DB-500";
+        }
+        logError(code, errMsg, `Canal: ${channel} | Status: ${res.status}`);
+      }
+      return res;
     } catch (error) {
-      console.error(`Error en canal IPC seguro [${channel}]:`, error.message);
-      return { success: false, error: error.message };
+      console.error(`Error en canal IPC seguro [${channel}]:`, error.stack);
+      const { logError } = require("../config/logger");
+      let code = "ERR-GEN-999";
+      if (error.message && error.message.includes("ERR-")) {
+        const match = error.message.match(/ERR-\w+-\d+/);
+        if (match) code = match[0];
+      }
+      logError(code, error.message, error.stack);
+      return { 
+        success: false, 
+        error: error.message,
+        status: 500,
+        data: { error: error.message }
+      };
     }
   });
 }
 
 module.exports = {
   safeIpcHandle,
-  validateIpcSender
+  validateIpcSender,
 };

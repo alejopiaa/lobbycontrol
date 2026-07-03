@@ -8,6 +8,7 @@ let dataStore = {
   solicitudes: [],
   publicadas: [],
   sujetos_pasivos: [],
+  sujetosVigentesNombres: [],
   stats: {},
   dbHealth: null,
   syncHistory: [],
@@ -53,14 +54,16 @@ window.fetch = async function (input, init = {}) {
       });
 
       // Crear un objeto Response simulado para que el frontend lo procese igual
+      const resStatus = responseData?.status || (responseData?.success === false ? 500 : 200);
+      const resData = responseData?.data !== undefined ? responseData.data : (responseData !== undefined ? responseData : { error: 'Unknown backend response' });
       const resObj = new Response(
-        typeof responseData.data === 'string' ? responseData.data : JSON.stringify(responseData.data),
+        typeof resData === 'string' ? resData : JSON.stringify(resData),
         {
-          status: responseData.status || 200,
-          statusText: responseData.statusText || 'OK',
+          status: resStatus,
+          statusText: resStatus === 200 ? 'OK' : 'Error',
           headers: new Headers({
             'Content-Type': 'application/json',
-            ...(responseData.headers || {})
+            ...(responseData?.headers || {})
           })
         }
       );
@@ -70,7 +73,12 @@ window.fetch = async function (input, init = {}) {
         if (!url.includes('/api/auth/me') && !url.includes('/api/auth/login')) {
           currentUser = null;
           switchView('login');
-          showToast('Su sesión ha expirado o no está autorizado.', 'error');
+          resObj.clone().json().then(data => {
+            const msg = data.error || data.message || 'Su sesión ha expirado o no está autorizado.';
+            showToast(msg, 'error');
+          }).catch(() => {
+            showToast('Su sesión ha expirado o no está autorizado.', 'error');
+          });
         }
       }
 
@@ -90,7 +98,12 @@ window.fetch = async function (input, init = {}) {
     if (!url.includes('/api/auth/me') && !url.includes('/api/auth/login')) {
       currentUser = null;
       switchView('login');
-      showToast('Su sesión ha expirado o no está autorizado.', 'error');
+      response.clone().json().then(data => {
+        const msg = data.error || data.message || 'Su sesión ha expirado o no está autorizado.';
+        showToast(msg, 'error');
+      }).catch(() => {
+        showToast('Su sesión ha expirado o no está autorizado.', 'error');
+      });
     }
   }
   return response;
@@ -153,6 +166,7 @@ let reportesFilters = {
 let dashboardDropdownCache = {
   anios: [],
   nombres: [],
+  nombresVigentes: [],
   cargos: [],
   sujetosActivosRepresentados: []
 };
@@ -250,8 +264,20 @@ function updateHeaderUserSection() {
 async function triggerSsoLogin() {
   const loginErrorEl = document.getElementById('login-error');
   const loginErrorTextEl = document.getElementById('login-error-text');
+  const btn = document.getElementById('btn-sso-login');
   
   if (loginErrorEl) loginErrorEl.classList.add('hidden');
+
+  let originalHtml = '';
+  if (btn) {
+    originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('opacity-60', 'cursor-not-allowed');
+    btn.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4 animate-spin shrink-0"></i> <span>Iniciando sesión...</span>`;
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+  }
 
   try {
     const res = await fetch('/api/auth/trigger-sso', { method: 'POST' });
@@ -272,63 +298,32 @@ async function triggerSsoLogin() {
       window.location.reload();
     } else {
       if (loginErrorEl && loginErrorTextEl) {
-        loginErrorTextEl.textContent = data.error || 'No se pudo iniciar sesión con Microsoft.';
+        const rawMsg = data.message || data.error || 'No se pudo iniciar sesión con Microsoft.';
+        loginErrorTextEl.textContent = translateError(rawMsg);
         loginErrorEl.classList.remove('hidden');
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        btn.innerHTML = originalHtml;
+        if (typeof lucide !== 'undefined') {
+          lucide.createIcons();
+        }
       }
     }
   } catch (err) {
     console.error('Error en SSO:', err);
     if (loginErrorEl && loginErrorTextEl) {
-      loginErrorTextEl.textContent = 'Error de red al conectar con el inicio de sesión corporativo.';
+      loginErrorTextEl.textContent = translateError(err.message || 'Error de red al conectar con el inicio de sesión corporativo.');
       loginErrorEl.classList.remove('hidden');
     }
-  }
-}
-
-async function login(correo, password) {
-  const loginErrorEl = document.getElementById('login-error');
-  const loginErrorTextEl = document.getElementById('login-error-text');
-  
-  if (loginErrorEl) {
-    loginErrorEl.classList.add('hidden');
-  }
-  if (loginErrorTextEl) {
-    loginErrorTextEl.textContent = '';
-  }
-
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ correo, password })
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      currentUser = data.user;
-      showToast('Sesión iniciada con éxito');
-      
-      // Mostrar la cabecera antes de cambiar de vista
-      const header = document.querySelector('header');
-      if (header) header.classList.remove('hidden');
-      
-      updateHeaderUserSection();
-      fetchAlertas();
-      // Iniciar el módulo de timeout de inactividad
-      if (typeof initSessionTimeout === 'function') initSessionTimeout();
-      switchView('dashboard');
-    } else {
-      const err = await res.json();
-      if (loginErrorEl && loginErrorTextEl) {
-        loginErrorTextEl.textContent = err.error || 'Credenciales inválidas. Inténtelo de nuevo.';
-        loginErrorEl.classList.remove('hidden');
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-60', 'cursor-not-allowed');
+      btn.innerHTML = originalHtml;
+      if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
       }
-    }
-  } catch (err) {
-    console.error('Error en login:', err);
-    if (loginErrorEl && loginErrorTextEl) {
-      loginErrorTextEl.textContent = 'Error de red al conectar con el servidor.';
-      loginErrorEl.classList.remove('hidden');
     }
   }
 }
@@ -336,6 +331,11 @@ async function login(correo, password) {
 async function logout() {
   // Detener el timeout antes de cerrar sesión
   if (typeof destroySessionTimeout === 'function') destroySessionTimeout();
+  // Detener la sincronización automática en segundo plano
+  if (window.bgSyncInterval) {
+    clearInterval(window.bgSyncInterval);
+    window.bgSyncInterval = null;
+  }
   try {
     const res = await fetch('/api/auth/logout', { method: 'POST' });
     if (res.ok) {
@@ -351,6 +351,85 @@ async function logout() {
   }
 }
 
+// Función para iniciar la verificación automática de base de datos en segundo plano
+function initBackgroundSync() {
+  if (window.bgSyncInterval) clearInterval(window.bgSyncInterval);
+
+  const runSync = async () => {
+    if (!currentUser) return;
+
+    const lastUpdateEl = document.getElementById('db-last-update');
+    const originalText = lastUpdateEl ? lastUpdateEl.textContent : '';
+
+    // 1. Mostrar estado "Actualizando..." y parpadeo ámbar
+    if (lastUpdateEl) {
+      lastUpdateEl.textContent = 'Actualizando...';
+      lastUpdateEl.classList.remove('text-emerald-300');
+      lastUpdateEl.classList.add('text-amber-400', 'animate-pulse');
+    }
+
+    try {
+      console.log('[Auto-Sync] Verificando nueva versión de base de datos...');
+      const res = await fetch('/api/db/sync', { method: 'POST' });
+      
+      if (res.ok) {
+        const data = await res.json();
+        
+        if (data.success && data.updated) {
+          console.log('[Auto-Sync] ¡Base de datos actualizada con éxito!');
+          
+          // 2. Mostrar aviso sutil (Toast) de éxito
+          showToast('Base de datos actualizada con nuevos registros.', 'success');
+          
+          // 3. Destello verde esmeralda y escalar tamaño
+          if (lastUpdateEl) {
+            lastUpdateEl.textContent = data.dbLastUpdate || 'Al día';
+            lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
+            lastUpdateEl.classList.add('text-emerald-400', 'scale-105');
+            setTimeout(() => {
+              lastUpdateEl.classList.remove('text-emerald-400', 'scale-105');
+              lastUpdateEl.classList.add('text-emerald-300');
+            }, 3000);
+          }
+          
+          // 4. Refrescar la vista actual para renderizar los nuevos datos al instante
+          if (typeof renderView === 'function') {
+            renderView();
+          }
+        } else {
+          // Si no hubo actualización, restablecer el texto original sin molestar
+          if (lastUpdateEl) {
+            lastUpdateEl.textContent = originalText;
+            lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
+            lastUpdateEl.classList.add('text-emerald-300');
+          }
+        }
+      } else {
+        if (lastUpdateEl) {
+          lastUpdateEl.textContent = originalText;
+          lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
+          lastUpdateEl.classList.add('text-emerald-300');
+        }
+      }
+    } catch (err) {
+      console.error('[Auto-Sync] Error en la verificación automática:', err);
+      if (lastUpdateEl) {
+        lastUpdateEl.textContent = originalText;
+        lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
+        lastUpdateEl.classList.add('text-emerald-300');
+      }
+    }
+  };
+
+  // 1. Ejecutar una verificación inicial 2 segundos después de arrancar
+  setTimeout(runSync, 2000);
+
+  // 2. Ejecutar de forma periódica en segundo plano
+  // NOTA: Configurado temporalmente a 30 segundos para pruebas rápidas (luego cambiar a 5 minutos)
+  const syncIntervalTime = 30 * 1000; 
+  window.bgSyncInterval = setInterval(runSync, syncIntervalTime);
+}
+
 // Al cargar el documento
 document.addEventListener('DOMContentLoaded', async () => {
   lucide.createIcons();
@@ -362,6 +441,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     fetchAlertas();
     // Iniciar el módulo de timeout de inactividad (sesión ya activa desde una recarga)
     if (typeof initSessionTimeout === 'function') initSessionTimeout();
+    // Iniciar la sincronización automática en segundo plano
+    if (typeof initBackgroundSync === 'function') initBackgroundSync();
     const savedView = localStorage.getItem('lobby_current_view') || 'dashboard';
     switchView(savedView === 'login' ? 'dashboard' : savedView);
   } else {
@@ -573,19 +654,79 @@ function hideGlobalTooltip() {
 }
 
 // Mostrar notificaciones Toast
-function showToast(message, type = 'success') {
+function showToast(message, type = 'success', options = {}) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
-  toast.className = `flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-2 opacity-0 glass-card border-l-4 ${
+  const isError = type === 'error';
+  
+  let displayMessage = message;
+  let errorDetails = options.details || '';
+  
+  if (isError) {
+    displayMessage = translateError(message);
+    
+    const codeMatch = displayMessage.match(/\[(ERR-\w+-\d+)\]/);
+    const code = codeMatch ? codeMatch[1] : '';
+    
+    if (code === 'ERR-GEN-999' || code === 'ERR-DB-500') {
+      const now = new Date();
+      const d = String(now.getDate()).padStart(2, '0');
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const y = now.getFullYear();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const timestamp = `${d}-${m}-${y} ${hh}:${min}:${ss}`;
+
+      errorDetails = `================ LOBBYCONTROL ERROR REPORT ================
+Fecha/Hora:     ${timestamp}
+Código Soporte: ${code}
+Mensaje:        ${displayMessage}
+-----------------------------------------------------------
+Detalle Técnico:
+${message}
+===========================================================`;
+    }
+  }
+
+  const persistent = options.persistent !== undefined ? options.persistent : isError;
+
+  toast.className = `flex items-center justify-between gap-3 px-4 py-3 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-2 opacity-0 glass-card border-l-4 ${
     type === 'success' ? 'border-l-emerald-500 text-emerald-300' : 'border-l-rose-500 text-rose-300'
   }`;
   
   const icon = type === 'success' ? 'check-circle' : 'alert-circle';
-  toast.innerHTML = `
-    <i data-lucide="${icon}" class="h-5 w-5 shrink-0"></i>
-    <span>${message}</span>
-  `;
   
+  let htmlContent = `
+    <div class="flex items-center gap-3 pr-2">
+      <i data-lucide="${icon}" class="h-5 w-5 shrink-0"></i>
+      <span class="break-words text-left">${displayMessage}</span>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+  `;
+
+  if (isError && errorDetails) {
+    const escapedDetails = String(errorDetails).replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    htmlContent += `
+      <button onclick="navigator.clipboard.writeText('${escapedDetails}'); showToast('Detalles copiados', 'success', { persistent: false });" 
+              class="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/60 rounded text-[10px] font-semibold text-rose-300 transition-colors border border-rose-800/40 active:scale-[0.98] cursor-pointer">
+        Copiar detalles
+      </button>
+    `;
+  }
+
+  if (persistent) {
+    htmlContent += `
+      <button onclick="const t = this.closest('.transform'); t.classList.add('translate-y-2', 'opacity-0'); setTimeout(() => t.remove(), 300);" 
+              class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center">
+        <i data-lucide="x" class="h-4 w-4"></i>
+      </button>
+    `;
+  }
+
+  htmlContent += `</div>`;
+
+  toast.innerHTML = htmlContent;
   container.appendChild(toast);
   lucide.createIcons();
   
@@ -595,10 +736,14 @@ function showToast(message, type = 'success') {
   }, 50);
 
   // Eliminación automática
-  setTimeout(() => {
-    toast.classList.add('translate-y-2', 'opacity-0');
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  if (!persistent) {
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }
+    }, 4000);
+  }
 }
 
 // Petición especial de datos para Reportes
@@ -610,6 +755,7 @@ async function fetchReportesData(signal) {
 
 // Cambiar de vista activa en el Sidebar y recargar datos
 async function switchView(viewName) {
+  window.isSwitchingView = true;
   // Proteger el ruteo en el cliente según rol
   if (viewName !== 'login' && currentUser) {
     const rol = currentUser.rol || '';
@@ -634,10 +780,6 @@ async function switchView(viewName) {
   if (viewName === 'login') {
     if (header) header.classList.add('hidden');
     renderView();
-    const emailInput = document.getElementById('login-email');
-    const passInput = document.getElementById('login-password');
-    if (emailInput) emailInput.value = '';
-    if (passInput) passInput.value = '';
     return;
   } else {
     if (header) header.classList.remove('hidden');
@@ -686,6 +828,8 @@ async function switchView(viewName) {
     } else if (viewName === 'reportes') {
       await fetchReportesData(signal);
       await fetchData('publicadas', signal);
+      // Cargar nombres de sujetos pasivos vigentes para el autocomplete
+      await fetchVigentesNombres(signal);
       dataStore.dashboardRawData = dataStore.reportesRawData;
       buildDashboardDropdownCache();
     } else {
@@ -942,6 +1086,18 @@ async function fetchActiveSujetoIds(signal) {
   activeSujetoIdsCache = new Set(data);
 }
 
+// Petición de nombres de sujetos pasivos VIGENTES (para el autocomplete de reportes)
+async function fetchVigentesNombres(signal) {
+  try {
+    const res = await fetch('/api/sujetos_pasivos/vigentes-nombres', { signal });
+    if (!res.ok) return;
+    const data = await res.json();
+    dataStore.sujetosVigentesNombres = data; // [{ nombre, rut }, ...]
+  } catch (e) {
+    console.warn('No se pudo cargar la lista de vigentes:', e);
+  }
+}
+
 // Construir caché única de años, nombres y cargos del sujeto pasivo
 function buildDashboardDropdownCache() {
   const rawNombresSet = new Set();
@@ -989,6 +1145,16 @@ function buildDashboardDropdownCache() {
   dashboardDropdownCache.nombres = Array.from(nombresSet).sort((a, b) => a.localeCompare(b));
   dashboardDropdownCache.cargos = Array.from(cargosSet).sort((a, b) => a.localeCompare(b));
   dashboardDropdownCache.sujetosActivosRepresentados = Array.from(sujetosActivosRepresentadosSet).sort((a, b) => a.localeCompare(b));
+
+  // Construir lista de sujetos pasivos VIGENTES desde el endpoint dedicado
+  const vigentesNombresSet = new Set();
+  (dataStore.sujetosVigentesNombres || []).forEach(sp => {
+    if (sp.nombre) {
+      const normalized = normalizeName(sp.nombre);
+      if (normalized) vigentesNombresSet.add(normalized);
+    }
+  });
+  dashboardDropdownCache.nombresVigentes = Array.from(vigentesNombresSet).sort((a, b) => a.localeCompare(b));
 }
 
 
@@ -1055,7 +1221,15 @@ function showDashboardSuggestions(fieldName) {
 
   let list;
   if (fieldName === 'nombre') {
-    list = idPrefix === 'report-filter-' ? ['Todos', ...dashboardDropdownCache.nombres] : dashboardDropdownCache.nombres;
+    if (idPrefix === 'report-filter-') {
+      // En reportes: si hay texto escrito → todos los nombres (predictivo); si está vacío → solo vigentes
+      const typedVal = (input ? input.value.trim() : '');
+      list = (typedVal.length > 0)
+        ? dashboardDropdownCache.nombres
+        : dashboardDropdownCache.nombresVigentes;
+    } else {
+      list = dashboardDropdownCache.nombres;
+    }
   } else if (fieldName === 'anio') {
     list = dashboardDropdownCache.anios;
   } else if (fieldName === 'sujetoActivoRepresentado') {
@@ -1089,16 +1263,20 @@ function showDashboardSuggestions(fieldName) {
   }
   
   // Si el campo nombre o sujetoActivoRepresentado está vacío, no mostrar sugerencias
-  if ((fieldName === 'nombre' || fieldName === 'sujetoActivoRepresentado') && val.length === 0) {
+  // Excepción: en reportes, campo nombre → mostrar los vigentes aunque esté vacío (como lista inicial)
+  const isReportesNombre = (idPrefix === 'report-filter-' && fieldName === 'nombre');
+  if ((fieldName === 'nombre' || fieldName === 'sujetoActivoRepresentado') && val.length === 0 && !isReportesNombre) {
     suggestionsDiv.classList.add('hidden');
     activeSuggestionIndex = -1;
     return;
   }
 
   const isValTodos = val.toLowerCase() === 'todos';
+  // En reportes campo nombre sin texto: mostrar todos los vigentes (hasta 35)
+  const maxSuggestions = isReportesNombre && val.length === 0 ? 50 : 8;
   const filtered = (val.length > 0 && fieldName !== 'anio' && !isValTodos)
-    ? list.filter(item => item.toLowerCase().includes(val)).slice(0, 8)
-    : (fieldName === 'anio' ? list : list.slice(0, 8));
+    ? list.filter(item => item.toLowerCase().includes(val)).slice(0, maxSuggestions)
+    : (fieldName === 'anio' ? list : list.slice(0, maxSuggestions));
 
   if (filtered.length === 0) {
     suggestionsDiv.innerHTML = `
@@ -1111,7 +1289,17 @@ function showDashboardSuggestions(fieldName) {
     return;
   }
 
-  suggestionsDiv.innerHTML = filtered.map((item, index) => {
+  // Encabezado de grupo para el campo nombre en reportes
+  let headerHtml = '';
+  if (isReportesNombre) {
+    if (val.length === 0) {
+      headerHtml = `<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-400 border-b border-slate-700/60 flex items-center gap-1.5"><i data-lucide="shield-check" class="h-3 w-3"></i> Sujetos Pasivos Vigentes</div>`;
+    } else {
+      headerHtml = `<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700/60">Resultados de búsqueda</div>`;
+    }
+  }
+
+  suggestionsDiv.innerHTML = headerHtml + filtered.map((item, index) => {
     return `
       <div data-action="select-suggestion"
            data-field="${fieldName}"
@@ -1123,6 +1311,7 @@ function showDashboardSuggestions(fieldName) {
   }).join('');
   suggestionsDiv.classList.remove('hidden');
   activeSuggestionIndex = -1;
+  if (isReportesNombre) lucide.createIcons();
 }
 
 // Seleccionar sugerencia del Dashboard
@@ -1195,7 +1384,8 @@ function hideDashboardSuggestions(fieldName) {
       
       let list;
       if (fieldName === 'nombre') {
-        list = idPrefix === 'report-filter-' ? ['Todos', ...dashboardDropdownCache.nombres] : dashboardDropdownCache.nombres;
+        // En reportes: aceptar cualquier nombre del historial completo (vigentes o no)
+        list = dashboardDropdownCache.nombres;
       } else if (fieldName === 'sujetoActivoRepresentado') {
         list = dashboardDropdownCache.sujetosActivosRepresentados || [];
       } else if (fieldName === 'cargo') {
@@ -1457,8 +1647,10 @@ const debouncedReportesRender = debounce((activeInputId) => {
     const input = document.getElementById(activeInputId);
     if (input) {
       input.focus();
-      const len = input.value.length;
-      input.setSelectionRange(len, len);
+      if (input.tagName === 'INPUT' && typeof input.setSelectionRange === 'function') {
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+      }
     }
   }
 }, 250);
@@ -1560,7 +1752,8 @@ function renderView() {
   }
   lucide.createIcons();
   updateThemeIcons();
-  hideLoader(!!window.activeInputId);
+  hideLoader(!!window.activeInputId || !window.isSwitchingView);
+  window.isSwitchingView = false;
 }
 
 
@@ -1818,21 +2011,6 @@ function openUsuarioModal(id = null) {
           </select>
         </div>
 
-        <div class="space-y-1">
-          <div class="flex justify-between items-center">
-            <label class="text-[10px] font-bold text-body-muted uppercase">Contraseña ${isEdit ? '(dejar en blanco para no cambiar)' : ''}</label>
-            <button type="button" onclick="const p = generateSecurePassword(); const inp = document.getElementById('user-password'); inp.value = p; inp.type = 'text'; const eye = document.getElementById('user-password-eye'); if (eye) { eye.setAttribute('data-lucide', 'eye-off'); lucide.createIcons(); } navigator.clipboard.writeText(p); showToast('Contraseña segura generada y copiada al portapapeles.');" class="text-[10px] font-semibold text-brand-400 hover:text-brand-300 transition-colors flex items-center gap-1">
-              <i data-lucide="key" class="h-3 w-3"></i> Generar y copiar
-            </button>
-          </div>
-          <div class="relative">
-            <input type="password" id="user-password" ${isEdit ? '' : 'required'} placeholder="${isEdit ? '••••••••' : 'Escriba contraseña...'}" class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400">
-            <button type="button" onclick="togglePasswordVisibility('user-password', 'user-password-eye')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors" title="Mostrar contraseña">
-              <i id="user-password-eye" data-lucide="eye" class="h-4 w-4"></i>
-            </button>
-          </div>
-        </div>
-
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold btn-secondary">Cancelar</button>
           <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold btn-primary">Guardar Cambios</button>
@@ -1849,7 +2027,6 @@ async function saveUsuario(event, id) {
   const correo = document.getElementById('user-correo').value;
   const rol = document.getElementById('user-rol').value;
   const rut = document.getElementById('user-rut').value;
-  const password = document.getElementById('user-password').value;
   const asistido_rut = rol === 'Asistente técnico' ? document.getElementById('user-asistido-rut').value : '';
 
   const isEdit = id !== null;
@@ -1857,9 +2034,6 @@ async function saveUsuario(event, id) {
   const method = isEdit ? 'PUT' : 'POST';
 
   const bodyData = { nombre, correo, rol, rut, asistido_rut };
-  if (password && password.trim() !== '') {
-    bodyData.password = password;
-  }
 
   try {
     const res = await fetch(url, {
@@ -1879,6 +2053,49 @@ async function saveUsuario(event, id) {
     switchView('administracion');
   } catch (err) {
     showToast(err.message, 'error');
+  }
+}
+
+function confirmarSincronizacionUsuarios(btn) {
+  openConfirmModal(
+    'Sincronizar Usuarios',
+    '¿Está seguro de que desea subir y sincronizar la base de datos de usuarios actual con SharePoint? Esto actualizará la versión oficial para todos los computadores de la red.',
+    () => {
+      sincronizarUsuariosASharepoint(btn);
+    }
+  );
+}
+
+async function sincronizarUsuariosASharepoint(btn) {
+  if (!btn) return;
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('opacity-60', 'cursor-not-allowed');
+  btn.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4 animate-spin shrink-0"></i> <span>Sincronizando...</span>`;
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/admin/sincronizar-usuarios-sharepoint', { method: 'POST' });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      showToast(data.message || 'Usuarios sincronizados con SharePoint correctamente.', 'success');
+      fetchAndUpdateDbTimestamp();
+    } else {
+      showToast(data.error || 'Error al sincronizar usuarios.', 'error');
+    }
+  } catch (err) {
+    console.error('Error al sincronizar usuarios:', err);
+    showToast('Error de red al conectar con el servidor', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('opacity-60', 'cursor-not-allowed');
+    btn.innerHTML = originalHtml;
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
   }
 }
 
@@ -1932,22 +2149,6 @@ function openProfileModal() {
                  class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400">
         </div>
 
-        <!-- CONTRASEÑA -->
-        <div class="space-y-1">
-          <div class="flex justify-between items-center">
-            <label class="text-[10px] font-bold text-body-muted uppercase">Contraseña (dejar en blanco para conservar la actual)</label>
-            <button type="button" onclick="const p = generateSecurePassword(); const inp = document.getElementById('profile-password'); inp.value = p; inp.type = 'text'; const eye = document.getElementById('profile-password-eye'); if (eye) { eye.setAttribute('data-lucide', 'eye-off'); lucide.createIcons(); } navigator.clipboard.writeText(p); showToast('Contraseña segura generada y copiada al portapapeles.');" class="text-[10px] font-semibold text-brand-400 hover:text-brand-300 transition-colors flex items-center gap-1">
-              <i data-lucide="key" class="h-3 w-3"></i> Generar y copiar
-            </button>
-          </div>
-          <div class="relative">
-            <input type="password" id="profile-password" placeholder="••••••••" class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400">
-            <button type="button" onclick="togglePasswordVisibility('profile-password', 'profile-password-eye')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors" title="Mostrar contraseña">
-              <i id="profile-password-eye" data-lucide="eye" class="h-4 w-4"></i>
-            </button>
-          </div>
-        </div>
-
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold btn-secondary">Cancelar</button>
           <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold btn-primary">Guardar Cambios</button>
@@ -1963,17 +2164,11 @@ async function saveProfile(event) {
   const nombre = document.getElementById('profile-nombre').value;
   const correo = document.getElementById('profile-correo').value;
   const rut = document.getElementById('profile-rut').value;
-  const password = document.getElementById('profile-password').value;
-
   const bodyData = { correo };
   
   if (currentUser.rol === 'Administrador') {
     bodyData.nombre = nombre;
     bodyData.rut = rut;
-  }
-  
-  if (password && password.trim() !== '') {
-    bodyData.password = password;
   }
 
   try {
@@ -2170,6 +2365,59 @@ document.addEventListener('change', (e) => {
   }
 });
 
+// Helper global para abreviar cargos según mapeo del usuario
+const getCargoAbbreviated = (cargoText) => {
+  if (!cargoText) return 'TODOS';
+  const clean = cargoText.toLowerCase().trim();
+  
+  if (clean.includes('2770')) return 'CE';
+  if (clean.includes('comisión evaluadora') || clean.includes('comision evaluadora')) return 'CE';
+  if (clean.includes('compras públicas') || clean.includes('compras publicas')) return 'COMP';
+  if (clean.includes('smapa')) return 'SMAPA';
+  if (clean.includes('salud municipal') || clean.includes('disam')) return 'DISAM';
+  if (clean.includes('inspección') || clean.includes('inspeccion')) return 'INS';
+  if (clean.includes('riesgo, desastres') || clean.includes('riesgo desastres') || clean.includes('drde')) return 'DRDE';
+  if (clean.includes('tránsito') || clean.includes('transito') || clean.includes('dtt')) return 'DTT';
+  if (clean.includes('operaciones')) return 'OPS';
+  if (clean.includes('aseo, ornato') || clean.includes('aseo ornato') || clean.includes('daoga')) return 'DAOGA';
+  if (clean.includes('recursos humanos') || clean.includes('rrhh')) return 'RRHH';
+  if (clean.includes('tecnología y comunicaciones') || clean.includes('tecnologia y comunicaciones') || clean.includes('ditec')) return 'DITEC';
+  if (clean.includes('comunal de planificación') || clean.includes('comunal de planificacion') || clean.includes('secpla')) return 'SECPLA';
+  if (clean.includes('prevención y seguridad') || clean.includes('prevencion y seguridad') || clean.includes('dipresec')) return 'DIPRESEC';
+  if (clean.includes('obras municipales') || clean.includes('dom')) return 'DOM';
+  if (clean.includes('desarrollo comunitario') || clean.includes('dideco')) return 'DIDECO';
+  if (clean.includes('asesoría jurídica') || clean.includes('asesoria juridica') || clean.includes('daj')) return 'DAJ';
+  if (clean.includes('administración y finanzas') || clean.includes('administracion y finanzas') || clean.includes('daf')) return 'DAF';
+  if (clean.includes('control')) return 'CTRL';
+  if (clean.includes('secretaria municipal') || clean.includes('secretario municipal')) return 'SECMUN';
+  if (clean.includes('concejal') || clean.includes('concejala')) return 'CON';
+  if (clean.includes('alcalde') || clean.includes('alcaldesa') || clean.includes('gabinete alcaldía') || clean.includes('gabinete alcaldia') || clean.includes('comunicaciones alcaldía') || clean.includes('comunicaciones alcaldia') || clean.includes('asistente alcaldía') || clean.includes('asistente alcaldia')) return 'ALC';
+  if (clean.includes('administrador municipal') || clean.includes('administradora municipal')) return 'ADM';
+
+  return 'GEN'; // default generic
+};
+
+// Helper global para formatear el nombre (CamelCase, sin tildes ni espacios)
+const sanitizeNombreForFilename = (name) => {
+  if (!name || name.toLowerCase() === 'todos') return 'Todos';
+  const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return normalized
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+};
+
+// Función para generar un código único local de reporte PDF (RAP-YYMMDD-MMSS)
+function generateLocalReportCode() {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const sec = String(now.getSeconds()).padStart(2, '0');
+  return `RAP${yy}${mm}${dd}-${min}${sec}`;
+}
+
 // Función para exportar el reporte actual a un archivo PDF (Orientación Vertical - Portrait) usando impresión nativa del navegador
 async function exportReportToPDF() {
   if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
@@ -2178,6 +2426,8 @@ async function exportReportToPDF() {
   }
 
   showToast('Preparando vista de impresión...');
+
+  const codigoReporte = generateLocalReportCode();
 
   // Snapshot inmutable de filtros para evitar que cambios concurrentes alteren el PDF
   const filtersSnapshot = {
@@ -2189,48 +2439,6 @@ async function exportReportToPDF() {
   };
 
   const originalTitle = document.title;
-
-  // Helper local para abreviar cargos según mapeo del usuario
-  const getCargoAbbreviated = (cargoText) => {
-    if (!cargoText) return 'TODOS';
-    const clean = cargoText.toLowerCase().trim();
-    
-    if (clean.includes('2770')) return 'CE';
-    if (clean.includes('comisión evaluadora') || clean.includes('comision evaluadora')) return 'CE';
-    if (clean.includes('compras públicas') || clean.includes('compras publicas')) return 'COMP';
-    if (clean.includes('smapa')) return 'SMAPA';
-    if (clean.includes('salud municipal') || clean.includes('disam')) return 'DISAM';
-    if (clean.includes('inspección') || clean.includes('inspeccion')) return 'INS';
-    if (clean.includes('riesgo, desastres') || clean.includes('riesgo desastres') || clean.includes('drde')) return 'DRDE';
-    if (clean.includes('tránsito') || clean.includes('transito') || clean.includes('dtt')) return 'DTT';
-    if (clean.includes('operaciones')) return 'OPS';
-    if (clean.includes('aseo, ornato') || clean.includes('aseo ornato') || clean.includes('daoga')) return 'DAOGA';
-    if (clean.includes('recursos humanos') || clean.includes('rrhh')) return 'RRHH';
-    if (clean.includes('tecnología y comunicaciones') || clean.includes('tecnologia y comunicaciones') || clean.includes('ditec')) return 'DITEC';
-    if (clean.includes('comunal de planificación') || clean.includes('comunal de planificacion') || clean.includes('secpla')) return 'SECPLA';
-    if (clean.includes('prevención y seguridad') || clean.includes('prevencion y seguridad') || clean.includes('dipresec')) return 'DIPRESEC';
-    if (clean.includes('obras municipales') || clean.includes('dom')) return 'DOM';
-    if (clean.includes('desarrollo comunitario') || clean.includes('dideco')) return 'DIDECO';
-    if (clean.includes('asesoría jurídica') || clean.includes('asesoria juridica') || clean.includes('daj')) return 'DAJ';
-    if (clean.includes('administración y finanzas') || clean.includes('administracion y finanzas') || clean.includes('daf')) return 'DAF';
-    if (clean.includes('control')) return 'CTRL';
-    if (clean.includes('secretaria municipal') || clean.includes('secretario municipal')) return 'SECMUN';
-    if (clean.includes('concejal') || clean.includes('concejala')) return 'CON';
-    if (clean.includes('alcalde') || clean.includes('alcaldesa') || clean.includes('gabinete alcaldía') || clean.includes('gabinete alcaldia') || clean.includes('comunicaciones alcaldía') || clean.includes('comunicaciones alcaldia') || clean.includes('asistente alcaldía') || clean.includes('asistente alcaldia')) return 'ALC';
-    if (clean.includes('administrador municipal') || clean.includes('administradora municipal')) return 'ADM';
-
-    return 'GEN'; // default generic
-  };
-
-  // Helper local para formatear el nombre (CamelCase, sin tildes ni espacios)
-  const sanitizeNombreForFilename = (name) => {
-    if (!name || name.toLowerCase() === 'todos') return 'Todos';
-    const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return normalized
-      .split(/\s+/)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join('');
-  };
 
   try {
     const processedData = processReportData(dataStore.reportesRawData, filtersSnapshot);
@@ -2263,18 +2471,20 @@ async function exportReportToPDF() {
     const overdueCount = processedData.filter(isFdpItem).length;
     const compliantCount = processedData.filter(isDdpItem).length;
 
-    const rowsArray = processedData.map(item => {
-      let stateColor = '#475569';
+    const rowsArray = processedData.map((item, idx) => {
+      let stateColor = '#334155';
       let stateBg = '#f1f5f9';
+      let stateBorder = '#e2e8f0';
       const stateLower = (item.estado || '').toLowerCase();
-      if (stateLower === 'aceptada') { stateColor = '#15803d'; stateBg = '#f0fdf4'; }
-      else if (stateLower === 'pendiente de publicación') { stateColor = '#0369a1'; stateBg = '#e0f2fe'; }
-      else if (stateLower === 'rechazada') { stateColor = '#b91c1c'; stateBg = '#fef2f2'; }
-      else if (stateLower === 'cancelada' || stateLower === 'suspendida') { stateColor = '#b45309'; stateBg = '#fffbeb'; }
+      if (stateLower === 'aceptada') { stateColor = '#166534'; stateBg = '#f0fdf4'; stateBorder = '#bbf7d0'; }
+      else if (stateLower === 'pendiente de publicación') { stateColor = '#075985'; stateBg = '#f0f9ff'; stateBorder = '#bae6fd'; }
+      else if (stateLower === 'rechazada') { stateColor = '#991b1b'; stateBg = '#fef2f2'; stateBorder = '#fecaca'; }
+      else if (stateLower === 'cancelada' || stateLower === 'suspendida') { stateColor = '#9a3412'; stateBg = '#fffbeb'; stateBorder = '#fed7aa'; }
 
       const isOverdue = isOverdueItem(item);
-      const plazoColor = isOverdue ? '#b91c1c' : '#15803d';
+      const plazoColor = isOverdue ? '#991b1b' : '#166534';
       const plazoBg   = isOverdue ? '#fef2f2' : '#f0fdf4';
+      const plazoBorder = isOverdue ? '#fecaca' : '#bbf7d0';
 
       const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
       let mainCode = item.plazo;
@@ -2287,23 +2497,31 @@ async function exportReportToPDF() {
 
       const showTwoLine = hasDays && (mainCode === 'FDP' || mainCode === 'RFP');
       const plazoBadgeHtml = showTwoLine
-        ? `<span style="display: inline-block; padding: 4px 5px 3px 5px; border-radius: 4px; font-size: 8px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 38px; line-height: 1.5; white-space: normal;">${mainCode}<br>${days}</span>`
-        : `<span style="display: inline-block; padding: 3px 5px; border-radius: 4px; font-size: 8px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 38px; line-height: 1.4; text-transform: uppercase; white-space: nowrap;">${mainCode}</span>`;
+        ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; white-space: normal;">${mainCode}<br><span style="font-size: 6px; font-weight: 500;">${days}</span></span>`
+        : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; text-transform: uppercase; white-space: nowrap;">${mainCode}</span>`;
+
+      const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
       return `
-        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 7.5px;">
-          <td style="padding: 6px 10px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${item.index}</td>
-          <td style="padding: 6px 10px; font-weight: 700; color: #0f172a; font-family: monospace; border-bottom: 1px solid #e2e8f0;">${item.folio}</td>
-          <td style="padding: 6px 10px; color: #1e293b; font-weight: 500; border-bottom: 1px solid #e2e8f0;">${item.cargo}</td>
-          <td style="padding: 6px 10px; color: #475569; border-bottom: 1px solid #e2e8f0;">${item.fechaIngreso}</td>
-          <td style="padding: 6px 10px; color: #475569; border-bottom: 1px solid #e2e8f0;">${item.fechaAgendada}</td>
-          <td style="padding: 6px 10px; border-bottom: 1px solid #e2e8f0;">
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 7.5px; background: ${rowBg};">
+          <td style="padding: 8px 10px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${item.index}</td>
+          <td style="padding: 8px 10px; font-weight: 700; color: #0f172a; font-family: monospace; border-bottom: 1px solid #e2e8f0;">${item.folio}</td>
+          <td style="padding: 8px 10px; color: #1e293b; font-weight: 500; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">${item.cargo}</td>
+          <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
+            <div style="font-weight: 600; color: #334155;">${item.fechaIngreso}</div>
+            ${item.fechaLimiteRespuesta ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimiteRespuesta}</div>` : ''}
+          </td>
+          <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
+            <div style="font-weight: 600; color: #334155;">${item.fechaAgendada}</div>
+            ${item.fechaLimitePublicacion ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimitePublicacion}</div>` : ''}
+          </td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
             ${item.estado === 'Pendiente de publicación'
-              ? `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 7px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-align: center; line-height: 1.1;">PENDIENTE DE<br>PUBLICACIÓN</span>`
-              : `<span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 7px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-transform: uppercase; white-space: nowrap;">${item.estado}</span>`
+              ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-align: center; line-height: 1.2;">PENDIENTE DE PUBLICACIÓN</span>`
+              : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-transform: uppercase; white-space: nowrap; line-height: 1.2;">${item.estado}</span>`
             }
           </td>
-          <td style="padding: 6px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
             ${plazoBadgeHtml}
           </td>
         </tr>
@@ -2312,95 +2530,79 @@ async function exportReportToPDF() {
 
     const rfechas = `${filtersSnapshot.fechaInicio ? `Desde: ${filtersSnapshot.fechaInicio}` : ''} ${filtersSnapshot.fechaTermino ? `Hasta: ${filtersSnapshot.fechaTermino}` : ''}`;
     const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
-
-    // Obtener o crear el contenedor de impresión
-    let printContainer = document.getElementById('print-report-container');
-    if (!printContainer) {
-      printContainer = document.createElement('div');
-      printContainer.id = 'print-report-container';
-      document.body.appendChild(printContainer);
-    }
-
     const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
 
-    // Inject dynamic print page styling to use native CSS Page Margin Boxes (supported in Chrome 131+)
-    // This allows page counters (Página X de Y) to increment correctly without position:fixed / overflow clip bugs
-    const styleEl = document.createElement('style');
-    styleEl.id = 'dynamic-print-style';
-    styleEl.innerHTML = `
-      @page {
-        size: portrait;
-        margin-top: 22mm;
-        margin-bottom: 20mm;
-        margin-left: 15mm;
-        margin-right: 15mm;
-        
-        @top-left {
-          content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos'}";
-          font-family: 'Inter', sans-serif;
-          font-size: 8px;
-          font-weight: 800;
-          color: #0f172a;
-          padding-bottom: 6px;
-          border-bottom: 1.5px solid #4f46e5;
+    const htmlContent = `
+      <style>
+        @page {
+          size: portrait;
+          margin-top: 22mm;
+          margin-bottom: 20mm;
+          margin-left: 15mm;
+          margin-right: 15mm;
+          
+          @top-left {
+            content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos'}";
+            font-family: 'Inter', sans-serif;
+            font-size: 8px;
+            font-weight: 800;
+            color: #0f172a;
+            padding-bottom: 6px;
+            border-bottom: 1.5px solid #334155;
+          }
+          @top-right {
+            content: "Generado el ${generadoFechaHora}";
+            font-family: monospace;
+            font-size: 7.5px;
+            font-weight: 700;
+            color: #64748b;
+            padding-bottom: 6px;
+            border-bottom: 1.5px solid #334155;
+          }
+          @bottom-right {
+            content: "Página " counter(page) " de " counter(pages);
+            font-family: monospace;
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #64748b;
+          }
         }
-        @top-right {
-          content: "Generado el ${generadoFechaHora}";
-          font-family: monospace;
-          font-size: 7.5px;
-          font-weight: 700;
-          color: #64748b;
-          padding-bottom: 6px;
-          border-bottom: 1.5px solid #4f46e5;
+        @page :first {
+          margin-top: 15mm;
+          @top-left { content: none; }
+          @top-right { content: none; }
         }
-        @bottom-right {
-          content: "Página " counter(page) " de " counter(pages);
-          font-family: monospace;
-          font-size: 8.5px;
-          font-weight: 700;
-          color: #64748b;
-        }
-      }
-      @page :first {
-        margin-top: 15mm;
-        @top-left { content: none; }
-        @top-right { content: none; }
-      }
-    `;
-    document.head.appendChild(styleEl);
-
-    // Single flow layout where the browser paginates natively
-    printContainer.innerHTML = `
-      <div class="print-report-flow">
+      </style>
+      <div class="print-report-flow" style="font-family: 'Inter', sans-serif;">
         <div class="municipal-header-p1">
           <!-- Encabezado Municipal (Página 1) -->
-          <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #4f46e5; padding-bottom: 15px;">
+          <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
             <tr>
-              <td style="vertical-align: middle; text-align: left; border: none;">
+              <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
                 <table style="border-collapse: collapse; border: none;">
                   <tr>
-                    <td style="padding-right: 15px; vertical-align: middle; border: none;">
-                      <img src="/logo_secum.png" style="height: 60px; width: auto; display: block;" />
+                    <td style="padding-right: 12px; vertical-align: middle; border: none;">
+                      <img src="/logo_secum.png" style="height: 52px; width: auto; display: block;" />
                     </td>
                     <td style="vertical-align: middle; border: none;">
-                      <div style="font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; font-family: 'Inter', sans-serif;">Reporte de Solicitudes de Audiencia</div>
-                      <div style="font-size: 10px; font-weight: 600; color: #4f46e5; margin-top: 2px; font-family: 'Inter', sans-serif;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
+                      <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Reporte de Solicitudes de Audiencia</div>
+                      <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
                     </td>
                   </tr>
                 </table>
               </td>
-              <td style="vertical-align: middle; text-align: right; border: none;">
-                <div style="font-size: 10px; font-weight: 700; color: #1e293b; font-family: monospace;">${generadoFechaHora}</div>
+              <td style="vertical-align: middle; text-align: right; border: none; padding: 0;">
+                <div style="font-size: 9px; font-weight: 700; color: #475569; font-family: monospace;">${generadoFechaHora}</div>
               </td>
             </tr>
           </table>
         </div>
 
         <!-- Sujeto Pasivo en grande y filtros alineados dentro de la tarjeta de fondo -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-top: 15px; margin-bottom: 15px; box-sizing: border-box; width: 100%; font-family: 'Inter', sans-serif;">
-          <div style="font-size: 14px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos'}</div>
-          <div style="font-size: 11px; font-weight: 700; color: #475569; margin-top: 3px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${filtersSnapshot.cargo || 'Todos los Cargos'}</div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 9px; color: #475569; margin-top: 8px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
+          <div style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos'}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${filtersSnapshot.cargo || 'Todos los Cargos'}</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #475569; margin-top: 6px;">
             <tr>
               <td style="padding: 0; border: none; width: 50%;"><strong>Período:</strong> ${rfechasStr}</td>
               <td style="padding: 0; border: none; width: 50%;"><strong>Estados:</strong> ${filtersSnapshot.estados.length > 0 ? filtersSnapshot.estados.join(', ') : 'Todos'}</td>
@@ -2408,42 +2610,51 @@ async function exportReportToPDF() {
           </table>
         </div>
 
-        <!-- Métricas rápidas - KPIs -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-family: 'Inter', sans-serif;">
+        <!-- Métricas rápidas - KPIs Premium -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
           <tr>
             <td style="width: 33.3%; padding-right: 8px; border: none;">
-              <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px; text-align: center; box-sizing: border-box;">
-                <div style="font-size: 8px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
-                <div style="font-size: 20px; font-weight: 800; color: #1d4ed8; margin-top: 4px;">${totalItems}</div>
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
+                <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalItems}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #e2e8f0; font-weight: 900; line-height: 1; user-select: none;">#</div>
               </div>
             </td>
             <td style="width: 33.3%; padding-left: 4px; padding-right: 4px; border: none;">
-              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; text-align: center; box-sizing: border-box;">
-                <div style="font-size: 8px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #15803d; margin-top: 4px;">${compliantCount}</div>
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #15803d; margin-top: 2px;">${compliantCount}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #dcfce7; font-weight: 900; line-height: 1; user-select: none;">✓</div>
               </div>
             </td>
             <td style="width: 33.3%; padding-left: 8px; border: none;">
-              <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px; text-align: center; box-sizing: border-box;">
-                <div style="font-size: 8px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #b91c1c; margin-top: 4px;">${overdueCount}</div>
+              <div style="background: #fffdfd; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #b91c1c; margin-top: 2px;">${overdueCount}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fee2e2; font-weight: 900; line-height: 1; user-select: none;">!</div>
               </div>
             </td>
           </tr>
         </table>
 
         <!-- Tabla Única Vectorial -->
-        <div style="border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; background: white; width: 100%;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 8px; font-family: 'Inter', sans-serif;">
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
             <thead>
-              <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 8px;">
-                <th style="padding: 8px 10px; width: 30px; border-bottom: 1px solid #cbd5e1;">#</th>
-                <th style="padding: 8px 10px; width: 95px; border-bottom: 1px solid #cbd5e1;">Folio</th>
-                <th style="padding: 8px 10px; border-bottom: 1px solid #cbd5e1;">Cargo</th>
-                <th style="padding: 8px 10px; width: 65px; border-bottom: 1px solid #cbd5e1;">F. Ingreso</th>
-                <th style="padding: 8px 10px; width: 65px; border-bottom: 1px solid #cbd5e1;">F. Agenda</th>
-                <th style="padding: 8px 10px; width: 110px; border-bottom: 1px solid #cbd5e1;">Estado</th>
-                <th style="padding: 8px 10px; width: 75px; border-bottom: 1px solid #cbd5e1;">Plazo / Retraso</th>
+              <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 7.5px;">
+                <th style="padding: 10px; width: 30px; border-bottom: 1px solid #e2e8f0;">#</th>
+                <th style="padding: 10px; width: 95px; border-bottom: 1px solid #e2e8f0;">Folio</th>
+                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Cargo</th>
+                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
+                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Ingreso</div>
+                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Respuesta</div>
+                </th>
+                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
+                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Agenda</div>
+                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Publicación</div>
+                </th>
+                <th style="padding: 10px; width: 100px; border-bottom: 1px solid #e2e8f0;">Estado</th>
+                <th style="padding: 10px; width: 75px; border-bottom: 1px solid #e2e8f0;">Plazo / Retraso</th>
               </tr>
             </thead>
             <tbody>
@@ -2457,50 +2668,30 @@ async function exportReportToPDF() {
     // Generar nombre de archivo dinámico sugerido para el PDF
     const cargoAbbr = getCargoAbbreviated(filtersSnapshot.cargo || 'TODOS');
     const sanitizedNombre = sanitizeNombreForFilename(filtersSnapshot.nombre || 'Todos');
-    
-    let codigoReporte = '';
-    try {
-      const res = await fetch('/api/reportes/registrar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sujeto_pasivo: filtersSnapshot.nombre || 'Todos',
-          cargo: filtersSnapshot.cargo || 'Todos',
-          filtros: filtersSnapshot
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        codigoReporte = data.codigo_reporte;
-      }
-    } catch (e) {
-      console.error('No se pudo registrar el reporte en base de datos, usando fallback:', e);
+    const defaultName = `${codigoReporte}_${cargoAbbr}_${sanitizedNombre}.pdf`;
+
+    // 1. Solicitar ruta nativa de guardado
+    const saveResult = await window.api.selectSavePath({ defaultName });
+    if (saveResult.cancelled || !saveResult.filePath) {
+      showToast('Guardado de reporte cancelado.', 'info');
+      return;
     }
+    const targetPath = saveResult.filePath;
 
-    if (!codigoReporte) {
-      // Fallback local por fecha si el servidor no responde
-      const now = new Date();
-      const yy = String(now.getFullYear()).slice(-2);
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      const fallbackNum = String(Math.floor(Math.random() * 900) + 100);
-      codigoReporte = `RAP${yy}${mm}${dd}-${fallbackNum}`;
+    // 2. Generar el PDF de forma silenciosa
+    showToast('Generando reporte PDF...');
+    const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath: targetPath });
+
+    if (silentResult && silentResult.success) {
+      showToast(`Reporte ${codigoReporte} guardado correctamente.`, 'success');
+    } else {
+      showToast('No se pudo generar el archivo PDF.', 'error');
+      console.error('Error generando PDF individual:', silentResult ? silentResult.error : 'Desconocido');
     }
-
-    document.title = `${codigoReporte}_${cargoAbbr}_${sanitizedNombre}`;
-
-    // Disparar la impresión nativa
-    setTimeout(() => {
-      window.print();
-      // Opcional: limpiar después de que se cierre el diálogo de impresión
-      printContainer.innerHTML = '';
-      styleEl.remove();
-      document.title = originalTitle;
-    }, 250);
 
   } catch (err) {
     console.error(err);
-    showToast('Error al generar la vista de impresión.', 'error');
+    showToast('Error al generar el reporte PDF.', 'error');
   }
 }
 
@@ -2691,6 +2882,168 @@ async function triggerSharepointSync() {
     lucide.createIcons();
     fetchAndUpdateDbTimestamp();
   }
+}
+
+// Solicitar ruta de guardado nativa y copiar base de datos para respaldo
+async function downloadBackup() {
+  try {
+    showToast('Generando copia de seguridad...');
+    const date = new Date();
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const defaultName = `lobby_backup_${yyyy}${mm}${dd}.db`;
+    
+    // 1. Abrir diálogo nativo "Guardar como..."
+    const saveResult = await window.api.selectSavePath({ defaultName });
+    if (saveResult.cancelled || !saveResult.filePath) {
+      showToast('Guardado de copia de seguridad cancelado.', 'info');
+      return;
+    }
+    const targetPath = saveResult.filePath;
+    
+    // 2. Invocar la ruta del backup pasándole la ruta de destino
+    const res = await fetch(`/api/admin/backup?filePath=${encodeURIComponent(targetPath)}`);
+    const data = await res.json();
+    if (data && data.success) {
+      showToast('Copia de seguridad guardada con éxito.', 'success');
+    } else {
+      showToast(data.error || 'Error al guardar la copia de seguridad.', 'error');
+    }
+  } catch (err) {
+    console.error('Error al descargar copia de seguridad:', err);
+    showToast('Error al procesar el respaldo de la base de datos.', 'error');
+  }
+}
+
+// Cargar y mostrar la bitácora de logs en el panel de administración
+// Almacenar entradas de logs en memoria para acceso desde el modal
+let _logEntries = [];
+
+async function refreshAdminLogs() {
+  const container = document.getElementById('logs-table-body');
+  const countEl = document.getElementById('logs-count-badge');
+  if (!container) return;
+  
+  container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs">Cargando registros...</td></tr>`;
+  
+  try {
+    const res = await fetch('/api/admin/logs');
+    const data = await res.json();
+    
+    if (!data || !data.entries || data.entries.length === 0) {
+      _logEntries = [];
+      container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs">
+        <div class="flex flex-col items-center gap-2">
+          <i data-lucide="check-circle" class="h-8 w-8 text-emerald-600/40"></i>
+          <span>No hay errores registrados. ¡Todo en orden!</span>
+        </div>
+      </td></tr>`;
+      if (countEl) countEl.textContent = '0';
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+    
+    _logEntries = data.entries;
+    if (countEl) countEl.textContent = String(data.entries.length);
+    
+    const severityColor = (code) => {
+      if (code.startsWith('ERR-GEN') || code.startsWith('ERR-DB-5')) return 'bg-rose-500/20 text-rose-400 border-rose-800/40';
+      if (code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC')) return 'bg-amber-500/20 text-amber-400 border-amber-800/40';
+      if (code.startsWith('ERR-AUTH')) return 'bg-sky-500/20 text-sky-400 border-sky-800/40';
+      return 'bg-slate-500/20 text-slate-400 border-slate-700/40';
+    };
+    
+    container.innerHTML = data.entries.map((entry, i) => `
+      <tr class="border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors cursor-pointer group" onclick="openLogDetailModal(${i})">
+        <td class="py-2.5 px-3 text-[10px] text-slate-500 font-mono whitespace-nowrap">${entry.timestamp}</td>
+        <td class="py-2.5 px-3">
+          <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${severityColor(entry.code)}">${entry.code}</span>
+        </td>
+        <td class="py-2.5 px-3 text-[11px] text-slate-300 max-w-[350px] truncate">${entry.message}</td>
+        <td class="py-2.5 px-3 text-right">
+          <span class="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-brand-400 font-semibold">Ver detalle →</span>
+        </td>
+      </tr>
+    `).join('');
+    
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-rose-400 text-xs">Error de red al obtener bitácora de logs.</td></tr>`;
+  }
+}
+
+function openLogDetailModal(index) {
+  const entry = _logEntries[index];
+  if (!entry) return;
+  
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  
+  const severityLabel = (code) => {
+    if (code.startsWith('ERR-GEN') || code.startsWith('ERR-DB-5')) return { text: 'CRÍTICO', cls: 'bg-rose-500/20 text-rose-400 border-rose-500/40' };
+    if (code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC')) return { text: 'ADVERTENCIA', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
+    if (code.startsWith('ERR-AUTH')) return { text: 'AUTENTICACIÓN', cls: 'bg-sky-500/20 text-sky-400 border-sky-500/40' };
+    return { text: 'INFO', cls: 'bg-slate-500/20 text-slate-400 border-slate-500/40' };
+  };
+  
+  const severity = severityLabel(entry.code);
+  const hasDetails = entry.details && entry.details.trim().length > 0;
+  const escapedFull = JSON.stringify(`[${entry.timestamp}] [${entry.code}] ${entry.message}${hasDetails ? ' | ' + entry.details : ''}`).slice(1, -1);
+  
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800">
+      <!-- Header -->
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+            <i data-lucide="file-warning" class="h-5 w-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-heading">Detalle del Evento</h3>
+            <p class="text-[10px] text-slate-500 mt-0.5">${entry.timestamp}</p>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+      
+      <!-- Badges -->
+      <div class="flex items-center gap-2">
+        <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${severity.cls}">${severity.text}</span>
+        <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">${entry.code}</span>
+      </div>
+      
+      <!-- Mensaje -->
+      <div class="space-y-1.5">
+        <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Mensaje</label>
+        <p class="text-xs text-slate-200 leading-relaxed bg-black/20 rounded-xl px-4 py-3 border border-slate-800/60">${entry.message}</p>
+      </div>
+      
+      <!-- Detalle Técnico -->
+      ${hasDetails ? `
+      <div class="space-y-1.5">
+        <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Detalle Técnico</label>
+        <pre class="text-[10px] text-slate-400 font-mono leading-relaxed bg-black/30 rounded-xl px-4 py-3 border border-slate-800/60 max-h-48 overflow-y-auto whitespace-pre-wrap break-all">${entry.details}</pre>
+      </div>
+      ` : ''}
+      
+      <!-- Acciones -->
+      <div class="flex justify-end gap-2 pt-1">
+        <button onclick="navigator.clipboard.writeText('${escapedFull.replace(/'/g, "\\'")}'); showToast('Registro copiado al portapapeles', 'success', { persistent: false });" 
+                class="px-3 py-2 rounded-xl text-[10px] font-bold btn-secondary flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="copy" class="h-3.5 w-3.5"></i> Copiar
+        </button>
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl text-[10px] font-bold btn-primary text-white cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+  
+  if (window.lucide) lucide.createIcons();
 }
 
 // Manejar selección del archivo Excel y conversión a Base64
@@ -3704,3 +4057,408 @@ document.addEventListener('click', (event) => {
     profileDropdown.classList.add('hidden');
   }
 });
+
+// Función para generar masivamente reportes PDF en segundo plano
+async function generarReportesMasivos() {
+  const fInicio = reportesFilters.fechaInicio || '';
+  const fTermino = reportesFilters.fechaTermino || '';
+
+  // 1. Solicitar la carpeta de destino al usuario vía IPC (Electron)
+  const dirResult = await window.api.selectDirectory();
+  if (dirResult.cancelled || !dirResult.filePath) {
+    showToast('Generación masiva cancelada.', 'info');
+    return;
+  }
+  const destFolder = dirResult.filePath;
+
+  showToast('Iniciando procesamiento masivo...');
+
+  // 2. Obtener la lista de sujetos vigentes si corresponde
+  const soloVigentes = document.getElementById('batch-reportes-solo-vigentes')?.checked;
+  let vigentesIds = null;
+  if (soloVigentes) {
+    try {
+      const res = await fetch('/api/sujetos_pasivos/vigentes');
+      if (res.ok) {
+        vigentesIds = await res.json();
+      }
+    } catch (e) {
+      console.error('Error al obtener sujetos vigentes:', e);
+    }
+  }
+
+  // 3. Filtrar y agrupar solicitudes por (sujeto_pasivo, cargo)
+  const filtered = [];
+  const hasEstadosFilter = reportesFilters.estados && reportesFilters.estados.length > 0;
+  const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
+
+  dataStore.reportesRawData.forEach(item => {
+    let itemEstado = (item.estado || 'Ingresada').trim();
+    const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+    if (isPendiente) {
+      itemEstado = 'Pendiente de publicación';
+    }
+
+    // Filtro por rango de fechas
+    if (item.fecha_limite_sh) {
+      const itemDate = item.fecha_limite_sh.split(' ')[0];
+      if (fInicio && itemDate < fInicio) return;
+      if (fTermino && itemDate > fTermino) return;
+    } else {
+      if (fInicio || fTermino) return;
+    }
+
+    if (item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---') {
+      const agendaDate = item.fecha_agendada.split(' ')[0];
+      if (fInicio && agendaDate < fInicio) return;
+      if (fTermino && agendaDate > fTermino) return;
+    }
+
+    // Filtro por estados
+    if (hasEstadosFilter) {
+      const match = reportesFilters.estados.some(est => est.toLowerCase() === itemEstado.toLowerCase());
+      if (!match) return;
+    }
+
+    // Filtro por sujetos vigentes
+    if (soloVigentes && vigentesIds) {
+      if (!vigentesIds.includes(item.sujeto_pasivo_id)) {
+        return;
+      }
+    }
+
+    filtered.push(item);
+  });
+
+  // Agrupar por combinación única (sujeto_pasivo, cargo)
+  const groups = {};
+  filtered.forEach(item => {
+    const name = (item.sujeto_pasivo || 'Sin Nombre').trim();
+    const cargo = (item.cargo || 'Sin Cargo').trim();
+    const key = `${name}|||${cargo}`;
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(item);
+  });
+
+  const groupKeys = Object.keys(groups);
+  const totalGroups = groupKeys.length;
+
+  if (totalGroups === 0) {
+    showToast('No se encontraron registros que coincidan con los filtros de fechas/estados.', 'error');
+    return;
+  }
+
+  // 4. Mostrar modal de progreso en pantalla
+  const modal = document.getElementById('modal-container');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative border border-slate-200 dark:border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+            <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-100 uppercase tracking-wider">Generación Masiva</h3>
+            <p class="text-[10px] text-slate-400 mt-0.5">Exportando reportes a PDF silenciosamente...</p>
+          </div>
+        </div>
+        
+        <div class="space-y-2">
+          <div class="w-full bg-slate-850 rounded-full h-1.5 overflow-hidden">
+            <div id="batch-progress-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-250" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400 font-semibold">
+            <span id="batch-progress-text" class="truncate max-w-[240px]">Iniciando cola...</span>
+            <span id="batch-progress-percent">0%</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 5. Procesar e imprimir secuencialmente cada reporte
+  for (let index = 0; index < totalGroups; index++) {
+    const key = groupKeys[index];
+    const [name, cargo] = key.split('|||');
+    const groupItems = groups[key];
+
+    // Actualizar progreso visual
+    const progressPercent = Math.round((index / totalGroups) * 100);
+    const progressBar = document.getElementById('batch-progress-bar');
+    const progressText = document.getElementById('batch-progress-text');
+    const progressPercentText = document.getElementById('batch-progress-percent');
+    
+    if (progressBar) progressBar.style.width = `${progressPercent}%`;
+    if (progressText) progressText.textContent = `${normalizeName(name)} (${index + 1}/${totalGroups})`;
+    if (progressPercentText) progressPercentText.textContent = `${progressPercent}%`;
+
+    // Generar código de reporte local único agregando el índice para evitar colisiones
+    const localBaseCode = generateLocalReportCode();
+    const codigoReporte = `${localBaseCode}-${String(index + 1).padStart(3, '0')}`;
+
+    // Mapear elementos del reporte exactamente igual que el listado individual
+    const processedGroupItems = groupItems.map((item, idx) => {
+      const isLicitacion = item.cargo && (item.cargo.includes('2770-') || item.cargo.includes('27770-'));
+      const cleanedCargoText = isLicitacion ? getCargoCleanBidding(item.cargo) : getCargoClean(item.cargo);
+      const normalizedName = normalizeName(item.sujeto_pasivo) || 'Sin Nombre';
+      const cargoCombinado = `${normalizedName} - ${cleanedCargoText}`;
+
+      let itemEstado = (item.estado || 'Ingresada').trim();
+      const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+      if (isPendiente) {
+        itemEstado = 'Pendiente de publicación';
+      }
+
+      let badge;
+      if (isPendiente) {
+        badge = { text: 'Pendiente de publicación', class: 'badge-status-otros' };
+      } else {
+        badge = getDeadlineStatusBadge(item.fecha_ingreso, item.fecha_respuesta, item.estado, item);
+      }
+      const plazoRestanteStr = getStandardizedPlazoText(item, isPendiente);
+      const pubInfo = getPendingPublicationDelay(item.fecha_agendada, item);
+
+      return {
+        index: idx + 1,
+        id: item.id || idx,
+        folio: item.folio_lobby || 'Sin Folio',
+        cargoCompleto: cargoCombinado,
+        cargo: cleanedCargoText,
+        fechaIngreso: formatDate(item.fecha_ingreso),
+        fechaLimiteRespuesta: item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : null,
+        fechaAgendada: formatDate(item.fecha_agendada) || '---',
+        fechaLimitePublicacion: (item.fecha_agendada && item.fecha_agendada !== '-') ? pubInfo.deadlineStr : null,
+        estado: itemEstado,
+        badgeClass: badge.class,
+        badgeText: badge.text,
+        plazo: plazoRestanteStr
+      };
+    });
+
+    const isOverdueItem = (item) => {
+      const mainCode = (item.plazo || '').split(' ')[0].toUpperCase();
+      return mainCode === 'FDP' || mainCode === 'RFP';
+    };
+    const isFdpItem = (item) => (item.plazo || '').split(' ')[0].toUpperCase() === 'FDP';
+    const isDdpItem = (item) => (item.plazo || '').split(' ')[0].toUpperCase() === 'DDP';
+
+    const overdueCount = processedGroupItems.filter(isFdpItem).length;
+    const compliantCount = processedGroupItems.filter(isDdpItem).length;
+    const totalItems = processedGroupItems.length;
+
+    const rowsArray = processedGroupItems.map((item, idx) => {
+      let stateColor = '#334155';
+      let stateBg = '#f1f5f9';
+      let stateBorder = '#e2e8f0';
+      const stateLower = (item.estado || '').toLowerCase();
+      if (stateLower === 'aceptada') { stateColor = '#166534'; stateBg = '#f0fdf4'; stateBorder = '#bbf7d0'; }
+      else if (stateLower === 'pendiente de publicación') { stateColor = '#075985'; stateBg = '#f0f9ff'; stateBorder = '#bae6fd'; }
+      else if (stateLower === 'rechazada') { stateColor = '#991b1b'; stateBg = '#fef2f2'; stateBorder = '#fecaca'; }
+      else if (stateLower === 'cancelada' || stateLower === 'suspendida') { stateColor = '#9a3412'; stateBg = '#fffbeb'; stateBorder = '#fed7aa'; }
+
+      const isOverdue = isOverdueItem(item);
+      const plazoColor = isOverdue ? '#991b1b' : '#166534';
+      const plazoBg   = isOverdue ? '#fef2f2' : '#f0fdf4';
+      const plazoBorder = isOverdue ? '#fecaca' : '#bbf7d0';
+
+      const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
+      let mainCode = item.plazo;
+      let days = '';
+      if (hasDays) {
+        const parts = item.plazo.split(' ');
+        mainCode = parts[0];
+        days = parts[1].replace(/[()]/g, '');
+      }
+
+      const showTwoLine = hasDays && (mainCode === 'FDP' || mainCode === 'RFP');
+      const plazoBadgeHtml = showTwoLine
+        ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; white-space: normal;">${mainCode}<br><span style="font-size: 6px; font-weight: 500;">${days}</span></span>`
+        : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; text-transform: uppercase; white-space: nowrap;">${mainCode}</span>`;
+
+      const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 7.5px; background: ${rowBg};">
+          <td style="padding: 8px 10px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${item.index}</td>
+          <td style="padding: 8px 10px; font-weight: 700; color: #0f172a; font-family: monospace; border-bottom: 1px solid #e2e8f0;">${item.folio}</td>
+          <td style="padding: 8px 10px; color: #1e293b; font-weight: 500; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">${item.cargo}</td>
+          <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
+            <div style="font-weight: 600; color: #334155;">${item.fechaIngreso}</div>
+            ${item.fechaLimiteRespuesta ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimiteRespuesta}</div>` : ''}
+          </td>
+          <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
+            <div style="font-weight: 600; color: #334155;">${item.fechaAgendada}</div>
+            ${item.fechaLimitePublicacion ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimitePublicacion}</div>` : ''}
+          </td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+            ${item.estado === 'Pendiente de publicación'
+              ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-align: center; line-height: 1.2;">PENDIENTE DE PUBLICACIÓN</span>`
+              : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-transform: uppercase; white-space: nowrap; line-height: 1.2;">${item.estado}</span>`
+            }
+          </td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+            ${plazoBadgeHtml}
+          </td>
+        </tr>
+      `;
+    });
+
+    const rfechas = `${fInicio ? `Desde: ${fInicio}` : ''} ${fTermino ? `Hasta: ${fTermino}` : ''}`;
+    const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
+    const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+
+    const htmlContent = `
+      <style>
+        @page {
+          size: portrait;
+          margin-top: 22mm;
+          margin-bottom: 20mm;
+          margin-left: 15mm;
+          margin-right: 15mm;
+          
+          @top-left {
+            content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Sujeto Pasivo: ${normalizeName(name)}";
+            font-family: 'Inter', sans-serif;
+            font-size: 8px;
+            font-weight: 800;
+            color: #0f172a;
+            padding-bottom: 6px;
+            border-bottom: 1.5px solid #334155;
+          }
+          @top-right {
+            content: "Generado el ${generadoFechaHora}";
+            font-family: monospace;
+            font-size: 7.5px;
+            font-weight: 700;
+            color: #64748b;
+            padding-bottom: 6px;
+            border-bottom: 1.5px solid #334155;
+          }
+          @bottom-right {
+            content: "Página " counter(page) " de " counter(pages);
+            font-family: monospace;
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #64748b;
+          }
+        }
+        @page :first {
+          margin-top: 15mm;
+          @top-left { content: none; }
+          @top-right { content: none; }
+        }
+      </style>
+      <div style="font-family: 'Inter', sans-serif;">
+        <div class="municipal-header-p1">
+          <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
+            <tr>
+              <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
+                <table style="border-collapse: collapse; border: none;">
+                  <tr>
+                    <td style="padding-right: 12px; vertical-align: middle; border: none;">
+                      <img src="/logo_secum.png" style="height: 52px; width: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle; border: none;">
+                      <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Reporte de Solicitudes de Audiencia</div>
+                      <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="vertical-align: middle; text-align: right; border: none; padding: 0;">
+                <div style="font-size: 9px; font-weight: 700; color: #475569; font-family: monospace;">${generadoFechaHora}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
+          <div style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(name)}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${cargo}</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #475569; margin-top: 6px;">
+            <tr>
+              <td style="padding: 0; border: none; width: 50%;"><strong>Período:</strong> ${rfechasStr}</td>
+              <td style="padding: 0; border: none; width: 50%;"><strong>Estados:</strong> ${hasEstadosFilter ? reportesFilters.estados.join(', ') : 'Todos'}</td>
+            </tr>
+          </table>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+          <tr>
+            <td style="width: 33.3%; padding-right: 8px; border: none;">
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
+                <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalItems}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #e2e8f0; font-weight: 900; line-height: 1; user-select: none;">#</div>
+              </div>
+            </td>
+            <td style="width: 33.3%; padding-left: 4px; padding-right: 4px; border: none;">
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #15803d; margin-top: 2px;">${compliantCount}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #dcfce7; font-weight: 900; line-height: 1; user-select: none;">✓</div>
+              </div>
+            </td>
+            <td style="width: 33.3%; padding-left: 8px; border: none;">
+              <div style="background: #fffdfd; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #b91c1c; margin-top: 2px;">${overdueCount}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fee2e2; font-weight: 900; line-height: 1; user-select: none;">!</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 7.5px;">
+                <th style="padding: 10px; width: 30px; border-bottom: 1px solid #e2e8f0;">#</th>
+                <th style="padding: 10px; width: 95px; border-bottom: 1px solid #e2e8f0;">Folio</th>
+                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Cargo</th>
+                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
+                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Ingreso</div>
+                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Respuesta</div>
+                </th>
+                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
+                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Agenda</div>
+                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Publicación</div>
+                </th>
+                <th style="padding: 10px; width: 100px; border-bottom: 1px solid #e2e8f0;">Estado</th>
+                <th style="padding: 10px; width: 75px; border-bottom: 1px solid #e2e8f0;">Plazo / Retraso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsArray.join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const cargoAbbr = getCargoAbbreviated(cargo);
+    const sanitizedNombre = sanitizeNombreForFilename(name);
+    const fileName = `${codigoReporte}_${cargoAbbr}_${sanitizedNombre}.pdf`;
+    const filePath = `${destFolder}/${fileName}`.replace(/\\/g, '/');
+
+    // Generar archivo PDF silencioso
+    const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath });
+
+    if (silentResult && silentResult.success) {
+      // Éxito al generar PDF silencioso
+    } else {
+      console.error(`Error al exportar PDF de ${name} (${cargo}):`, silentResult ? silentResult.error : 'Desconocido');
+    }
+  }
+
+  // 6. Finalizar
+  closeModal();
+  showToast(`Generación masiva completada: ${totalGroups} reportes exportados en ${destFolder}`, 'success');
+}
+

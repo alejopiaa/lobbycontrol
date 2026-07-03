@@ -6,5 +6,8 @@ contextBridge.exposeInMainWorld("api", {
    * @param {Object} routeInfo - Información de la ruta (url, método, cuerpo)
    * @returns {Promise<Object>} Resultado de la ejecución en el proceso principal
    */
-  invokeRoute: (routeInfo) => ipcRenderer.invoke("api-route", routeInfo)
+  invokeRoute: (routeInfo) => ipcRenderer.invoke("api-route", routeInfo),
+  selectDirectory: () => ipcRenderer.invoke("select-directory"),
+  generateSilentPdf: (args) => ipcRenderer.invoke("generate-silent-pdf", args),
+  selectSavePath: (args) => ipcRenderer.invoke("select-save-path", args)
 });

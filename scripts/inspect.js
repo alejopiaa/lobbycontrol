@@ -2,7 +2,7 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-const absoluteDbPath = path.join(__dirname, '..', process.env.DATABASE_PATH || 'lobby.db');
+const absoluteDbPath = path.join(__dirname, '..', process.env.DATABASE_PATH || 'lobby_control.db');
 
 const db = new sqlite3.Database(absoluteDbPath, (err) => {
   if (err) {

@@ -2,11 +2,11 @@ require('dotenv').config();
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
-const auth = require('../middleware/auth');
-
 const os = require('os');
 
 let dbPath;
+let usersDbPath;
+let localDbPath;
 let dbDir;
 
 // Detectar si estamos en Electron y si la aplicación está en producción
@@ -32,14 +32,17 @@ if (useProductionPath) {
     : path.join(os.homedir(), 'AppData', 'Local', 'LobbyControl'));
     
   dbDir = path.join(baseDir, 'data');
-  dbPath = path.join(dbDir, 'lobby.db');
 } else {
   // Configuración estándar para desarrollo local (scripts o Electron en desarrollo)
-  dbPath = path.isAbsolute(process.env.DATABASE_PATH || 'lobby.db')
-    ? (process.env.DATABASE_PATH || 'lobby.db')
-    : path.join(__dirname, '..', '..', process.env.DATABASE_PATH || 'lobby.db');
-  dbDir = path.dirname(dbPath);
+  const devPath = path.isAbsolute(process.env.DATABASE_PATH || 'lobby_control.db')
+    ? (process.env.DATABASE_PATH || 'lobby_control.db')
+    : path.join(__dirname, '..', '..', process.env.DATABASE_PATH || 'lobby_control.db');
+  dbDir = path.dirname(devPath);
 }
+
+dbPath = path.join(dbDir, 'lobby_control.db');
+usersDbPath = path.join(dbDir, 'usuarios.db');
+localDbPath = path.join(dbDir, 'local.db');
 
 // Asegurar que la carpeta de destino de la base de datos exista
 if (!fs.existsSync(dbDir)) {
@@ -48,7 +51,7 @@ if (!fs.existsSync(dbDir)) {
 
 // Verificar firma digital del archivo de base de datos para depuración (sin acción destructiva)
 if (fs.existsSync(dbPath)) {
-  const localVersionPath = path.join(dbDir, 'version.json');
+  const localVersionPath = path.join(dbDir, 'version_lobby.json');
   if (fs.existsSync(localVersionPath)) {
     try {
       const crypto = require('crypto');
@@ -72,46 +75,68 @@ if (fs.existsSync(dbPath)) {
   }
 }
 
-// Conectar a la base de datos SQLite usando una referencia activa
+// Conexiones activas independientes
 let activeDb = null;
+let activeUsersDb = null;
+let activeLocalDb = null;
 
-function connectDb(targetPath) {
+function connectLobbyDb(targetPath) {
   activeDb = new sqlite3.Database(targetPath, (err) => {
     if (err) {
-      console.error('Error al abrir la base de datos SQLite:', err.message);
+      console.error('Error al abrir lobby.db SQLite:', err.message);
     } else {
-      console.log('Conectado a la base de datos local SQLite:', targetPath);
+      console.log('Conectado a la base de datos lobby.db SQLite:', targetPath);
       activeDb.run('PRAGMA busy_timeout = 30000');
-      activeDb.run('PRAGMA journal_mode = WAL', (err) => {
-        if (err) {
-          console.error('Error al activar WAL en SQLite:', err.message);
-        } else {
-          console.log('Modo WAL (Write-Ahead Logging) activado en SQLite.');
-        }
-      });
+      activeDb.run('PRAGMA journal_mode = WAL');
     }
   });
 }
 
-// Inicializar la conexión
-connectDb(dbPath);
+function connectUsersDb(targetPath) {
+  activeUsersDb = new sqlite3.Database(targetPath, (err) => {
+    if (err) {
+      console.error('Error al abrir usuarios.db SQLite:', err.message);
+    } else {
+      console.log('Conectado a la base de datos usuarios.db SQLite:', targetPath);
+      activeUsersDb.run('PRAGMA busy_timeout = 30000');
+      activeUsersDb.run('PRAGMA journal_mode = WAL');
+    }
+  });
+}
 
-// Crear proxy delegador para permitir intercambio en caliente (hot-swapping)
+function connectLocalDb(targetPath) {
+  activeLocalDb = new sqlite3.Database(targetPath, (err) => {
+    if (err) {
+      console.error('Error al abrir local.db SQLite:', err.message);
+    } else {
+      console.log('Conectado a la base de datos local.db SQLite:', targetPath);
+      activeLocalDb.run('PRAGMA busy_timeout = 30000');
+      activeLocalDb.run('PRAGMA journal_mode = WAL');
+    }
+  });
+}
+
+// Inicializar las conexiones activas
+connectLobbyDb(dbPath);
+connectUsersDb(usersDbPath);
+connectLocalDb(localDbPath);
+
+// Proxy para Lobby (db)
 const db = {
   all: (...args) => {
-    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('BD no disponible: reconectando...')); return; }
+    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Lobby DB no disponible')); return; }
     return activeDb.all(...args);
   },
   run: (...args) => {
-    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('BD no disponible: reconectando...')); return; }
+    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Lobby DB no disponible')); return; }
     return activeDb.run(...args);
   },
   get: (...args) => {
-    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('BD no disponible: reconectando...')); return; }
+    if (!activeDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Lobby DB no disponible')); return; }
     return activeDb.get(...args);
   },
   prepare: (...args) => {
-    if (!activeDb) throw new Error('BD no disponible: reconectando...');
+    if (!activeDb) throw new Error('Lobby DB no disponible');
     return activeDb.prepare(...args);
   },
   serialize: (...args) => {
@@ -119,7 +144,6 @@ const db = {
     return activeDb.serialize(...args);
   },
   close: (...args) => activeDb ? activeDb.close(...args) : undefined,
-  // Métodos de administración de conexión
   getDbPath: () => dbPath,
   getUserDataDir: () => dbDir,
   closeConnection: () => {
@@ -127,10 +151,10 @@ const db = {
       if (!activeDb) return resolve();
       activeDb.close((err) => {
         if (err) {
-          console.error('Error al cerrar la conexión de SQLite:', err.message);
+          console.error('Error al cerrar la conexión de lobby.db:', err.message);
           reject(err);
         } else {
-          console.log('Conexión de SQLite cerrada exitosamente.');
+          console.log('Conexión de lobby.db cerrada exitosamente.');
           activeDb = null;
           resolve();
         }
@@ -142,32 +166,14 @@ const db = {
       const p = targetPath || dbPath;
       activeDb = new sqlite3.Database(p, (err) => {
         if (err) {
-          console.error('Error al reabrir la base de datos SQLite:', err.message);
+          console.error('Error al reabrir la base de datos lobby.db:', err.message);
           reject(err);
         } else {
-          console.log('Base de datos SQLite reabierta con éxito:', p);
+          console.log('Base de datos lobby.db reabierta con éxito:', p);
           activeDb.run('PRAGMA busy_timeout = 30000');
           activeDb.run('PRAGMA journal_mode = WAL', (pragmaErr) => {
-            if (pragmaErr) console.error('Error al activar WAL:', pragmaErr.message);
-            
-            // Asegurar que las tablas locales personalizadas existen tras reabrir (sincronización con SharePoint)
-            activeDb.run(`
-              CREATE TABLE IF NOT EXISTS alertas_gestionadas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo TEXT NOT NULL,
-                solicitud_id INTEGER NOT NULL,
-                estado TEXT NOT NULL,
-                fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(tipo, solicitud_id)
-              )
-            `, (tableErr) => {
-              if (tableErr) {
-                console.error('Error creando tabla alertas_gestionadas tras reabrir:', tableErr.message);
-              } else {
-                console.log('✓ Tabla alertas_gestionadas verificada tras reabrir base de datos.');
-              }
-              resolve();
-            });
+            if (pragmaErr) console.error('Error al activar WAL en lobby.db:', pragmaErr.message);
+            resolve();
           });
         }
       });
@@ -176,7 +182,7 @@ const db = {
   recalculateAndSignDatabase: () => {
     try {
       const crypto = require('crypto');
-      const localVersionPath = path.join(dbDir, 'version.json');
+      const localVersionPath = path.join(dbDir, 'version_lobby.json');
       if (fs.existsSync(dbPath)) {
         const dbBuffer = fs.readFileSync(dbPath);
         const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
@@ -202,58 +208,169 @@ const db = {
   }
 };
 
+// Proxy para Usuarios (usersDb)
+const usersDb = {
+  all: (...args) => {
+    if (!activeUsersDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Users DB no disponible')); return; }
+    return activeUsersDb.all(...args);
+  },
+  run: (...args) => {
+    if (!activeUsersDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Users DB no disponible')); return; }
+    return activeUsersDb.run(...args);
+  },
+  get: (...args) => {
+    if (!activeUsersDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Users DB no disponible')); return; }
+    return activeUsersDb.get(...args);
+  },
+  prepare: (...args) => {
+    if (!activeUsersDb) throw new Error('Users DB no disponible');
+    return activeUsersDb.prepare(...args);
+  },
+  serialize: (...args) => {
+    if (!activeUsersDb) return;
+    return activeUsersDb.serialize(...args);
+  },
+  close: (...args) => activeUsersDb ? activeUsersDb.close(...args) : undefined,
+  getDbPath: () => usersDbPath,
+  getUserDataDir: () => dbDir,
+  closeConnection: () => {
+    return new Promise((resolve, reject) => {
+      if (!activeUsersDb) return resolve();
+      activeUsersDb.close((err) => {
+        if (err) {
+          console.error('Error al cerrar la conexión de usuarios.db:', err.message);
+          reject(err);
+        } else {
+          console.log('Conexión de usuarios.db cerrada exitosamente.');
+          activeUsersDb = null;
+          resolve();
+        }
+      });
+    });
+  },
+  openConnection: (targetPath) => {
+    return new Promise((resolve, reject) => {
+      const p = targetPath || usersDbPath;
+      activeUsersDb = new sqlite3.Database(p, (err) => {
+        if (err) {
+          console.error('Error al reabrir la base de datos usuarios.db:', err.message);
+          reject(err);
+        } else {
+          console.log('Base de datos usuarios.db reabierta con éxito:', p);
+          activeUsersDb.run('PRAGMA busy_timeout = 30000');
+          activeUsersDb.run('PRAGMA journal_mode = WAL', (pragmaErr) => {
+            if (pragmaErr) console.error('Error al activar WAL en usuarios.db:', pragmaErr.message);
+            resolve();
+          });
+        }
+      });
+    });
+  }
+};
 
+// Proxy para Local (localDb)
+const localDb = {
+  all: (...args) => {
+    if (!activeLocalDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Local DB no disponible')); return; }
+    return activeLocalDb.all(...args);
+  },
+  run: (...args) => {
+    if (!activeLocalDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Local DB no disponible')); return; }
+    return activeLocalDb.run(...args);
+  },
+  get: (...args) => {
+    if (!activeLocalDb) { const cb = args[args.length - 1]; if (typeof cb === 'function') return cb(new Error('Local DB no disponible')); return; }
+    return activeLocalDb.get(...args);
+  },
+  prepare: (...args) => {
+    if (!activeLocalDb) throw new Error('Local DB no disponible');
+    return activeLocalDb.prepare(...args);
+  },
+  serialize: (...args) => {
+    if (!activeLocalDb) return;
+    return activeLocalDb.serialize(...args);
+  },
+  close: (...args) => activeLocalDb ? activeLocalDb.close(...args) : undefined,
+  getDbPath: () => localDbPath,
+  getUserDataDir: () => dbDir,
+  closeConnection: () => {
+    return new Promise((resolve, reject) => {
+      if (!activeLocalDb) return resolve();
+      activeLocalDb.close((err) => {
+        if (err) {
+          console.error('Error al cerrar la conexión de local.db:', err.message);
+          reject(err);
+        } else {
+          console.log('Conexión de local.db cerrada exitosamente.');
+          activeLocalDb = null;
+          resolve();
+        }
+      });
+    });
+  },
+  openConnection: (targetPath) => {
+    return new Promise((resolve, reject) => {
+      const p = targetPath || localDbPath;
+      activeLocalDb = new sqlite3.Database(p, (err) => {
+        if (err) {
+          console.error('Error al reabrir la base de datos local.db:', err.message);
+          reject(err);
+        } else {
+          console.log('Base de datos local.db reabierta con éxito:', p);
+          activeLocalDb.run('PRAGMA busy_timeout = 30000');
+          activeLocalDb.run('PRAGMA journal_mode = WAL', (pragmaErr) => {
+            if (pragmaErr) console.error('Error al activar WAL en local.db:', pragmaErr.message);
+            resolve();
+          });
+        }
+      });
+    });
+  }
+};
 
-// Inicialización de las tablas de forma secuencial
-db.serialize(() => {
-  db.run('PRAGMA busy_timeout = 30000');
-
-  // 1. Tabla: usuarios
-  db.run(`
+// 1. Inicialización de usuarios.db
+usersDb.serialize(() => {
+  usersDb.run(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       correo TEXT UNIQUE,
       nombre TEXT,
       rol TEXT,
-      password_hash TEXT,
       rut TEXT,
       asistido_rut TEXT
     )
   `, (err) => {
-    if (err) {
-      console.error('Error creando tabla usuarios:', err.message);
-    } else {
-      // Migración para bases de datos existentes: comprobar si faltan las nuevas columnas
-      db.all("PRAGMA table_info(usuarios)", [], (err, rows) => {
-        if (!err) {
-          const hasPasswordHash = rows.some(r => r.name === 'password_hash');
-          const hasRut = rows.some(r => r.name === 'rut');
-          const hasAsistidoRut = rows.some(r => r.name === 'asistido_rut');
-          
-          if (!hasPasswordHash) {
-            db.run("ALTER TABLE usuarios ADD COLUMN password_hash TEXT", (err) => {
-              if (err) console.error('Error migrando password_hash:', err.message);
-              else console.log('Columna password_hash agregada con éxito a la tabla usuarios.');
-            });
-          }
-          if (!hasRut) {
-            db.run("ALTER TABLE usuarios ADD COLUMN rut TEXT", (err) => {
-              if (err) console.error('Error migrando rut:', err.message);
-              else console.log('Columna rut agregada con éxito a la tabla usuarios.');
-            });
-          }
-          if (!hasAsistidoRut) {
-            db.run("ALTER TABLE usuarios ADD COLUMN asistido_rut TEXT", (err) => {
-              if (err) console.error('Error migrando asistido_rut:', err.message);
-              else console.log('Columna asistido_rut agregada con éxito a la tabla usuarios.');
-            });
-          }
-        }
-      });
-    }
+    if (err) console.error('Error creando tabla usuarios:', err.message);
+  });
+});
+
+// 2. Inicialización de local.db
+localDb.serialize(() => {
+  localDb.run(`
+    CREATE TABLE IF NOT EXISTS alertas_gestionadas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      solicitud_id INTEGER NOT NULL,
+      estado TEXT NOT NULL,
+      fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tipo, solicitud_id)
+    )
+  `, (err) => {
+    if (err) console.error('Error creando tabla alertas_gestionadas:', err.message);
   });
 
-  // 2. Tabla: solicitudes_sh (Solicitudes de Audiencias)
+  localDb.run(`
+    CREATE TABLE IF NOT EXISTS configuracion_local (
+      clave TEXT UNIQUE,
+      valor TEXT
+    )
+  `, (err) => {
+    if (err) console.error('Error creando tabla configuracion_local:', err.message);
+  });
+});
+
+// 3. Inicialización de lobby.db
+db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS solicitudes_sh (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -284,19 +401,14 @@ db.serialize(() => {
     if (err) {
       console.error('Error creando tabla solicitudes_sh:', err.message);
     } else {
-      // Crear Índices optimizados
       db.run('CREATE INDEX IF NOT EXISTS idx_solicitudes_cargo_limpio ON solicitudes_sh (cargo_limpio)');
       db.run('CREATE INDEX IF NOT EXISTS idx_solicitudes_cumplimiento ON solicitudes_sh (estado_cumplimiento_sh)');
       db.run('CREATE INDEX IF NOT EXISTS idx_solicitudes_folios ON solicitudes_sh (folio_lobby)');
       db.run('CREATE INDEX IF NOT EXISTS idx_solicitudes_sujeto_pasivo ON solicitudes_sh (sujeto_pasivo)');
       db.run('CREATE INDEX IF NOT EXISTS idx_solicitudes_fecha_ingreso ON solicitudes_sh (fecha_ingreso)');
-      db.run('CREATE INDEX IF NOT EXISTS idx_publicadas_sujeto_pasivo ON publicadas_ph (sujeto_pasivo)');
-      db.run('CREATE INDEX IF NOT EXISTS idx_publicadas_fecha_inicio ON publicadas_ph (fecha_inicio)');
-      
     }
   });
 
-  // 3. Tabla: publicadas_ph (Audiencias Publicadas)
   db.run(`
     CREATE TABLE IF NOT EXISTS publicadas_ph (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -327,22 +439,20 @@ db.serialize(() => {
     if (err) {
       console.error('Error creando tabla publicadas_ph:', err.message);
     } else {
-      // Migración para agregar row_hash a publicadas_ph si ya existía la tabla sin esa columna
+      db.run('CREATE INDEX IF NOT EXISTS idx_publicadas_sujeto_pasivo ON publicadas_ph (sujeto_pasivo)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_publicadas_fecha_inicio ON publicadas_ph (fecha_inicio)');
+      
       db.all("PRAGMA table_info(publicadas_ph)", [], (err, rows) => {
         if (!err && rows) {
           const hasRowHash = rows.some(r => r.name === 'row_hash');
           if (!hasRowHash) {
-            db.run("ALTER TABLE publicadas_ph ADD COLUMN row_hash TEXT", (err) => {
-              if (err) console.error('Error migrando row_hash en publicadas_ph:', err.message);
-              else console.log('Columna row_hash agregada con éxito a publicadas_ph.');
-            });
+            db.run("ALTER TABLE publicadas_ph ADD COLUMN row_hash TEXT");
           }
         }
       });
     }
   });
 
-  // 4. Tabla: sujetos_pasivos_sph (Sujetos Pasivos)
   db.run(`
     CREATE TABLE IF NOT EXISTS sujetos_pasivos_sph (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -361,34 +471,26 @@ db.serialize(() => {
     if (err) {
       console.error('Error creando tabla sujetos_pasivos_sph:', err.message);
     } else {
-      // Migración para bases de datos existentes: comprobar si falta la columna row_hash
       db.all("PRAGMA table_info(sujetos_pasivos_sph)", [], (err, rows) => {
-        if (!err && rows.length > 0) {
+        if (!err && rows && rows.length > 0) {
           const hasRowHash = rows.some(r => r.name === 'row_hash');
           if (!hasRowHash) {
-            db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN row_hash TEXT", (err) => {
-              if (err) console.error('Error migrando row_hash en sujetos_pasivos_sph:', err.message);
-              else console.log('Columna row_hash agregada con éxito a sujetos_pasivos_sph.');
-            });
+            db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN row_hash TEXT");
           }
         }
       });
     }
   });
 
-  // 5. Tabla: configuracion (Almacena metadatos del sistema, como fecha de importación)
   db.run(`
     CREATE TABLE IF NOT EXISTS configuracion (
       clave TEXT UNIQUE,
       valor TEXT
     )
   `, (err) => {
-    if (err) {
-      console.error('Error creando tabla configuracion:', err.message);
-    }
+    if (err) console.error('Error creando tabla configuracion:', err.message);
   });
 
-  // 6. Tabla: historial_sincronizaciones (Bitácora de importaciones)
   db.run(`
     CREATE TABLE IF NOT EXISTS historial_sincronizaciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -398,12 +500,9 @@ db.serialize(() => {
       detalles TEXT
     )
   `, (err) => {
-    if (err) {
-      console.error('Error creando tabla historial_sincronizaciones:', err.message);
-    }
+    if (err) console.error('Error creando tabla historial_sincronizaciones:', err.message);
   });
 
-  // 7. Tabla: auditoria_semanal (Control de Auditoría Semanal)
   db.run(`
     CREATE TABLE IF NOT EXISTS auditoria_semanal (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -423,7 +522,6 @@ db.serialize(() => {
     if (err) {
       console.error('Error creando tabla auditoria_semanal:', err.message);
     } else {
-      // Migración para bases de datos existentes: comprobar si falta la columna estado y total
       db.all("PRAGMA table_info(auditoria_semanal)", [], (err, rows) => {
         if (!err && rows) {
           const hasEstado = rows.some(r => r.name === 'estado');
@@ -431,14 +529,10 @@ db.serialize(() => {
           
           const runMigrations = async () => {
             if (!hasEstado) {
-              await new Promise((resolve) => {
-                db.run("ALTER TABLE auditoria_semanal ADD COLUMN estado TEXT DEFAULT 'Cerrado'", () => resolve());
-              });
+              await new Promise((resolve) => db.run("ALTER TABLE auditoria_semanal ADD COLUMN estado TEXT DEFAULT 'Cerrado'", () => resolve()));
             }
             if (!hasTotal) {
-              await new Promise((resolve) => {
-                db.run("ALTER TABLE auditoria_semanal ADD COLUMN total INTEGER DEFAULT 0", () => resolve());
-              });
+              await new Promise((resolve) => db.run("ALTER TABLE auditoria_semanal ADD COLUMN total INTEGER DEFAULT 0", () => resolve()));
             }
             rebuildActiveSujetoIdsTable();
           };
@@ -450,51 +544,14 @@ db.serialize(() => {
     }
   });
 
-  // 8. Tabla: sujetos_pasivos_vigentes (IDs de sujetos pasivos vigentes)
   db.run(`
     CREATE TABLE IF NOT EXISTS sujetos_pasivos_vigentes (
       id_sujeto_lobby INTEGER PRIMARY KEY
     )
   `, (err) => {
-    if (err) {
-      console.error('Error creando tabla sujetos_pasivos_vigentes:', err.message);
-    }
+    if (err) console.error('Error creando tabla sujetos_pasivos_vigentes:', err.message);
   });
-
-  // 9. Tabla: reportes_generados (Registro de reportes PDF generados)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS reportes_generados (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      codigo_reporte TEXT UNIQUE,
-      fecha_generacion TEXT,
-      sujeto_pasivo TEXT,
-      cargo TEXT,
-      filtros TEXT
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creando tabla reportes_generados:', err.message);
-    }
-  });
-
-  // 10. Tabla: alertas_gestionadas (Estado de lectura/borrado de alertas)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS alertas_gestionadas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tipo TEXT NOT NULL,
-      solicitud_id INTEGER NOT NULL,
-      estado TEXT NOT NULL,
-      fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(tipo, solicitud_id)
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creando tabla alertas_gestionadas:', err.message);
-    }
-  });
-
 });
-
 
 function rebuildActiveSujetoIdsTable() {
   db.serialize(() => {
@@ -513,7 +570,7 @@ function rebuildActiveSujetoIdsTable() {
       }
     });
 
-    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayStr = new Date().toISOString().split('T')[0];
 
     db.run(`
       INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby)
@@ -545,5 +602,9 @@ function rebuildActiveSujetoIdsTable() {
     });
   });
 }
+
+// Inyectar proxies secundarios en el principal
+db.usersDb = usersDb;
+db.localDb = localDb;
 
 module.exports = db;

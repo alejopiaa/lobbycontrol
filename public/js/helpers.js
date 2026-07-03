@@ -611,70 +611,6 @@ function getPendingPublicationDelay(fechaAgendada, item) {
   }
 }
 
-/**
- * Alterna la visibilidad de un campo de contraseña (password/text) y actualiza su icono Lucide
- * @param {string} inputId - ID del input de contraseña
- * @param {string} eyeId - ID del icono de ojo dentro del botón
- */
-function togglePasswordVisibility(inputId, eyeId) {
-  const input = document.getElementById(inputId);
-  const eyeIcon = document.getElementById(eyeId);
-  if (!input || !eyeIcon) return;
-  
-  const btn = eyeIcon.parentElement;
-  if (input.type === 'password') {
-    input.type = 'text';
-    eyeIcon.setAttribute('data-lucide', 'eye-off');
-    if (btn) btn.title = "Ocultar contraseña";
-  } else {
-    input.type = 'password';
-    eyeIcon.setAttribute('data-lucide', 'eye');
-    if (btn) btn.title = "Mostrar contraseña";
-  }
-  
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
-    window.lucide.createIcons();
-  }
-}
-
-/**
- * Genera una contraseña robusta de 16 caracteres usando la API criptográfica nativa del navegador
- * @returns {string} Contraseña generada
- */
-function generateSecurePassword() {
-  const length = 16;
-  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-  const numbers = '0123456789';
-  const symbols = '!@#$%&*?+-=';
-  
-  const passwordArr = [];
-  const randomValues = new Uint32Array(length);
-  window.crypto.getRandomValues(randomValues);
-  
-  // Asegurar la presencia de al menos un carácter de cada tipo
-  passwordArr.push(uppercase[randomValues[0] % uppercase.length]);
-  passwordArr.push(lowercase[randomValues[1] % lowercase.length]);
-  passwordArr.push(numbers[randomValues[2] % numbers.length]);
-  passwordArr.push(symbols[randomValues[3] % symbols.length]);
-  
-  const allChars = uppercase + lowercase + numbers + symbols;
-  for (let i = 4; i < length; i++) {
-    passwordArr.push(allChars[randomValues[i] % allChars.length]);
-  }
-  
-  // Barajar el array de forma segura
-  const shuffleValues = new Uint32Array(length);
-  window.crypto.getRandomValues(shuffleValues);
-  for (let i = passwordArr.length - 1; i > 0; i--) {
-    const j = shuffleValues[i] % (i + 1);
-    const temp = passwordArr[i];
-    passwordArr[i] = passwordArr[j];
-    passwordArr[j] = temp;
-  }
-  
-  return passwordArr.join('');
-}
 
 /**
  * Anima un valor numérico incrementándolo suavemente desde 0 hasta el valor final.
@@ -723,4 +659,108 @@ function debounce(fn, delay) {
     }, delay);
   };
 }
+
+// Traducir y mapear errores técnicos a mensajes amigables y códigos de soporte
+function translateError(msg) {
+  if (!msg) return 'Su sesión ha expirado. Por favor, inicie sesión nuevamente. [ERR-AUTH-201]';
+  const cleanMsg = String(msg).toLowerCase();
+
+  // 1. Conectividad y Red
+  if (cleanMsg.includes('enotfound') || cleanMsg.includes('getaddrinfo') || cleanMsg.includes('connect error') || cleanMsg.includes('error de conexión') || cleanMsg.includes('etimedout') || cleanMsg.includes('econnreset') || cleanMsg.includes('fetch failed')) {
+    if (cleanMsg.includes('econnreset')) {
+      return 'Conexión con el servidor interrumpida. Por favor, reintente. [ERR-NET-102]';
+    }
+    return 'No se pudo establecer conexión. Verifique su conexión a internet. [ERR-NET-101]';
+  }
+
+  // 2. Autenticación y Autorización
+  if (cleanMsg.includes('cancelado') || cleanMsg.includes('cancelada') || cleanMsg.includes('user cancelled') || cleanMsg.includes('closed the window')) {
+    return 'Inicio de sesión cancelado por el usuario. [ERR-AUTH-205]';
+  }
+  if (cleanMsg.includes('no se encuentra registrado') || cleanMsg.includes('no está registrado') || cleanMsg.includes('user_not_registered') || cleanMsg.includes('autorizad') || cleanMsg.includes('privilegios insuficientes')) {
+    return 'Usuario no registrado en el sistema. Contacte con Soporte Lobby. [ERR-AUTH-202]';
+  }
+  if (cleanMsg.includes('dominio') || cleanMsg.includes('maipu.cl') || cleanMsg.includes('cuenta @maipu.cl') || cleanMsg.includes('correo institucional inválido')) {
+    return 'Debes iniciar sesión con tu cuenta de correo institucional (@maipu.cl). [ERR-AUTH-203]';
+  }
+  if (cleanMsg.includes('denegado') || cleanMsg.includes('no autorizado') || cleanMsg.includes('privilegios de administrador') || cleanMsg.includes('role')) {
+    if (cleanMsg.includes('administrador')) {
+      return 'Acceso denegado. Se requieren privilegios de Administrador. [ERR-AUTH-204]';
+    }
+    return 'Su sesión ha expirado. Por favor, inicie sesión nuevamente. [ERR-AUTH-201]';
+  }
+  if (cleanMsg.includes('token') || cleanMsg.includes('auth error') || cleanMsg.includes('microsoft')) {
+    return 'Error de autenticación institucional. Por favor, intente nuevamente. [ERR-AUTH-206]';
+  }
+  if (cleanMsg.includes('perfil') || cleanMsg.includes('session') || cleanMsg.includes('expirado') || cleanMsg.includes('expired')) {
+    return 'Su sesión ha expirado. Por favor, inicie sesión nuevamente. [ERR-AUTH-201]';
+  }
+
+  // 3. Sincronización e Integridad Cloud
+  if (cleanMsg.includes('descargar') || cleanMsg.includes('sincronización inicial') || cleanMsg.includes('pull')) {
+    if (cleanMsg.includes('404') || cleanMsg.includes('no está inicializada en sharepoint')) {
+      return 'La base de datos de usuarios no está inicializada en SharePoint. Contacte con Soporte Lobby. [ERR-SYNC-304]';
+    }
+    return 'Fallo al descargar datos desde la nube. Reintente en unos instantes. [ERR-SYNC-301]';
+  }
+  if (cleanMsg.includes('firma') || cleanMsg.includes('signature') || cleanMsg.includes('corrupt') || cleanMsg.includes('integridad')) {
+    return 'Fallo de integridad en los datos locales. Contacte con Soporte Lobby. [ERR-SYNC-302]';
+  }
+  if (cleanMsg.includes('subir') || cleanMsg.includes('push') || cleanMsg.includes('sincronizar con sharepoint')) {
+    return 'Fallo al guardar datos en la nube. Reintente en unos instantes. [ERR-SYNC-303]';
+  }
+
+  // 4. Base de Datos Local y Transacciones
+  if (cleanMsg.includes('ebusy') || cleanMsg.includes('locked') || cleanMsg.includes('almacenamiento') || cleanMsg.includes('resource busy')) {
+    return 'Error de almacenamiento local. Cierre otras instancias de la aplicación. [ERR-DB-401]';
+  }
+  if (cleanMsg.includes('unique') || cleanMsg.includes('ya está registrado') || cleanMsg.includes('ya existe') || cleanMsg.includes('duplicado')) {
+    return 'El correo electrónico ingresado ya se encuentra registrado. [ERR-DB-402]';
+  }
+  if (cleanMsg.includes('no puedes eliminar a tu propio usuario') || cleanMsg.includes('propio usuario')) {
+    return 'Operación inválida: No puedes eliminar a tu propio usuario. [ERR-DB-403]';
+  }
+  if (cleanMsg.includes('sqlite_error') || cleanMsg.includes('query') || cleanMsg.includes('syntax') || cleanMsg.includes('database')) {
+    return 'Error en la base de datos local. Reintente la acción. [ERR-DB-500]';
+  }
+
+  // 5. Importación de Excel y Hojas
+  if (cleanMsg.includes('excel') || cleanMsg.includes('sheet') || cleanMsg.includes('hoja')) {
+    if (cleanMsg.includes('formato') || cleanMsg.includes('sh') || cleanMsg.includes('ph') || cleanMsg.includes('sph')) {
+      return 'El archivo no cumple con el formato requerido de la Ley de Lobby (faltan hojas obligatorias). [ERR-IMPORT-402]';
+    }
+    if (cleanMsg.includes('vacío') || cleanMsg.includes('empty') || cleanMsg.includes('sin registros') || cleanMsg.includes('sin filas')) {
+      return 'El archivo Excel seleccionado está vacío o no contiene registros válidos. [ERR-IMPORT-403]';
+    }
+    return 'No se pudo leer el archivo Excel. Asegúrese de que no esté dañado. [ERR-IMPORT-401]';
+  }
+  if (cleanMsg.includes('sincronización activo') || cleanMsg.includes('ya hay un proceso')) {
+    return 'Ya hay una importación activa en ejecución. Espere a que finalice. [ERR-IMPORT-409]';
+  }
+
+  // 6. Reportes e Impresión
+  if (cleanMsg.includes('pdf') || cleanMsg.includes('reporte') || cleanMsg.includes('impresión')) {
+    if (cleanMsg.includes('cancelado') || cleanMsg.includes('cancelada') || cleanMsg.includes('cancel')) {
+      return 'Guardado de reporte cancelado por el usuario. [ERR-REPORT-502]';
+    }
+    return 'No se pudo generar el reporte en PDF. Verifique los permisos de escritura. [ERR-REPORT-501]';
+  }
+
+  // 7. General Fallback
+  return 'Ha ocurrido un error inesperado en el sistema. [ERR-GEN-999]';
+}
+
+/**
+ * Formatea un porcentaje resguardando que valores muy bajos no se muestren como 0%
+ * @param {number} pct - Porcentaje calculado (ej: 0)
+ * @param {number} count - Cantidad real de elementos (ej: 8)
+ * @returns {string} Texto formateado
+ */
+function formatPct(pct, count) {
+  if (count > 0 && pct < 0.1) {
+    return '<0.1%';
+  }
+  return `${pct}%`;
+}
+
 

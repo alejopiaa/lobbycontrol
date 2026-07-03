@@ -2550,11 +2550,15 @@ function renderAlertasCentro(container) {
         ${filteredList.map(w => {
           const typeBadge = w.type === 'solicitud' 
             ? `<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Solicitud</span>`
-            : `<span class="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Publicación</span>`;
+            : w.type === 'agenda'
+              ? `<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider text-emerald-500">Agenda</span>`
+              : `<span class="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Publicación</span>`;
           
           const urgencyBadge = w.color === 'red'
             ? `<span class="flex h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
-            : `<span class="flex h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0 mt-1.5"></span>`;
+            : w.color === 'blue'
+              ? `<span class="flex h-2.5 w-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
+              : `<span class="flex h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0 mt-1.5"></span>`;
  
           const dateIconHtml = `<i data-lucide="calendar" class="h-3.5 w-3.5 inline text-[var(--text-tertiary)] mr-1 align-text-bottom"></i>`;
  
@@ -2567,7 +2571,7 @@ function renderAlertasCentro(container) {
                </button>`;
  
           return `
-            <div class="glass-card px-6 py-5 rounded-2xl ${w.color === 'red' ? 'card-alert-urgent' : 'card-alert-warning'} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 dark:hover:bg-slate-900/10 group">
+            <div class="glass-card px-6 py-5 rounded-2xl ${w.color === 'red' ? 'card-alert-urgent' : w.color === 'blue' ? 'card-alert-info' : 'card-alert-warning'} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 dark:hover:bg-slate-900/10 group font-sans">
               <div class="flex gap-3.5 items-start text-left min-w-0">
                 ${urgencyBadge}
                 <div class="min-w-0">
@@ -2742,5 +2746,624 @@ function bulkChangeAlertaEstado(estado) {
 
   openConfirmModal(modalTitle, modalText, performBulk);
 }
+
+// =========================================================================
+// MÓDULO DE AGENDA Y CALENDARIO DE AUDIENCIAS
+// =========================================================================
+
+function formatLocalDateYYYYMMDD(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getCalendarActiveTitle() {
+  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const year = currentCalendarDate.getFullYear();
+  
+  if (calendarViewMode === 'month') {
+    return `${months[currentCalendarDate.getMonth()]} ${year}`;
+  } else if (calendarViewMode === 'week') {
+    const currentDayOfWeek = currentCalendarDate.getDay();
+    const daysToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+    const monDate = new Date(currentCalendarDate);
+    monDate.setDate(monDate.getDate() + daysToMon);
+    
+    const sunDate = new Date(monDate);
+    sunDate.setDate(sunDate.getDate() + 6);
+    
+    if (monDate.getMonth() === sunDate.getMonth()) {
+      return `${monDate.getDate()} al ${sunDate.getDate()} de ${months[monDate.getMonth()]} ${monDate.getFullYear()}`;
+    } else {
+      if (monDate.getFullYear() === sunDate.getFullYear()) {
+        return `${monDate.getDate()} de ${months[monDate.getMonth()]} al ${sunDate.getDate()} de ${months[sunDate.getMonth()]} ${monDate.getFullYear()}`;
+      } else {
+        return `${monDate.getDate()} de ${months[monDate.getMonth()]} ${monDate.getFullYear()} al ${sunDate.getDate()} de ${months[sunDate.getMonth()]} ${sunDate.getFullYear()}`;
+      }
+    }
+  } else {
+    return `${currentCalendarDate.getDate()} de ${months[currentCalendarDate.getMonth()]} ${year}`;
+  }
+}
+
+function calculateCalendarDateRange() {
+  let start = '';
+  let end = '';
+  
+  if (calendarViewMode === 'month') {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startDay = firstDay.getDay();
+    let prevDays = startDay === 0 ? 6 : startDay - 1;
+    
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - prevDays);
+    
+    const lastDay = new Date(year, month + 1, 0);
+    const endDay = lastDay.getDay();
+    let nextDays = endDay === 0 ? 0 : 7 - endDay;
+    
+    const endDate = new Date(lastDay);
+    endDate.setDate(endDate.getDate() + nextDays);
+    
+    start = formatLocalDateYYYYMMDD(startDate) + ' 00:00:00';
+    end = formatLocalDateYYYYMMDD(endDate) + ' 23:59:59';
+  } else if (calendarViewMode === 'week') {
+    const currentDayOfWeek = currentCalendarDate.getDay();
+    const daysToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+    
+    const monDate = new Date(currentCalendarDate);
+    monDate.setDate(monDate.getDate() + daysToMon);
+    
+    const sunDate = new Date(monDate);
+    sunDate.setDate(sunDate.getDate() + 6);
+    
+    start = formatLocalDateYYYYMMDD(monDate) + ' 00:00:00';
+    end = formatLocalDateYYYYMMDD(sunDate) + ' 23:59:59';
+  } else {
+    const dateStr = formatLocalDateYYYYMMDD(currentCalendarDate);
+    start = dateStr + ' 00:00:00';
+    end = dateStr + ' 23:59:59';
+  }
+  
+  return { start, end };
+}
+
+async function fetchAndDrawCalendar() {
+  const placeholder = document.getElementById('calendar-content-placeholder');
+  if (!placeholder) return;
+  
+  placeholder.innerHTML = `
+    <div class="absolute inset-0 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px] rounded-2xl min-h-[300px]">
+      <div class="h-8 w-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin"></div>
+    </div>
+  `;
+  
+  const range = calculateCalendarDateRange();
+  
+  try {
+    const params = new URLSearchParams({
+      all: 'true',
+      estado: 'Aceptada',
+      fecha_agendada_desde: range.start,
+      fecha_agendada_hasta: range.end
+    });
+    
+    const res = await fetch(`/api/solicitudes?${params.toString()}`);
+    if (res.ok) {
+      calendarEvents = await res.json();
+      drawCalendarBodyOnly();
+    } else {
+      placeholder.innerHTML = `
+        <div class="py-20 text-center glass-card rounded-2xl border border-slate-800">
+          <i data-lucide="alert-circle" class="h-10 w-10 text-rose-500/80 mx-auto mb-3 animate-pulse"></i>
+          <p class="text-xs text-rose-400 font-semibold">Error al cargar datos del calendario.</p>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+  } catch (err) {
+    console.error(err);
+    placeholder.innerHTML = `
+      <div class="py-20 text-center glass-card rounded-2xl border border-slate-800">
+        <i data-lucide="alert-circle" class="h-10 w-10 text-rose-500/80 mx-auto mb-3 animate-pulse"></i>
+        <p class="text-xs text-rose-400 font-semibold">Error de conexión al cargar el calendario.</p>
+      </div>
+    `;
+    lucide.createIcons();
+  }
+}
+
+function drawCalendarBodyOnly() {
+  const titleDisplay = document.getElementById('calendar-title-display');
+  if (titleDisplay) {
+    titleDisplay.textContent = getCalendarActiveTitle();
+  }
+  
+  let filtered = calendarEvents || [];
+  if (calendarFilters.search) {
+    const query = calendarFilters.search.toLowerCase().trim();
+    filtered = filtered.filter(e => 
+      (e.sujeto_pasivo || '').toLowerCase().includes(query) ||
+      (e.sujeto_activo || '').toLowerCase().includes(query) ||
+      (e.folio_lobby || '').toLowerCase().includes(query) ||
+      (e.materia || '').toLowerCase().includes(query)
+    );
+  }
+  
+  const placeholder = document.getElementById('calendar-content-placeholder');
+  if (!placeholder) return;
+  
+  if (calendarViewMode === 'month') {
+    drawMonthView(placeholder, filtered);
+  } else if (calendarViewMode === 'week') {
+    drawWeekView(placeholder, filtered);
+  } else {
+    drawDayView(placeholder, filtered);
+  }
+}
+
+function drawMonthView(container, events) {
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+  
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startDay = firstDayOfMonth.getDay();
+  let prevMonthDaysCount = startDay === 0 ? 6 : startDay - 1;
+  
+  const gridStartDate = new Date(firstDayOfMonth);
+  gridStartDate.setDate(gridStartDate.getDate() - prevMonthDaysCount);
+  
+  let html = `
+    <div class="grid grid-cols-7 gap-px bg-slate-800/80 rounded-2xl overflow-hidden border border-slate-800/60 shadow-xl">
+      <!-- Headers -->
+      ${['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => `
+        <div class="py-3 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/80 border-b border-slate-800/80 select-none">
+          ${day}
+        </div>
+      `).join('')}
+  `;
+  
+  const today = new Date();
+  const todayStr = formatLocalDateYYYYMMDD(today);
+  const tempDate = new Date(gridStartDate);
+  
+  for (let i = 0; i < 42; i++) {
+    const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
+    const isCurrentMonth = tempDate.getMonth() === month;
+    const isToday = tempDateStr === todayStr;
+    
+    const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr));
+    
+    html += `
+      <div class="calendar-cell bg-slate-950/40 p-2 flex flex-col justify-between border border-slate-900/40 relative ${
+        isToday 
+          ? 'ring-1 ring-brand-500/50 bg-brand-500/[0.02]' 
+          : ''
+      }">
+        <div class="flex justify-between items-center mb-1.5 select-none">
+          <span class="text-xs font-bold ${
+            isToday 
+              ? 'text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded-lg border border-brand-500/20' 
+              : (isCurrentMonth ? 'text-slate-200' : 'text-slate-600')
+          }">
+            ${tempDate.getDate()}
+          </span>
+          ${cellEvents.length > 0 ? `
+            <span class="px-1.5 py-0.5 rounded-lg text-[9px] font-bold bg-slate-800/80 text-slate-400 border border-slate-800/50">
+              ${cellEvents.length}
+            </span>
+          ` : ''}
+        </div>
+        <div class="flex-1 overflow-y-auto max-h-[84px] space-y-1 custom-scrollbar text-left pr-0.5">
+          ${cellEvents.map(e => {
+            const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
+            const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
+              ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
+              : '';
+            
+            return `
+              <div onclick="showAgendaDetailsModal(${e.id})" 
+                   class="text-[9px] p-1 rounded-lg truncate cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${
+                     isPast 
+                       ? 'bg-slate-900/60 text-slate-400 border border-slate-800/50 hover:bg-slate-900' 
+                       : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25'
+                   } font-medium flex items-center justify-between gap-1 select-none"
+                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - ${escapeHtmlAttr(e.materia || '')}">
+                <span class="font-mono text-[8px] font-bold shrink-0 opacity-80">${timeStr}</span>
+                <span class="truncate flex-1">${escapeHtml(e.sujeto_pasivo)}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    
+    tempDate.setDate(tempDate.getDate() + 1);
+  }
+  
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function drawWeekView(container, events) {
+  const currentDayOfWeek = currentCalendarDate.getDay();
+  const daysToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+  
+  const monDate = new Date(currentCalendarDate);
+  monDate.setDate(monDate.getDate() + daysToMon);
+  
+  const today = new Date();
+  const todayStr = formatLocalDateYYYYMMDD(today);
+  
+  let html = `<div class="grid grid-cols-1 md:grid-cols-7 gap-3.5 h-full">`;
+  const tempDate = new Date(monDate);
+  
+  for (let i = 0; i < 7; i++) {
+    const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
+    const isToday = tempDateStr === todayStr;
+    
+    const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr));
+    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    
+    html += `
+      <div class="glass-card flex flex-col h-full rounded-2xl border ${
+        isToday 
+          ? 'border-brand-500 bg-brand-500/[0.01]' 
+          : 'border-slate-800/80 bg-slate-950/20'
+      } p-3.5 min-h-[400px]">
+        <div class="border-b border-slate-800/80 pb-2 mb-3.5 text-center select-none">
+          <p class="text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-400' : 'text-slate-400'}">${dayNames[i]}</p>
+          <p class="text-lg font-bold mt-0.5 ${isToday ? 'text-brand-500' : 'text-slate-200'}">${tempDate.getDate()}</p>
+        </div>
+        <div class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+          ${cellEvents.length === 0 ? `
+            <div class="h-full flex items-center justify-center py-20">
+              <p class="text-[10px] text-slate-600 font-medium italic select-none">Sin reuniones</p>
+            </div>
+          ` : cellEvents.map(e => {
+            const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
+            const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
+              ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
+              : '';
+            
+            return `
+              <div onclick="showAgendaDetailsModal(${e.id})" 
+                   class="p-3 rounded-xl border border-slate-800 cursor-pointer text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${
+                     isPast 
+                       ? 'bg-slate-900/30 text-slate-400 border-slate-800/50 hover:bg-slate-900/50' 
+                       : 'bg-emerald-500/5 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/10'
+                   }">
+                <div class="flex items-center justify-between mb-1.5 select-none">
+                  <span class="text-[9px] font-bold font-mono ${isPast ? 'text-slate-500' : 'text-emerald-400'}">${timeStr}</span>
+                  <span class="text-[8px] font-semibold text-slate-500">Folio ${e.folio_lobby || 's/f'}</span>
+                </div>
+                <h4 class="text-xs font-bold text-slate-200 truncate" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <p class="text-[9px] text-slate-400 truncate mt-0.5" title="${escapeHtmlAttr(e.sujeto_activo || 'Lobbista')}">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</p>
+                <p class="text-[9px] text-slate-400 line-clamp-2 mt-2 italic border-l border-slate-800 pl-2 leading-relaxed" title="${escapeHtmlAttr(e.materia || '')}">${escapeHtml(e.materia || 'Sin materia')}</p>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    
+    tempDate.setDate(tempDate.getDate() + 1);
+  }
+  
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function drawDayView(container, events) {
+  const today = new Date();
+  const todayStr = formatLocalDateYYYYMMDD(today);
+  const activeDateStr = formatLocalDateYYYYMMDD(currentCalendarDate);
+  
+  const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(activeDateStr));
+  
+  let html = `
+    <div class="max-w-2xl mx-auto glass-card rounded-3xl border border-slate-800/80 p-6 shadow-xl bg-slate-950/20">
+      <div class="border-b border-slate-800/80 pb-4 mb-4 flex justify-between items-center select-none">
+        <div class="text-left">
+          <h3 class="text-sm font-bold text-slate-200">Reuniones del Día</h3>
+          <p class="text-xs text-slate-400">${formatDate(activeDateStr)}</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 border border-slate-800 text-slate-300">
+          ${cellEvents.length} ${cellEvents.length === 1 ? 'Reunión' : 'Reuniones'}
+        </span>
+      </div>
+      
+      <div class="space-y-4">
+        ${cellEvents.length === 0 ? `
+          <div class="py-16 text-center select-none">
+            <i data-lucide="calendar" class="h-10 w-10 text-slate-800 mx-auto mb-3"></i>
+            <p class="text-xs text-slate-500 italic">No hay reuniones programadas para este día.</p>
+          </div>
+        ` : cellEvents.map(e => {
+          const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
+          const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
+            ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
+            : 'Hora no especificada';
+          
+          return `
+            <div onclick="showAgendaDetailsModal(${e.id})" 
+                 class="p-5 rounded-2xl border text-left cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${
+                   isPast 
+                     ? 'bg-slate-900/20 text-slate-400 border-slate-800/40 hover:bg-slate-900/30' 
+                     : 'bg-emerald-500/[0.03] text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/10'
+                 } flex gap-4 items-start">
+              <div class="flex flex-col items-center shrink-0 w-16 select-none">
+                <span class="text-xs font-bold font-mono ${isPast ? 'text-slate-500' : 'text-emerald-400'}">${timeStr}</span>
+                <span class="text-[9px] font-semibold text-slate-500 mt-1.5 uppercase tracking-wider">Inicio</span>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1.5 flex-wrap select-none">
+                  <span class="bg-slate-800/80 text-slate-400 border border-slate-700/50 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Folio: ${e.folio_lobby || 'Sin Folio'}</span>
+                </div>
+                <h4 class="text-sm font-bold text-slate-200 truncate">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <p class="text-xs text-slate-400 font-semibold mt-0.5 truncate">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
+                
+                <div class="mt-3.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold select-none">Sujeto Activo / Lobbista</span>
+                    <span class="text-slate-300 font-medium">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold select-none">Representado</span>
+                    <span class="text-slate-300 font-medium">${escapeHtml(e.representado || 'Particular')}</span>
+                  </div>
+                </div>
+                <div class="mt-3.5 pt-2.5 border-t border-slate-900">
+                  <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold select-none">Materia</span>
+                  <p class="text-xs text-slate-400 mt-0.5 leading-relaxed line-clamp-2">${escapeHtml(e.materia || 'Sin especificar')}</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+  
+  container.innerHTML = html;
+  lucide.createIcons();
+}
+
+function showAgendaDetailsModal(eventId) {
+  const item = calendarEvents.find(e => e.id === eventId);
+  if (!item) return;
+  
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  
+  const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
+  const isPublished = item.folio_lobby && publicadosFolios.has(item.folio_lobby);
+  
+  let pubStatusHtml = '';
+  if (isPublished) {
+    pubStatusHtml = `
+      <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
+        <i data-lucide="check" class="h-3 w-3"></i> Publicada
+      </span>
+    `;
+  } else {
+    const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
+    const badgeColorClass = delayInfo.badgeClass === 'badge-status-vencido' 
+      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+      : 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
+      
+    const plazoText = delayInfo.text === 'En plazo' 
+      ? 'Dentro de plazo (DDP)' 
+      : `Fuera de plazo (FDP - Atrasada ${delayInfo.days} días)`;
+
+    pubStatusHtml = `
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
+          <i data-lucide="x" class="h-3 w-3"></i> No Publicada
+        </span>
+        <span class="px-2.5 py-1 ${badgeColorClass} rounded-lg text-[10px] font-semibold shrink-0">
+          ${plazoText}
+        </span>
+      </div>
+    `;
+  }
+
+  modal.classList.remove('hidden');
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
+            <i data-lucide="calendar" class="h-4.5 w-4.5"></i>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Audiencia</h3>
+            <span class="text-xs font-semibold text-slate-200">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || 'Sin Folio'}</span></span>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <!-- Info grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha / Hora Agendada</span>
+          <span class="text-slate-200 font-semibold">${formatDate(item.fecha_agendada)}</span>
+        </div>
+        <div>
+          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Publicación</span>
+          <div class="mt-1">${pubStatusHtml}</div>
+        </div>
+      </div>
+
+      <hr class="border-slate-800">
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Pasivo (Autoridad)</span>
+          <p class="text-sm font-bold text-slate-100">${escapeHtml(item.sujeto_pasivo)}</p>
+          <p class="text-xs text-slate-400 font-medium mt-0.5">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo))}</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Activo (Lobbista/Gestor)</span>
+            <p class="text-slate-200 font-semibold mt-0.5">${escapeHtml(item.sujeto_activo || 'Sin Lobbista')}</p>
+            \${item.rut ? `<p class="text-[10px] text-slate-400 font-mono mt-0.5">RUT: \${escapeHtml(item.rut)}</p>` : ''}
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Representado</span>
+            <p class="text-slate-200 font-semibold mt-0.5">${escapeHtml(item.representado || 'Particular')}</p>
+          </div>
+        </div>
+
+        <hr class="border-slate-800">
+
+        <div>
+          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Materia</span>
+          <p class="text-xs text-slate-200 font-semibold mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || 'Sin especificar')}</p>
+        </div>
+
+        \${item.especificacion_materia ? `
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span>
+            <p class="text-xs text-slate-300 mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">\${escapeHtml(item.especificacion_materia)}</p>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-3 pt-2">
+        \${item.id_lobby ? `
+          <a href="https://www.leylobby.gob.cl/admin/solicitudes/\${item.id_lobby}" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">
+            Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
+          </a>
+        ` : ''}
+        <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+  
+  lucide.createIcons();
+}
+
+function renderAgenda(container) {
+  const searchVal = calendarFilters.search || '';
+  
+  let headerHtml = `
+    <div class="space-y-6 font-sans">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1 text-left">
+          <h2 class="text-xl font-bold text-heading flex items-center gap-2">
+            <i data-lucide="calendar" class="h-5 w-5 text-brand-500"></i>
+            Agenda de Audiencias
+          </h2>
+          <p class="text-xs text-slate-400">Revisión de audiencias programadas y verificación de plazos.</p>
+        </div>
+        
+        <!-- Controls: View Selector & Nav -->
+        <div class="flex items-center gap-3 self-end md:self-center flex-wrap">
+          <!-- Navigation -->
+          <div class="flex items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 gap-1">
+            <button onclick="navigateCalendar(-1)" class="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer" title="Anterior">
+              <i data-lucide="chevron-left" class="h-4 w-4"></i>
+            </button>
+            <button onclick="goCalendarToday()" class="px-3 py-1 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer">
+              Hoy
+            </button>
+            <button onclick="navigateCalendar(1)" class="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer" title="Siguiente">
+              <i data-lucide="chevron-right" class="h-4 w-4"></i>
+            </button>
+          </div>
+          
+          <!-- View selector -->
+          <div class="flex items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 gap-0.5">
+            \${['month', 'week', 'day'].map(view => {
+              const label = view === 'month' ? 'Mes' : view === 'week' ? 'Semana' : 'Día';
+              const active = calendarViewMode === view;
+              return `
+                <button onclick="changeCalendarViewMode('\${view}')" 
+                        class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer \${
+                          active 
+                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/10' 
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                        }">
+                  \${label}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters & Search -->
+      <div class="glass-card p-4 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between">
+        <!-- Search bar -->
+        <div class="relative w-full md:max-w-md">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500"></i>
+          <input type="text" id="search-calendar" oninput="onCalendarSearch(this.value)" 
+                 placeholder="Filtrar por lobbista, autoridad, folio o materia..." 
+                 value="\${escapeHtmlAttr(searchVal)}" 
+                 class="w-full py-2 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors text-[var(--text-primary)]">
+        </div>
+        
+        <!-- Dinamic Calendar Title -->
+        <div class="text-sm font-bold text-slate-200 text-right pr-2 select-none" id="calendar-title-display">
+          Cargando...
+        </div>
+      </div>
+
+      <!-- Calendar body container -->
+      <div id="calendar-content-placeholder" class="relative min-h-[400px]">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  `;
+  
+  container.innerHTML = headerHtml;
+  lucide.createIcons();
+  
+  fetchAndDrawCalendar();
+}
+
+// Registrar funciones de la Agenda en el ámbito global window
+window.changeCalendarViewMode = function(mode) {
+  calendarViewMode = mode;
+  renderView();
+};
+
+window.navigateCalendar = function(direction) {
+  if (calendarViewMode === 'month') {
+    currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
+  } else if (calendarViewMode === 'week') {
+    currentCalendarDate.setDate(currentCalendarDate.getDate() + (direction * 7));
+  } else if (calendarViewMode === 'day') {
+    currentCalendarDate.setDate(currentCalendarDate.getDate() + direction);
+  }
+  renderView();
+};
+
+window.goCalendarToday = function() {
+  currentCalendarDate = new Date();
+  calendarFilters.search = '';
+  renderView();
+};
+
+window.onCalendarSearch = function(val) {
+  calendarFilters.search = val;
+  drawCalendarBodyOnly();
+};
+
+window.showAgendaDetailsModal = function(eventId) {
+  showAgendaDetailsModal(eventId);
+};
 
 

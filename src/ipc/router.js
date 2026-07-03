@@ -561,6 +561,15 @@ async function handle(req, setSharepointCookie) {
       }
     }
 
+    if (query.fecha_agendada_desde) {
+      whereClauses.push(`fecha_agendada >= ?`);
+      params.push(query.fecha_agendada_desde);
+    }
+    if (query.fecha_agendada_hasta) {
+      whereClauses.push(`fecha_agendada <= ?`);
+      params.push(query.fecha_agendada_hasta);
+    }
+
     if (pendingPub) {
       if (query.estado) {
         const val = query.estado.toLowerCase();
@@ -699,6 +708,16 @@ async function handle(req, setSharepointCookie) {
           ORDER BY fecha_limite_publicacion ASC
         `;
 
+        const queryAgendadasHoy = `
+          SELECT id, folio_lobby, sujeto_pasivo, sujeto_activo, materia, fecha_agendada
+          FROM solicitudes_sh
+          WHERE LOWER(estado) = 'aceptada'
+            AND fecha_agendada IS NOT NULL AND fecha_agendada != '' AND fecha_agendada != '-'
+            AND fecha_agendada LIKE ?
+            ${userWhereSql}
+          ORDER BY fecha_agendada ASC
+        `;
+
         db.all(queryIngresadas, userParams, (err, ingresadasRaw) => {
           if (err) return resolve({ status: 500, data: { error: err.message } });
 
@@ -723,9 +742,26 @@ async function handle(req, setSharepointCookie) {
               });
 
               injectDynamicFields(pendientesPub, () => {
-                resolve({
-                  status: 200,
-                  data: { ingresadas, pendientesPub }
+                const today = new Date();
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                
+                db.all(queryAgendadasHoy, [todayStr + '%', ...userParams], (err, agendadasHoyRaw) => {
+                  if (err) return resolve({ status: 500, data: { error: err.message } });
+
+                  const agendadasHoy = agendadasHoyRaw.filter(item => {
+                    const estado = alertMap.get(`agenda-${item.id}`);
+                    return estado !== 'borrada';
+                  }).map(item => {
+                    item.estado_gestion = alertMap.get(`agenda-${item.id}`) || null;
+                    return item;
+                  });
+
+                  injectDynamicFields(agendadasHoy, () => {
+                    resolve({
+                      status: 200,
+                      data: { ingresadas, pendientesPub, agendadasHoy }
+                    });
+                  });
                 });
               });
             });

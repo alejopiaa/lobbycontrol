@@ -18,6 +18,12 @@ let dataStore = {
   alertas: null
 };
 
+// Variables de estado del Calendario (Agenda)
+let currentCalendarDate = new Date();
+let calendarViewMode = 'month'; // 'month', 'week', 'day'
+let calendarFilters = { search: '' };
+let calendarEvents = [];
+
 // Referencias a los gráficos de Chart.js
 let chartDistribucionInstance = null;
 let chartEvolucionInstance = null;
@@ -787,7 +793,7 @@ async function switchView(viewName) {
   }
   
   // Actualizar estilos de la Navegación Superior
-  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'sujetos_pasivos', 'reportes', 'administracion'];
+  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'agenda', 'sujetos_pasivos', 'reportes', 'administracion'];
   navButtons.forEach(btn => {
     const el = document.getElementById(`nav-${btn}`);
     if (el) {
@@ -840,6 +846,8 @@ async function switchView(viewName) {
         await fetchPaginatedList(viewName, signal);
       } else if (viewName === 'alertas') {
         await fetchAlertas(signal);
+      } else if (viewName === 'agenda') {
+        await fetchData('publicadas', signal);
       } else {
         await fetchData(viewName, signal);
       }
@@ -1737,6 +1745,9 @@ function renderView() {
     case 'publicadas':
       renderPublicadas(main);
       break;
+    case 'agenda':
+      renderAgenda(main);
+      break;
     case 'sujetos_pasivos':
       renderSujetosPasivos(main);
       break;
@@ -1893,10 +1904,18 @@ function renderAlertasWidget() {
           </div>
         ` : warnings.map(w => `
           <div class="p-2.5 rounded-xl border border-[var(--border-ui)] border-l-4 ${
-            w.color === 'red' ? 'border-l-rose-500 bg-rose-500/[0.03] dark:bg-rose-950/10' : 'border-l-amber-500 bg-amber-500/[0.03] dark:bg-amber-950/10'
+            w.color === 'red' 
+              ? 'border-l-rose-500 bg-rose-500/[0.03] dark:bg-rose-950/10' 
+              : w.color === 'blue'
+                ? 'border-l-blue-500 bg-blue-500/[0.03] dark:bg-blue-950/10'
+                : 'border-l-amber-500 bg-amber-500/[0.03] dark:bg-amber-950/10'
           } hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors flex gap-2.5 items-start text-left relative group">
             <span class="flex h-2 w-2 rounded-full mt-1.5 shrink-0 ${
-              w.color === 'red' ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+              w.color === 'red' 
+                ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse' 
+                : w.color === 'blue'
+                  ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse'
+                  : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
             }"></span>
             <div class="flex-1 min-w-0">
               <div class="text-xs font-semibold text-[var(--text-primary)] mb-0.5 flex justify-between gap-2">
@@ -3894,10 +3913,32 @@ function getActiveAlertsList(full = false) {
     }
   });
 
-  // Ordenar alertas: Rojas primero, luego Amarillas. Dentro de cada grupo, las más próximas/vencidas primero.
+  (dataStore.alertas.agendadasHoy || []).forEach(item => {
+    if (!full && (item.estado_gestion === 'leida' || item.estado_gestion === 'borrada')) return;
+
+    const timeStr = item.fecha_agendada && item.fecha_agendada.split(' ')[1]
+      ? item.fecha_agendada.split(' ')[1].slice(0, 5)
+      : 'Hora no especificada';
+
+    warnings.push({
+      id: item.id,
+      type: 'agenda',
+      folio: item.folio_lobby || 'Sin Folio',
+      sujeto_pasivo: item.sujeto_pasivo,
+      deadline: item.fecha_agendada,
+      diff: 0,
+      color: 'blue',
+      text: `Hoy - Reunión agendada con ${item.sujeto_pasivo} (${item.sujeto_activo || 'Lobbista'}) a las ${timeStr}`,
+      estado_gestion: item.estado_gestion
+    });
+  });
+
+  // Ordenar alertas: Rojas primero, luego Amarillas, luego Azules. Dentro de cada grupo, las más próximas/vencidas primero.
   warnings.sort((a, b) => {
     if (a.color === 'red' && b.color !== 'red') return -1;
     if (a.color !== 'red' && b.color === 'red') return 1;
+    if (a.color === 'yellow' && b.color === 'blue') return -1;
+    if (a.color === 'blue' && b.color === 'yellow') return 1;
     return a.diff - b.diff;
   });
 
@@ -4038,6 +4079,17 @@ function goToAlertItem(type, folio) {
       const input = document.getElementById('filter-publicadas-folio');
       if (input) input.value = folio;
     }, 100);
+  } else if (type === 'agenda') {
+    const meeting = (dataStore.alertas.agendadasHoy || []).find(m => m.folio_lobby === folio);
+    if (meeting && meeting.fecha_agendada) {
+      // Usar split y guiones para evitar desfases locales en parseo de fecha
+      const dateParts = meeting.fecha_agendada.split(' ')[0].split('-');
+      if (dateParts.length === 3) {
+        currentCalendarDate = new Date(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10));
+      }
+    }
+    calendarFilters.search = folio;
+    switchView('agenda');
   }
 }
 

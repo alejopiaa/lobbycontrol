@@ -4,6 +4,25 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
+## [2.4.0] - 2026-07-03
+
+### Añadido
+- **Módulo de Agenda (Calendario)**:
+  - Nueva sección "Agenda" en el menú de navegación principal con soporte para vistas de Mes, Semana y Día.
+  - Implementación de grilla mensual interactiva con indicadores de audiencias y celdas de relleno del mes previo/siguiente.
+  - Vista semanal estructurada por columnas de días y vista diaria detallada con tarjetas de reuniones extendidas.
+  - Código de colores visuales para distinguir de forma rápida entre audiencias pasadas (Realizadas - Muted/Gris) y futuras/hoy (No Realizadas - Verde/Resaltado).
+  - Modal interactivo de detalle de audiencia agendada con visualización de folio, materia, especificación, autoridades y lobbistas.
+  - Validación dinámica de publicación (`✓ Publicada` o `✗ No Publicada`) cruzando los folios de solicitudes en tiempo real con las publicaciones del portal de transparencia.
+  - Lógica integrada de plazos para audiencias no publicadas (`Dentro de plazo / DDP` o `Fuera de plazo / FDP` con días de atraso).
+  - Soporte de consulta eficiente por rango de fechas (`fecha_agendada_desde` y `fecha_agendada_hasta`) en el canal IPC `/api/solicitudes`.
+- **Alertas de Reuniones Agendadas Hoy**:
+  - Nuevo tipo de alerta preventiva `agenda` (etiqueta verde "Agenda") que se activa automáticamente para reuniones del día actual.
+  - Notificaciones de color azul (info) en el Centro de Alertas y en la campanita de navegación.
+  - Acción "Ir al registro" en la alerta que desplaza y enfoca automáticamente el calendario en la fecha del evento.
+
+---
+
 ## [2.3.0] - 2026-07-03
 
 ### Añadido

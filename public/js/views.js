@@ -2870,6 +2870,7 @@ async function fetchAndDrawCalendar() {
       <div class="py-20 text-center glass-card rounded-2xl border border-slate-800">
         <i data-lucide="alert-circle" class="h-10 w-10 text-rose-500/80 mx-auto mb-3 animate-pulse"></i>
         <p class="text-xs text-rose-400 font-semibold">Error de conexión al cargar el calendario.</p>
+        <p class="text-[10px] text-slate-500 mt-2 font-mono">Detalle: ${escapeHtml(err.message || String(err))}</p>
       </div>
     `;
     lucide.createIcons();

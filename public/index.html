@@ -77,10 +77,6 @@
         <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
         <span>Audiencias</span>
       </button>
-      <button onclick="switchView('agenda')" id="nav-agenda" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
-        <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
-        <span>Agenda</span>
-      </button>
       <button onclick="switchView('sujetos_pasivos')" id="nav-sujetos_pasivos" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
         <i data-lucide="users" class="h-3.5 w-3.5"></i>
         <span>Sujetos Pasivos</span>
@@ -98,6 +94,11 @@
     <div class="flex items-center gap-4">
       <!-- Widget de Alertas (Semáforo) -->
       <div id="alerts-widget-container" class="relative"></div>
+
+      <!-- Botón de Agenda (pequeño) -->
+      <button id="nav-agenda" onclick="switchView('agenda')" class="h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Agenda de Audiencias">
+        <i data-lucide="calendar" class="h-4 w-4"></i>
+      </button>
 
       <!-- Botón de Modo Claro/Oscuro -->
       <button id="theme-toggle" onclick="toggleTheme()" class="h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Cambiar de Modo">

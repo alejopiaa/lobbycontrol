@@ -793,7 +793,7 @@ async function switchView(viewName) {
   }
   
   // Actualizar estilos de la Navegación Superior
-  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'agenda', 'sujetos_pasivos', 'reportes', 'administracion'];
+  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'sujetos_pasivos', 'reportes', 'administracion'];
   navButtons.forEach(btn => {
     const el = document.getElementById(`nav-${btn}`);
     if (el) {
@@ -804,6 +804,16 @@ async function switchView(viewName) {
       }
     }
   });
+
+  // Estilo del botón pequeño de Agenda
+  const agendaEl = document.getElementById('nav-agenda');
+  if (agendaEl) {
+    if (viewName === 'agenda') {
+      agendaEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-brand-500 bg-brand-500/10 text-brand-400 transition-all duration-200";
+    } else {
+      agendaEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200";
+    }
+  }
 
   // Asegurar que las opciones de menú según rol estén bien ocultas/mostradas después de cambiar clases
   updateHeaderUserSection();

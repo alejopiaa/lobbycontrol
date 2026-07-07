@@ -7,19 +7,29 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ## [2.5.0] - 2026-07-07
 
 ### Añadido
-- **Auditor de Cambios de Sincronización**:
-  - Registro de diferencias detalladas (`detalles` JSON) en `historial_sincronizaciones` para cada proceso de importación o sincronización remota.
-  - Modal interactivo de auditoría que se abre automáticamente tras sincronizar, clasificando los registros en pestañas: Agregados (verde), Modificados (ámbar con diff tachado/resaltado) y Eliminados (rojo).
-  - Botón interactivo de "Ver detalle" (ojo) en la bitácora histórica de sincronizaciones en Administración.
+- **Auditor de Cambios de Sincronización (Excel/SharePoint Diff)**:
+  - Comparador campo por campo en script `import_lobby.js` para registrar exactamente diferencias de filas agregadas, modificadas y eliminadas en la base de datos local.
+  - Almacenamiento de deltas detallados en formato JSON dentro de la columna `detalles` de `historial_sincronizaciones`.
+  - Reemplazo de las antiguas alertas toast por la apertura automática de un modal interactivo detallado al completar la sincronización.
+  - El modal de auditoría clasifica y muestra cambios en tres pestañas: Agregados (verde), Modificados (ámbar con comparación tachado/verde de valores viejo y nuevo) y Eliminados (rojo).
+  - Botón interactivo de "Ver detalle" (ojo) en cada registro de la bitácora de sincronizaciones en Administración.
 - **Escudo de Integridad de Datos**:
   - Endpoint IPC `GET /api/admin/db-health` extendido para validar en tiempo real la firma de la base de datos `lobby.db` usando HMAC-SHA256 y la clave secreta corporativa contra `version_lobby.json`.
-  - Badge adaptativo de "Firma Digital (HMAC)" en la tarjeta de Salud del Sistema (Administración) que muestra si el archivo se encuentra Válido o Alterado.
+  - Visualización del badge de estado "Firma Digital (HMAC)" en la tarjeta de Salud del Sistema (Administración) que detecta si el archivo se encuentra Válido o Alterado.
 - **Segmentación de Alertas**:
   - Filtro por tipo de alertas (Pills interactivos: Todos, Solicitudes, Publicaciones, Agenda) en el Centro de Alertas para facilitar la clasificación de plazos legales y eventos de hoy.
 
 ### Cambiado
+- **Optimización y Estandarización de CSS** (`public/css/style.css`):
+  - Centralización de variables del calendario (`--cal-*`) dentro del bloque global `:root` y en el selector `.dark` para evitar duplicidad y mejorar soporte del tema oscuro.
+  - Consolidación y unificación de selectores repetidos para colores de fondo, tarjetas y bordes de la interfaz.
+  - Integración de prefijo `-webkit-backdrop-filter` en clases con efectos de glassmorphism (`.glass-card`, `.suggestions-dropdown`, etc.) para asegurar compatibilidad total en plataformas Windows y macOS con motores Chromium/WebKit.
 - **Navegación en Administración**:
   - Reordenamiento de las pestañas en el panel administrativo: Control de Auditoría (abierto por defecto al entrar), Sincronización, Gestión de Usuarios, Base de Datos y Bitácora de Logs.
+
+### Corregido
+- **Resolución de Errores de Carga**:
+  - Restauración del bloque `catch` roto en la función `refreshAdminLogs()` en `public/js/app.js`, asegurando la correcta inicialización de Lucide al cargar la bitácora de logs.
 
 ---
 

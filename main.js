@@ -68,6 +68,10 @@ function createMainWindow() {
     console.error("Error al cargar la interfaz de usuario via app://:", err);
   });
 
+  // if (!isPackaged) {
+  //   mainWindow.webContents.openDevTools();
+  // }
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });

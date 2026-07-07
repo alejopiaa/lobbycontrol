@@ -2,7 +2,7 @@
 let currentUser = null;
 let selectedExcelFileBase64 = null;
 let currentView = 'dashboard';
-let activeAdminTab = 'usuarios';
+let activeAdminTab = 'auditoria';
 let dataStore = {
   usuarios: [],
   solicitudes: [],
@@ -2773,29 +2773,28 @@ function triggerImport() {
           if (data.success && data.stats) {
             const stats = data.stats;
             
-            // Sumar todos los cambios para armar un lindo Toast resumido
-            const totalInserts = (stats.sh?.inserts || 0) + (stats.ph?.inserts || 0) + (stats.sph?.inserts || 0);
-            const totalUpdates = (stats.sh?.updates || 0) + (stats.ph?.updates || 0) + (stats.sph?.updates || 0);
-            const totalDeletes = (stats.sh?.deletes || 0) + (stats.ph?.deletes || 0) + (stats.sph?.deletes || 0);
-
-            const msg = `Importación local exitosa: ${totalInserts} nuevos, ${totalUpdates} actualizados, ${totalDeletes} eliminados.`;
             if (stats.sharepoint) {
               if (stats.sharepoint.uploaded) {
-                showToast(msg + ' ✓ Subido con éxito a SharePoint.', 'success');
+                showToast('✓ Base de datos sincronizada y subida a SharePoint.', 'success');
               } else {
                 const isOmit = stats.sharepoint.error && stats.sharepoint.error.startsWith('Omitido');
                 if (isOmit) {
-                  showToast(msg + ' ⚠️ No se subió a SharePoint (requiere sesión SSO activa).', 'warning');
+                  showToast('⚠️ Base de datos guardada localmente (SharePoint omitido, requiere SSO).', 'warning');
                 } else if (!stats.sharepoint.error) {
-                  showToast(msg + ' ✓ La base de datos ya está al día.', 'success');
+                  showToast('✓ La base de datos local y remota están sincronizadas.', 'success');
                 } else {
-                  showToast(`${msg} ❌ Error al subir a SharePoint: ${stats.sharepoint.error}`, 'error');
+                  showToast(`❌ Error al subir a SharePoint: ${stats.sharepoint.error}`, 'error');
                 }
               }
             } else {
-              showToast(msg, 'success');
+              showToast('✓ Base de datos sincronizada localmente.', 'success');
             }
+            
+            // Abrir automáticamente el modal detallado
+            openSyncDetailsModal(stats, 'Sincronización recién completada');
+            
             fetchAlertas();
+            fetchSyncHistory(); // Refrescar el historial de administración
             // Invalidar caché de datos para que las sugerencias de búsqueda
             // reflejen los nombres actualizados en la próxima navegación.
             dataStore.dashboardRawData = [];
@@ -3001,6 +3000,246 @@ async function refreshAdminLogs() {
     container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-rose-400 text-xs">Error de red al obtener bitácora de logs.</td></tr>`;
   }
 }
+
+// ============================================================================
+// MODAL DE AUDITORÍA Y DETALLE DE CAMBIOS DE IMPORTACIÓN
+// ============================================================================
+
+function openSyncDetailsModal(statsObj, dateStr) {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const inserts = [];
+  const updates = [];
+  const deletes = [];
+
+  if (statsObj.sh && statsObj.sh.details) {
+    statsObj.sh.details.forEach(d => {
+      if (d.type === 'insert') inserts.push({ ...d, section: 'Solicitud (SH)' });
+      else if (d.type === 'update') updates.push({ ...d, section: 'Solicitud (SH)' });
+      else if (d.type === 'delete') deletes.push({ ...d, section: 'Solicitud (SH)' });
+    });
+  }
+  if (statsObj.ph && statsObj.ph.details) {
+    statsObj.ph.details.forEach(d => {
+      if (d.type === 'insert') inserts.push({ ...d, section: 'Audiencia (PH)' });
+      else if (d.type === 'update') updates.push({ ...d, section: 'Audiencia (PH)' });
+      else if (d.type === 'delete') deletes.push({ ...d, section: 'Audiencia (PH)' });
+    });
+  }
+  if (statsObj.sph && statsObj.sph.details) {
+    statsObj.sph.details.forEach(d => {
+      if (d.type === 'insert') inserts.push({ ...d, section: 'Sujeto Pasivo (SPH)' });
+      else if (d.type === 'update') updates.push({ ...d, section: 'Sujeto Pasivo (SPH)' });
+      else if (d.type === 'delete') deletes.push({ ...d, section: 'Sujeto Pasivo (SPH)' });
+    });
+  }
+
+  let agregadosHtml = '';
+  if (inserts.length === 0) {
+    agregadosHtml = `<p class="text-center text-[10px] text-slate-500 py-8">Ningún registro fue agregado en este proceso.</p>`;
+  } else {
+    agregadosHtml = `
+      <div class="overflow-x-auto w-full">
+        <table class="w-full border-collapse text-left text-[11px] min-w-[500px]">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold">
+              <th class="py-2 pr-4">Sección</th>
+              <th class="py-2 px-4">Folio / Nombre</th>
+              <th class="py-2 pl-4">Detalles</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${inserts.map(item => {
+              let detailStr = '';
+              if (item.section === 'Sujeto Pasivo (SPH)') {
+                detailStr = `Cargo: ${item.cargo || ''}`;
+              } else {
+                detailStr = `Sujeto Pasivo: ${item.pasivo || ''} <br> Solicitante: ${item.activo || ''}`;
+              }
+              return `
+                <tr class="border-b border-slate-200 dark:border-slate-800/40 text-slate-300">
+                  <td class="py-2 pr-4 font-bold text-slate-500 dark:text-slate-400">${item.section}</td>
+                  <td class="py-2 px-4 font-mono font-bold text-slate-200">${item.folio || item.nombre || ''}</td>
+                  <td class="py-2 pl-4 leading-normal text-slate-400">${detailStr}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  let modificadosHtml = '';
+  if (updates.length === 0) {
+    modificadosHtml = `<p class="text-center text-[10px] text-slate-500 py-8">Ningún registro fue modificado en este proceso.</p>`;
+  } else {
+    modificadosHtml = `
+      <div class="overflow-x-auto w-full">
+        <table class="w-full border-collapse text-left text-[11px] min-w-[500px]">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold">
+              <th class="py-2 pr-4" style="width: 140px;">Sección</th>
+              <th class="py-2 px-4" style="width: 140px;">Folio / Nombre</th>
+              <th class="py-2 pl-4">Cambios Realizados</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${updates.map(item => {
+              let changesText = '';
+              Object.keys(item.changes).forEach(fieldName => {
+                const diff = item.changes[fieldName];
+                changesText += `
+                  <div class="flex flex-col gap-0.5 border-b border-slate-200 dark:border-slate-800/40 pb-1.5 mb-1.5 last:border-0 last:pb-0 last:mb-0">
+                    <span class="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">${fieldName}</span>
+                    <div class="flex items-center gap-1.5 text-[10px]">
+                      <span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-500 line-through truncate max-w-[220px]" title="${diff.old}">${diff.old || '(vacío)'}</span>
+                      <span class="text-slate-400">→</span>
+                      <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 truncate max-w-[220px]" title="${diff.new}">${diff.new || '(vacío)'}</span>
+                    </div>
+                  </div>
+                `;
+              });
+
+              return `
+                <tr class="border-b border-slate-200 dark:border-slate-800/40 text-slate-300 align-top">
+                  <td class="py-2.5 pr-4 font-bold text-slate-500 dark:text-slate-400">${item.section}</td>
+                  <td class="py-2.5 px-4 font-mono font-bold text-slate-200">${item.folio || item.nombre || ''}</td>
+                  <td class="py-2.5 pl-4">${changesText}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  let eliminadosHtml = '';
+  if (deletes.length === 0) {
+    eliminadosHtml = `<p class="text-center text-[10px] text-slate-500 py-8">Ningún registro fue eliminado en este proceso.</p>`;
+  } else {
+    eliminadosHtml = `
+      <div class="overflow-x-auto w-full">
+        <table class="w-full border-collapse text-left text-[11px] min-w-[500px]">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold">
+              <th class="py-2 pr-4">Sección</th>
+              <th class="py-2 px-4">Folio / Nombre</th>
+              <th class="py-2 pl-4">Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${deletes.map(item => {
+              return `
+                <tr class="border-b border-slate-200 dark:border-slate-800/40 text-slate-300">
+                  <td class="py-2 pr-4 font-bold text-slate-500 dark:text-slate-400">${item.section}</td>
+                  <td class="py-2 px-4 font-mono font-bold text-slate-200">${item.folio || item.nombre || ''}</td>
+                  <td class="py-2 pl-4 leading-normal text-slate-400">Sujeto Pasivo: ${item.pasivo || item.nombre || ''}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-4xl p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-start justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="clipboard-list" class="h-5 w-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-heading">Detalle de Cambios de Importación</h3>
+            <p class="text-[10px] text-slate-500 mt-0.5">${dateStr}</p>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <!-- Tabs Header -->
+      <div class="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <button data-tab="agregados" onclick="changeSyncDetailTab('agregados')" class="sync-tab-header px-4 py-2 border-b-2 border-emerald-500 text-emerald-500 text-xs font-bold transition-all bg-transparent cursor-pointer">
+          Agregados (${inserts.length})
+        </button>
+        <button data-tab="modificados" onclick="changeSyncDetailTab('modificados')" class="sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer">
+          Modificados (${updates.length})
+        </button>
+        <button data-tab="eliminados" onclick="changeSyncDetailTab('eliminados')" class="sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer">
+          Eliminados (${deletes.length})
+        </button>
+      </div>
+
+      <!-- Tab Contents (scrollable) -->
+      <div class="flex-1 overflow-y-auto min-h-0 pr-1 py-1">
+        <!-- AGREGADOS -->
+        <div id="sync-tab-agregados" class="sync-tab-content space-y-3">
+          ${agregadosHtml}
+        </div>
+        <!-- MODIFICADOS -->
+        <div id="sync-tab-modificados" class="sync-tab-content hidden space-y-3">
+          ${modificadosHtml}
+        </div>
+        <!-- ELIMINADOS -->
+        <div id="sync-tab-eliminados" class="sync-tab-content hidden space-y-3">
+          ${eliminadosHtml}
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl text-[10px] font-bold btn-primary text-white cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
+}
+
+window.changeSyncDetailTab = (tabName) => {
+  document.querySelectorAll('.sync-tab-content').forEach(el => el.classList.add('hidden'));
+  const target = document.getElementById(`sync-tab-${tabName}`);
+  if (target) target.classList.remove('hidden');
+  
+  document.querySelectorAll('.sync-tab-header').forEach(el => {
+    if (el.getAttribute('data-tab') === tabName) {
+      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-emerald-500 text-emerald-500 text-xs font-bold transition-all bg-transparent cursor-pointer';
+    } else {
+      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer';
+    }
+  });
+};
+
+window.viewSyncDetails = (id) => {
+  const item = dataStore.syncHistory.find(x => x.id === id);
+  if (!item) return;
+  
+  let dateStr = item.timestamp;
+  try {
+    const d = new Date(item.timestamp.replace(' ', 'T') + 'Z');
+    dateStr = d.toLocaleString('es-CL', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  } catch(e) {}
+  
+  try {
+    const statsObj = JSON.parse(item.detalles);
+    openSyncDetailsModal(statsObj, `Sincronización del ${dateStr}`);
+  } catch(e) {
+    showToast('No se pudieron cargar los detalles de este registro.', 'error');
+  }
+};
 
 function openLogDetailModal(index) {
   const entry = _logEntries[index];

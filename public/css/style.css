@@ -80,6 +80,32 @@
 
   --deadline-ok-color: #4f46e5;
   --deadline-overdue-color: #fda4af;
+
+  /* Calendar Theme Adaptive Colors */
+  --cal-grid-bg: #e2e8f0;
+  --cal-grid-border: var(--border-ui);
+  --cal-cell-bg: #ffffff;
+  --cal-cell-hover: rgba(79, 70, 229, 0.04);
+  --cal-header-bg: #f1f5f9;
+  --cal-header-text: var(--text-tertiary);
+  --cal-past-bg: #f1f5f9;
+  --cal-past-text: #475569;
+  --cal-past-border: #cbd5e1;
+  --cal-future-bg: #f0fdf4;
+  --cal-future-text: #065f46;
+  --cal-future-border: #10b981;
+  --cal-badge-bg: rgba(0, 0, 0, 0.04);
+  --cal-badge-text: var(--text-tertiary);
+  --cal-badge-border: var(--border-ui);
+  --cal-week-card-bg: var(--glass-bg);
+  --cal-day-card-bg: var(--glass-bg);
+  --cal-empty-text: var(--text-tertiary);
+  --cal-folio-bg: rgba(0, 0, 0, 0.04);
+  --cal-folio-text: var(--text-tertiary);
+  --cal-folio-border: var(--border-ui);
+  --cal-suggest-bg: rgba(255, 255, 255, 0.97);
+  --cal-suggest-hover: rgba(79, 70, 229, 0.06);
+  --cal-suggest-border: var(--border-ui);
 }
 
 html.dark {
@@ -163,6 +189,32 @@ html.dark {
 
   --deadline-ok-color: #818cf8;
   --deadline-overdue-color: #fecdd3;
+
+  /* Calendar Theme Adaptive Colors */
+  --cal-grid-bg: #334155;
+  --cal-grid-border: rgba(255, 255, 255, 0.06);
+  --cal-cell-bg: #0f172a;
+  --cal-cell-hover: rgba(59, 130, 246, 0.05);
+  --cal-header-bg: rgba(15, 23, 42, 0.8);
+  --cal-header-text: #94a3b8;
+  --cal-past-bg: rgba(71, 85, 105, 0.15);
+  --cal-past-text: #cbd5e1;
+  --cal-past-border: #64748b;
+  --cal-future-bg: rgba(16, 185, 129, 0.1);
+  --cal-future-text: #34d399;
+  --cal-future-border: #34d399;
+  --cal-badge-bg: rgba(30, 41, 59, 0.8);
+  --cal-badge-text: #94a3b8;
+  --cal-badge-border: rgba(71, 85, 105, 0.5);
+  --cal-week-card-bg: var(--glass-bg);
+  --cal-day-card-bg: var(--glass-bg);
+  --cal-empty-text: #475569;
+  --cal-folio-bg: rgba(30, 41, 59, 0.8);
+  --cal-folio-text: #94a3b8;
+  --cal-folio-border: rgba(71, 85, 105, 0.5);
+  --cal-suggest-bg: rgba(15, 23, 42, 0.97);
+  --cal-suggest-hover: rgba(129, 140, 248, 0.08);
+  --cal-suggest-border: rgba(255, 255, 255, 0.1);
 }
 
 /* Efecto de scrollbar premium */
@@ -184,6 +236,7 @@ html.dark {
 /* Glassmorphism y Base */
 .glass-card {
   background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
@@ -223,15 +276,12 @@ main {
 .bg-slate-900\/60, .bg-slate-900\/50, .bg-slate-950\/40 {
   background-color: var(--bg-card) !important;
 }
-.bg-slate-900\/10, .bg-slate-800 {
+.bg-slate-900\/10, .bg-slate-800, .bg-slate-700 {
   background-color: var(--border-ui) !important;
 }
 .bg-slate-800\/30 {
   background-color: var(--border-ui) !important;
   opacity: 0.8;
-}
-.bg-slate-700 {
-  background-color: var(--border-ui) !important;
 }
 .text-slate-100 {
   color: var(--text-primary) !important;
@@ -239,10 +289,7 @@ main {
 .text-slate-200, .text-slate-300 {
   color: var(--text-secondary) !important;
 }
-.text-slate-400 {
-  color: var(--text-tertiary) !important;
-}
-.text-slate-500 {
+.text-slate-400, .text-slate-500 {
   color: var(--text-tertiary) !important;
 }
 h1.text-white, h2.text-white, h3.text-white, h4.text-white,
@@ -250,9 +297,7 @@ div.text-white, span.text-white, p.text-white,
 button.bg-slate-700.text-white {
   color: var(--text-primary) !important;
 }
-.border-slate-800, .border-slate-700, .border-slate-900 {
-  border-color: var(--border-ui) !important;
-}
+.border-slate-800, .border-slate-700, .border-slate-900,
 .border-slate-800\/80, .border-slate-800\/60, .border-slate-700\/40, .border-slate-700\/60, .border-slate-600\/60 {
   border-color: var(--border-ui) !important;
 }
@@ -329,9 +374,6 @@ a.text-white, button.text-white, .btn-primary {
 }
 .border-slate-600\/50 {
   border-color: var(--badge-ingresada-border) !important;
-}
-.text-slate-300 {
-  color: var(--badge-ingresada-text) !important;
 }
 
 /* Módulos / Dashboard Cards Overrides */
@@ -498,8 +540,8 @@ html.dark .text-deadline-responded {
 /* Menú de Sugerencias Autocompletables */
 .suggestions-dropdown {
   background-color: var(--bg-header) !important;
-  background: var(--bg-header) !important;
   border-color: var(--border-ui) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
   backdrop-filter: blur(16px) !important;
   opacity: 0.98 !important; /* Extremely high opacity to prevent overlapping text bleeding through */
   z-index: 50 !important;
@@ -1016,60 +1058,7 @@ html.dark .card-alert-info {
   border-radius: 10px;
 }
 
-/* Calendar Theme Adaptive Colors */
-:root {
-  --cal-grid-bg: rgba(0, 0, 0, 0.03);
-  --cal-grid-border: var(--border-ui);
-  --cal-cell-bg: rgba(255, 255, 255, 0.92);
-  --cal-cell-hover: rgba(79, 70, 229, 0.04);
-  --cal-header-bg: #f1f5f9;
-  --cal-header-text: var(--text-tertiary);
-  --cal-past-bg: rgba(100, 116, 139, 0.08);
-  --cal-past-text: #64748b;
-  --cal-past-border: rgba(100, 116, 139, 0.18);
-  --cal-future-bg: rgba(5, 150, 105, 0.08);
-  --cal-future-text: #059669;
-  --cal-future-border: rgba(5, 150, 105, 0.2);
-  --cal-badge-bg: rgba(0, 0, 0, 0.04);
-  --cal-badge-text: var(--text-tertiary);
-  --cal-badge-border: var(--border-ui);
-  --cal-week-card-bg: var(--glass-bg);
-  --cal-day-card-bg: var(--glass-bg);
-  --cal-empty-text: var(--text-tertiary);
-  --cal-folio-bg: rgba(0, 0, 0, 0.04);
-  --cal-folio-text: var(--text-tertiary);
-  --cal-folio-border: var(--border-ui);
-  --cal-suggest-bg: rgba(255, 255, 255, 0.97);
-  --cal-suggest-hover: rgba(79, 70, 229, 0.06);
-  --cal-suggest-border: var(--border-ui);
-}
-
-html.dark {
-  --cal-grid-bg: rgba(255, 255, 255, 0.02);
-  --cal-grid-border: rgba(255, 255, 255, 0.06);
-  --cal-cell-bg: rgba(15, 23, 42, 0.4);
-  --cal-cell-hover: rgba(59, 130, 246, 0.05);
-  --cal-header-bg: rgba(15, 23, 42, 0.8);
-  --cal-header-text: #94a3b8;
-  --cal-past-bg: rgba(30, 41, 59, 0.6);
-  --cal-past-text: #94a3b8;
-  --cal-past-border: rgba(71, 85, 105, 0.5);
-  --cal-future-bg: rgba(16, 185, 129, 0.1);
-  --cal-future-text: #34d399;
-  --cal-future-border: rgba(16, 185, 129, 0.2);
-  --cal-badge-bg: rgba(30, 41, 59, 0.8);
-  --cal-badge-text: #94a3b8;
-  --cal-badge-border: rgba(71, 85, 105, 0.5);
-  --cal-week-card-bg: var(--glass-bg);
-  --cal-day-card-bg: var(--glass-bg);
-  --cal-empty-text: #475569;
-  --cal-folio-bg: rgba(30, 41, 59, 0.8);
-  --cal-folio-text: #94a3b8;
-  --cal-folio-border: rgba(71, 85, 105, 0.5);
-  --cal-suggest-bg: rgba(15, 23, 42, 0.97);
-  --cal-suggest-hover: rgba(129, 140, 248, 0.08);
-  --cal-suggest-border: rgba(255, 255, 255, 0.1);
-}
+/* Calendar Theme Adaptive Colors (Moved to main blocks at start of file) */
 
 /* Calendar Cell Fixed Height */
 .calendar-cell {
@@ -1099,12 +1088,18 @@ html.dark {
 .cal-event-past {
   background-color: var(--cal-past-bg) !important;
   color: var(--cal-past-text) !important;
-  border-color: var(--cal-past-border) !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  border-left: 3px solid var(--cal-past-border) !important;
 }
 .cal-event-future {
   background-color: var(--cal-future-bg) !important;
   color: var(--cal-future-text) !important;
-  border-color: var(--cal-future-border) !important;
+  border-top: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  border-left: 3px solid var(--cal-future-border) !important;
 }
 
 /* Calendar event count badge */
@@ -1154,5 +1149,80 @@ html.dark {
 .cal-suggestion-item.active {
   background-color: var(--cal-suggest-hover);
   color: var(--text-primary);
+}
+
+/* Event chips global text standardization across Day, Week and Month views */
+.cal-event-past,
+.cal-event-past h4,
+.cal-event-past p,
+.cal-event-past span,
+.cal-event-past div {
+  color: var(--cal-past-text) !important;
+}
+
+.cal-event-future,
+.cal-event-future h4,
+.cal-event-future p,
+.cal-event-future span,
+.cal-event-future div {
+  color: var(--cal-future-text) !important;
+}
+
+/* Secondary typography hierarchy inside chips (cargos, descriptions, headers) */
+.cal-event-past p,
+.cal-event-past span:not(.font-bold),
+.cal-event-past .text-[8px],
+.cal-event-past [style*="color: var(--text-tertiary)"] {
+  opacity: 0.75 !important;
+}
+
+.cal-event-future p,
+.cal-event-future span:not(.font-bold),
+.cal-event-future .text-[8px],
+.cal-event-future [style*="color: var(--text-tertiary)"] {
+  opacity: 0.75 !important;
+}
+
+/* Coordinated folio badges inside chips */
+.cal-event-past .cal-folio-badge {
+  background-color: rgba(203, 213, 225, 0.25) !important;
+  color: var(--cal-past-text) !important;
+  border-color: rgba(203, 213, 225, 0.7) !important;
+}
+
+.cal-event-future .cal-folio-badge {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  color: var(--cal-future-text) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Coordinated dark mode folio badges */
+html.dark .cal-event-past .cal-folio-badge {
+  background-color: rgba(148, 163, 184, 0.1) !important;
+  color: var(--cal-past-text) !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+html.dark .cal-event-future .cal-folio-badge {
+  background-color: rgba(52, 211, 153, 0.08) !important;
+  color: var(--cal-future-text) !important;
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+
+/* Coordinated horizontal divider lines in Day view */
+.cal-event-past div[style*="border-top"] {
+  border-top-color: rgba(203, 213, 225, 0.4) !important;
+}
+
+.cal-event-future div[style*="border-top"] {
+  border-top-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+html.dark .cal-event-past div[style*="border-top"] {
+  border-top-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html.dark .cal-event-future div[style*="border-top"] {
+  border-top-color: rgba(52, 211, 153, 0.15) !important;
 }
 

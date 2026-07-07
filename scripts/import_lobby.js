@@ -12,16 +12,16 @@ const https = require("https");
 
 function compressFileAsync(src, dest) {
   return new Promise((resolve, reject) => {
-    const zlib = require('zlib');
+    const zlib = require("zlib");
     const sourceStream = fs.createReadStream(src);
     const gzipStream = zlib.createGzip();
     const destStream = fs.createWriteStream(dest);
 
-    sourceStream.on('error', reject);
-    gzipStream.on('error', reject);
-    destStream.on('error', reject);
+    sourceStream.on("error", reject);
+    gzipStream.on("error", reject);
+    destStream.on("error", reject);
 
-    destStream.on('close', () => {
+    destStream.on("close", () => {
       resolve();
     });
 
@@ -178,7 +178,11 @@ if (process.env.PRODUCTION_DB === "true") {
   dbPath = path.join(baseDir, "data", "lobby_control.db");
   excelPath = path.join(baseDir, "data", "lobby_data.xlsx");
 } else {
-  dbPath = path.join(__dirname, "..", process.env.DATABASE_PATH || "lobby_control.db");
+  dbPath = path.join(
+    __dirname,
+    "..",
+    process.env.DATABASE_PATH || "lobby_control.db",
+  );
   excelPath = path.join(
     __dirname,
     "..",
@@ -435,10 +439,10 @@ function executeInBatches(array, batchSize, iteratorFn, callback) {
     }
     const batch = array.slice(index, index + batchSize);
     index += batchSize;
-    
+
     let pending = batch.length;
     if (pending === 0) return callback();
-    
+
     batch.forEach((item) => {
       iteratorFn(item, () => {
         pending--;
@@ -535,17 +539,33 @@ function syncSolicitudes(rows, callback) {
 
           if (deleteIds.length > 0) {
             const placeholders = deleteIds.map(() => "?").join(",");
-            db.run(
-              `DELETE FROM solicitudes_sh WHERE id_lobby IN (${placeholders})`,
+            db.all(
+              `SELECT id_lobby, folio_lobby, sujeto_pasivo FROM solicitudes_sh WHERE id_lobby IN (${placeholders})`,
               deleteIds,
-              function (err) {
-                if (err)
-                  console.error(
-                    "Error al eliminar huérfanos de SH:",
-                    err.message,
-                  );
-                performCommit(this ? this.changes : 0);
-              },
+              (err, rowsToDelete) => {
+                if (!err && rowsToDelete) {
+                  rowsToDelete.forEach((r) => {
+                    allStats.sh.details.push({
+                      type: "delete",
+                      id: r.id_lobby,
+                      folio: r.folio_lobby || `ID: ${r.id_lobby}`,
+                      pasivo: r.sujeto_pasivo || ""
+                    });
+                  });
+                }
+                db.run(
+                  `DELETE FROM solicitudes_sh WHERE id_lobby IN (${placeholders})`,
+                  deleteIds,
+                  function (err) {
+                    if (err)
+                      console.error(
+                        "Error al eliminar huérfanos de SH:",
+                        err.message,
+                      );
+                    performCommit(this ? this.changes : 0);
+                  },
+                );
+              }
             );
           } else {
             performCommit(0);
@@ -553,59 +573,30 @@ function syncSolicitudes(rows, callback) {
         }
       }
 
-      executeInBatches(rows, 200, (row, done) => {
-        const idLobby = row["Id"] || null;
-        if (idLobby === null) return done();
-        seenIds.add(idLobby);
+      executeInBatches(
+        rows,
+        200,
+        (row, done) => {
+          const idLobby = row["Id"] || null;
+          if (idLobby === null) return done();
+          seenIds.add(idLobby);
 
-        const parsedFechaIngreso = parseExcelDate(row["Fecha ingreso"]);
-        const parsedFechaRespuesta = parseExcelDate(row["Fecha respuesta"]);
-        const parsedFechaAgendada = parseExcelDate(row["Fecha agendada"]);
+          const parsedFechaIngreso = parseExcelDate(row["Fecha ingreso"]);
+          const parsedFechaRespuesta = parseExcelDate(row["Fecha respuesta"]);
+          let parsedFechaAgendada = parseExcelDate(row["Fecha agendada"]);
+          if (parsedFechaAgendada && parsedFechaAgendada.length === 10) {
+            parsedFechaAgendada += " 00:00";
+          }
 
-        const precalc = precalculateSolicitudFields({
-          ...row,
-          "Fecha ingreso": parsedFechaIngreso,
-          "Fecha respuesta": parsedFechaRespuesta,
-          "Fecha agendada": parsedFechaAgendada,
-        });
-
-        const valuesForHash = [
-          idLobby,
-          row["Folio"] || "",
-          parsedFechaIngreso,
-          parsedFechaRespuesta,
-          parsedFechaAgendada,
-          row["Sujeto pasivo"] || "",
-          row["Cargo"] || "",
-          row["Sujeto pasivo id"] || null,
-          row["Sujeto activo"] || "",
-          row["Rut"] || "",
-          row["Genero"] || "",
-          row["Representado"] || "",
-          row["Materia"] || "",
-          row["Especificación materia"] || row["Especificacion materia"] || "",
-          precalc.estado,
-          precalc.cargo_limpio,
-          precalc.codigo_licitacion,
-          precalc.fecha_limite_sh,
-          precalc.dias_habiles_respuesta,
-          precalc.estado_cumplimiento_sh,
-          precalc.fecha_limite_publicacion,
-        ];
-
-        const currentHash = calculateHashFromValues(valuesForHash);
-
-        if (!existingMap.hasOwnProperty(idLobby)) {
-          pendingOps++;
-          insertStmt.run([...valuesForHash, currentHash], (err) => {
-            if (err)
-              console.error(`Error al insertar SH ID ${idLobby}:`, err.message);
-            pendingOps--;
-            done();
+          const precalc = precalculateSolicitudFields({
+            ...row,
+            "Fecha ingreso": parsedFechaIngreso,
+            "Fecha respuesta": parsedFechaRespuesta,
+            "Fecha agendada": parsedFechaAgendada,
           });
-          insertsCount++;
-        } else if (existingMap[idLobby] !== currentHash) {
-          const updateValues = [
+
+          const valuesForHash = [
+            idLobby,
             row["Folio"] || "",
             parsedFechaIngreso,
             parsedFechaRespuesta,
@@ -618,7 +609,9 @@ function syncSolicitudes(rows, callback) {
             row["Genero"] || "",
             row["Representado"] || "",
             row["Materia"] || "",
-            row["Especificación materia"] || row["Especificacion materia"] || "",
+            row["Especificación materia"] ||
+              row["Especificacion materia"] ||
+              "",
             precalc.estado,
             precalc.cargo_limpio,
             precalc.codigo_licitacion,
@@ -626,28 +619,111 @@ function syncSolicitudes(rows, callback) {
             precalc.dias_habiles_respuesta,
             precalc.estado_cumplimiento_sh,
             precalc.fecha_limite_publicacion,
-            currentHash,
-            idLobby,
           ];
-          pendingOps++;
-          updateStmt.run(updateValues, (err) => {
-            if (err)
-              console.error(
-                `Error al actualizar SH ID ${idLobby}:`,
-                err.message,
-              );
-            pendingOps--;
+
+          const currentHash = calculateHashFromValues(valuesForHash);
+
+          if (!existingMap.hasOwnProperty(idLobby)) {
+            pendingOps++;
+            insertStmt.run([...valuesForHash, currentHash], (err) => {
+              if (err) {
+                console.error(
+                  `Error al insertar SH ID ${idLobby}:`,
+                  err.message,
+                );
+              } else {
+                allStats.sh.details.push({
+                  type: "insert",
+                  id: idLobby,
+                  folio: row["Folio"] || `ID: ${idLobby}`,
+                  pasivo: row["Sujeto pasivo"] || "",
+                  activo: row["Sujeto activo"] || ""
+                });
+              }
+              pendingOps--;
+              done();
+            });
+            insertsCount++;
+          } else if (existingMap[idLobby] !== currentHash) {
+            const updateValues = [
+              row["Folio"] || "",
+              parsedFechaIngreso,
+              parsedFechaRespuesta,
+              parsedFechaAgendada,
+              row["Sujeto pasivo"] || "",
+              row["Cargo"] || "",
+              row["Sujeto pasivo id"] || null,
+              row["Sujeto activo"] || "",
+              row["Rut"] || "",
+              row["Genero"] || "",
+              row["Representado"] || "",
+              row["Materia"] || "",
+              row["Especificación materia"] ||
+                row["Especificacion materia"] ||
+                "",
+              precalc.estado,
+              precalc.cargo_limpio,
+              precalc.codigo_licitacion,
+              precalc.fecha_limite_sh,
+              precalc.dias_habiles_respuesta,
+              precalc.estado_cumplimiento_sh,
+              precalc.fecha_limite_publicacion,
+              currentHash,
+              idLobby,
+            ];
+            pendingOps++;
+            db.get(
+              "SELECT folio_lobby, estado, fecha_agendada, sujeto_pasivo, sujeto_activo, representado, materia FROM solicitudes_sh WHERE id_lobby = ?",
+              [idLobby],
+              (err, oldRow) => {
+                if (!err && oldRow) {
+                  const changes = {};
+                  const compareField = (dbField, newValue, label) => {
+                    let oldValue = oldRow[dbField];
+                    if (oldValue === null || oldValue === undefined) oldValue = "";
+                    if (newValue === null || newValue === undefined) newValue = "";
+                    if (String(oldValue).trim() !== String(newValue).trim()) {
+                      changes[label] = { old: String(oldValue).trim(), new: String(newValue).trim() };
+                    }
+                  };
+                  compareField("estado", precalc.estado, "Estado");
+                  compareField("fecha_agendada", parsedFechaAgendada, "Fecha Audiencia");
+                  compareField("sujeto_pasivo", row["Sujeto pasivo"] || "", "Sujeto Pasivo");
+                  compareField("sujeto_activo", row["Sujeto activo"] || "", "Solicitante");
+                  compareField("representado", row["Representado"] || "", "Representado");
+                  compareField("materia", row["Materia"] || "", "Materia");
+
+                  if (Object.keys(changes).length > 0) {
+                    allStats.sh.details.push({
+                      type: "update",
+                      id: idLobby,
+                      folio: row["Folio"] || oldRow.folio_lobby || `ID: ${idLobby}`,
+                      changes: changes
+                    });
+                  }
+                }
+                updateStmt.run(updateValues, (err) => {
+                  if (err)
+                    console.error(
+                      `Error al actualizar SH ID ${idLobby}:`,
+                      err.message,
+                    );
+                  pendingOps--;
+                  done();
+                });
+              }
+            );
+            updatesCount++;
+          } else {
+            skippedCount++;
             done();
-          });
-          updatesCount++;
-        } else {
-          skippedCount++;
-          done();
-        }
-      }, () => {
-        loopFinished = true;
-        checkFinished();
-      });
+          }
+        },
+        () => {
+          loopFinished = true;
+          checkFinished();
+        },
+      );
     },
   );
 }
@@ -732,17 +808,33 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
 
           if (deleteIds.length > 0) {
             const placeholders = deleteIds.map(() => "?").join(",");
-            db.run(
-              `DELETE FROM publicadas_ph WHERE id_lobby IN (${placeholders})`,
+            db.all(
+              `SELECT id_lobby, folio_lobby, sujeto_pasivo FROM publicadas_ph WHERE id_lobby IN (${placeholders})`,
               deleteIds,
-              function (err) {
-                if (err)
-                  console.error(
-                    "Error al eliminar huérfanos de PH:",
-                    err.message,
-                  );
-                performCommit(this ? this.changes : 0);
-              },
+              (err, rowsToDelete) => {
+                if (!err && rowsToDelete) {
+                  rowsToDelete.forEach((r) => {
+                    allStats.ph.details.push({
+                      type: "delete",
+                      id: r.id_lobby,
+                      folio: r.folio_lobby || `ID: ${r.id_lobby}`,
+                      pasivo: r.sujeto_pasivo || ""
+                    });
+                  });
+                }
+                db.run(
+                  `DELETE FROM publicadas_ph WHERE id_lobby IN (${placeholders})`,
+                  deleteIds,
+                  function (err) {
+                    if (err)
+                      console.error(
+                        "Error al eliminar huérfanos de PH:",
+                        err.message,
+                      );
+                    performCommit(this ? this.changes : 0);
+                  },
+                );
+              }
             );
           } else {
             performCommit(0);
@@ -750,75 +842,47 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
         }
       }
 
-      executeInBatches(rows, 200, (row, done) => {
-        const idLobby = row["Id"] || null;
-        if (idLobby === null) return done();
-        seenIds.add(idLobby);
+      executeInBatches(
+        rows,
+        200,
+        (row, done) => {
+          const idLobby = row["Id"] || null;
+          if (idLobby === null) return done();
+          seenIds.add(idLobby);
 
-        const parsedFechaInicio = parseExcelDate(row["Fecha inicio"]);
-        const parsedFechaPublicacion = parseExcelDate(row["Fecha publicación"]);
-
-        let cumplimientoVal = row["Cumplimiento"] || "En plazo";
-        if (parsedFechaInicio && parsedFechaPublicacion) {
-          const delay = getPublishedDelay(
-            parsedFechaInicio,
-            parsedFechaPublicacion,
+          const parsedFechaInicio = parseExcelDate(row["Fecha inicio"]);
+          const parsedFechaPublicacion = parseExcelDate(
+            row["Fecha publicación"],
           );
-          cumplimientoVal =
-            delay > 0 ? `Fuera de plazo (-${delay}d)` : "En plazo";
-        } else {
-          if (cumplimientoVal.toLowerCase().includes("fuera")) {
-            cumplimientoVal = "Fuera de plazo";
+
+          let cumplimientoVal = row["Cumplimiento"] || "En plazo";
+          if (parsedFechaInicio && parsedFechaPublicacion) {
+            const delay = getPublishedDelay(
+              parsedFechaInicio,
+              parsedFechaPublicacion,
+            );
+            cumplimientoVal =
+              delay > 0 ? `Fuera de plazo (-${delay}d)` : "En plazo";
           } else {
-            cumplimientoVal = "En plazo";
+            if (cumplimientoVal.toLowerCase().includes("fuera")) {
+              cumplimientoVal = "Fuera de plazo";
+            } else {
+              cumplimientoVal = "En plazo";
+            }
           }
-        }
 
-        const folio = row["Folio"] || "";
-        const idSolicitudLobby = solicitudAceptadaMap[folio] || null;
+          const folio = row["Folio"] || "";
+          const idSolicitudLobby = solicitudAceptadaMap[folio] || null;
 
-        const valuesForHash = [
-          idLobby,
-          folio,
-          normalizeEstado(row["Estado"] || "Publicada"),
-          row["Forma"] || "",
-          row["Materia"] || "",
-          row["Especificación materia tratada"] || row["Especificacion materia tratada"] || "",
-          row["Lugar"] || "",
-          row["Comuna"] || "",
-          row["Sujeto pasivo"] || "",
-          row["Cargo"] || "",
-          row["Sujeto activo"] || "",
-          row["Rut"] || "",
-          row["Genero"] || "",
-          row["Tipo"] || "",
-          row["Representado"] || "",
-          parsedFechaInicio,
-          parseExcelDate(row["Fecha término"]),
-          row["Duración"] || "",
-          parsedFechaPublicacion,
-          cumplimientoVal,
-          idSolicitudLobby,
-        ];
-
-        const currentHash = calculateHashFromValues(valuesForHash);
-
-        if (!existingMap.hasOwnProperty(idLobby)) {
-          pendingOps++;
-          insertStmt.run([...valuesForHash, currentHash], (err) => {
-            if (err)
-              console.error(`Error al insertar PH ID ${idLobby}:`, err.message);
-            pendingOps--;
-            done();
-          });
-          insertsCount++;
-        } else if (existingMap[idLobby] !== currentHash) {
-          const updateValues = [
+          const valuesForHash = [
+            idLobby,
             folio,
             normalizeEstado(row["Estado"] || "Publicada"),
             row["Forma"] || "",
             row["Materia"] || "",
-            row["Especificación materia tratada"] || row["Especificacion materia tratada"] || "",
+            row["Especificación materia tratada"] ||
+              row["Especificacion materia tratada"] ||
+              "",
             row["Lugar"] || "",
             row["Comuna"] || "",
             row["Sujeto pasivo"] || "",
@@ -834,28 +898,111 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
             parsedFechaPublicacion,
             cumplimientoVal,
             idSolicitudLobby,
-            currentHash,
-            idLobby,
           ];
-          pendingOps++;
-          updateStmt.run(updateValues, (err) => {
-            if (err)
-              console.error(
-                `Error al actualizar PH ID ${idLobby}:`,
-                err.message,
-              );
-            pendingOps--;
+
+          const currentHash = calculateHashFromValues(valuesForHash);
+
+          if (!existingMap.hasOwnProperty(idLobby)) {
+            pendingOps++;
+            insertStmt.run([...valuesForHash, currentHash], (err) => {
+              if (err) {
+                console.error(
+                  `Error al insertar PH ID ${idLobby}:`,
+                  err.message,
+                );
+              } else {
+                allStats.ph.details.push({
+                  type: "insert",
+                  id: idLobby,
+                  folio: folio || `ID: ${idLobby}`,
+                  pasivo: row["Sujeto pasivo"] || "",
+                  activo: row["Sujeto activo"] || ""
+                });
+              }
+              pendingOps--;
+              done();
+            });
+            insertsCount++;
+          } else if (existingMap[idLobby] !== currentHash) {
+            const updateValues = [
+              folio,
+              normalizeEstado(row["Estado"] || "Publicada"),
+              row["Forma"] || "",
+              row["Materia"] || "",
+              row["Especificación materia tratada"] ||
+                row["Especificacion materia tratada"] ||
+                "",
+              row["Lugar"] || "",
+              row["Comuna"] || "",
+              row["Sujeto pasivo"] || "",
+              row["Cargo"] || "",
+              row["Sujeto activo"] || "",
+              row["Rut"] || "",
+              row["Genero"] || "",
+              row["Tipo"] || "",
+              row["Representado"] || "",
+              parsedFechaInicio,
+              parseExcelDate(row["Fecha término"]),
+              row["Duración"] || "",
+              parsedFechaPublicacion,
+              cumplimientoVal,
+              idSolicitudLobby,
+              currentHash,
+              idLobby,
+            ];
+            pendingOps++;
+            db.get(
+              "SELECT folio_lobby, estado, fecha_inicio, sujeto_pasivo, sujeto_activo, representado, materia FROM publicadas_ph WHERE id_lobby = ?",
+              [idLobby],
+              (err, oldRow) => {
+                if (!err && oldRow) {
+                  const changes = {};
+                  const compareField = (dbField, newValue, label) => {
+                    let oldValue = oldRow[dbField];
+                    if (oldValue === null || oldValue === undefined) oldValue = "";
+                    if (newValue === null || newValue === undefined) newValue = "";
+                    if (String(oldValue).trim() !== String(newValue).trim()) {
+                      changes[label] = { old: String(oldValue).trim(), new: String(newValue).trim() };
+                    }
+                  };
+                  compareField("estado", normalizeEstado(row["Estado"] || "Publicada"), "Estado");
+                  compareField("fecha_inicio", parsedFechaInicio, "Fecha inicio");
+                  compareField("sujeto_pasivo", row["Sujeto pasivo"] || "", "Sujeto Pasivo");
+                  compareField("sujeto_activo", row["Sujeto activo"] || "", "Solicitante");
+                  compareField("representado", row["Representado"] || "", "Representado");
+                  compareField("materia", row["Materia"] || "", "Materia");
+
+                  if (Object.keys(changes).length > 0) {
+                    allStats.ph.details.push({
+                      type: "update",
+                      id: idLobby,
+                      folio: folio || oldRow.folio_lobby || `ID: ${idLobby}`,
+                      changes: changes
+                    });
+                  }
+                }
+                updateStmt.run(updateValues, (err) => {
+                  if (err)
+                    console.error(
+                      `Error al actualizar PH ID ${idLobby}:`,
+                      err.message,
+                    );
+                  pendingOps--;
+                  done();
+                });
+              }
+            );
+            updatesCount++;
+          } else {
+            skippedCount++;
             done();
-          });
-          updatesCount++;
-        } else {
-          skippedCount++;
-          done();
-        }
-      }, () => {
-        loopFinished = true;
-        checkFinished();
-      });
+          }
+        },
+        () => {
+          loopFinished = true;
+          checkFinished();
+        },
+      );
     },
   );
 }
@@ -939,17 +1086,33 @@ function syncSujetosPasivos(rows, callback) {
 
           if (deleteIds.length > 0) {
             const placeholders = deleteIds.map(() => "?").join(",");
-            db.run(
-              `DELETE FROM sujetos_pasivos_sph WHERE id_sujeto_lobby IN (${placeholders})`,
+            db.all(
+              `SELECT id_sujeto_lobby, nombre, cargo FROM sujetos_pasivos_sph WHERE id_sujeto_lobby IN (${placeholders})`,
               deleteIds,
-              function (err) {
-                if (err)
-                  console.error(
-                    "Error al eliminar huérfanos de SPH:",
-                    err.message,
-                  );
-                performCommit(this ? this.changes : 0);
-              },
+              (err, rowsToDelete) => {
+                if (!err && rowsToDelete) {
+                  rowsToDelete.forEach((r) => {
+                    allStats.sph.details.push({
+                      type: "delete",
+                      id: r.id_sujeto_lobby,
+                      nombre: r.nombre || `ID: ${r.id_sujeto_lobby}`,
+                      cargo: r.cargo || ""
+                    });
+                  });
+                }
+                db.run(
+                  `DELETE FROM sujetos_pasivos_sph WHERE id_sujeto_lobby IN (${placeholders})`,
+                  deleteIds,
+                  function (err) {
+                    if (err)
+                      console.error(
+                        "Error al eliminar huérfanos de SPH:",
+                        err.message,
+                      );
+                    performCommit(this ? this.changes : 0);
+                  },
+                );
+              }
             );
           } else {
             performCommit(0);
@@ -957,39 +1120,16 @@ function syncSujetosPasivos(rows, callback) {
         }
       }
 
-      executeInBatches(rows, 200, (row, done) => {
-        const idSujeto = row["ID"] || null;
-        if (idSujeto === null) return done();
-        seenIds.add(idSujeto);
+      executeInBatches(
+        rows,
+        200,
+        (row, done) => {
+          const idSujeto = row["ID"] || null;
+          if (idSujeto === null) return done();
+          seenIds.add(idSujeto);
 
-        const valuesForHash = [
-          idSujeto,
-          row["Nombre"] || "",
-          row["Rut"] || "",
-          row["Cargo o función"] || "",
-          row["Tipo"] || "",
-          row["Zona"] || "",
-          parseExcelDate(row["Fecha incorporación"]),
-          parseExcelDate(row["Fecha término"]),
-          row["Respaldo juridico"] || "",
-        ];
-
-        const currentHash = calculateHashFromValues(valuesForHash);
-
-        if (!existingMap.hasOwnProperty(idSujeto)) {
-          pendingOps++;
-          insertStmt.run([...valuesForHash, currentHash], (err) => {
-            if (err)
-              console.error(
-                `Error al insertar SPH ID ${idSujeto}:`,
-                err.message,
-              );
-            pendingOps--;
-            done();
-          });
-          insertsCount++;
-        } else if (existingMap[idSujeto] !== currentHash) {
-          const updateValues = [
+          const valuesForHash = [
+            idSujeto,
             row["Nombre"] || "",
             row["Rut"] || "",
             row["Cargo o función"] || "",
@@ -998,28 +1138,92 @@ function syncSujetosPasivos(rows, callback) {
             parseExcelDate(row["Fecha incorporación"]),
             parseExcelDate(row["Fecha término"]),
             row["Respaldo juridico"] || "",
-            currentHash,
-            idSujeto,
           ];
-          pendingOps++;
-          updateStmt.run(updateValues, (err) => {
-            if (err)
-              console.error(
-                `Error al actualizar SPH ID ${idSujeto}:`,
-                err.message,
-              );
-            pendingOps--;
+
+          const currentHash = calculateHashFromValues(valuesForHash);
+
+          if (!existingMap.hasOwnProperty(idSujeto)) {
+            pendingOps++;
+            insertStmt.run([...valuesForHash, currentHash], (err) => {
+              if (err) {
+                console.error(
+                  `Error al insertar SPH ID ${idSujeto}:`,
+                  err.message,
+                );
+              } else {
+                allStats.sph.details.push({
+                  type: "insert",
+                  id: idSujeto,
+                  nombre: row["Nombre"] || `ID: ${idSujeto}`,
+                  cargo: row["Cargo o función"] || ""
+                });
+              }
+              pendingOps--;
+              done();
+            });
+            insertsCount++;
+          } else if (existingMap[idSujeto] !== currentHash) {
+            const updateValues = [
+              row["Nombre"] || "",
+              row["Rut"] || "",
+              row["Cargo o función"] || "",
+              row["Tipo"] || "",
+              row["Zona"] || "",
+              parseExcelDate(row["Fecha incorporación"]),
+              parseExcelDate(row["Fecha término"]),
+              row["Respaldo juridico"] || "",
+              currentHash,
+              idSujeto,
+            ];
+            pendingOps++;
+            db.get(
+              "SELECT nombre, cargo FROM sujetos_pasivos_sph WHERE id_sujeto_lobby = ?",
+              [idSujeto],
+              (err, oldRow) => {
+                if (!err && oldRow) {
+                  const changes = {};
+                  const compareField = (dbField, newValue, label) => {
+                    let oldValue = oldRow[dbField];
+                    if (oldValue === null || oldValue === undefined) oldValue = "";
+                    if (newValue === null || newValue === undefined) newValue = "";
+                    if (String(oldValue).trim() !== String(newValue).trim()) {
+                      changes[label] = { old: String(oldValue).trim(), new: String(newValue).trim() };
+                    }
+                  };
+                  compareField("nombre", row["Nombre"] || "", "Nombre");
+                  compareField("cargo", row["Cargo o función"] || "", "Cargo");
+
+                  if (Object.keys(changes).length > 0) {
+                    allStats.sph.details.push({
+                      type: "update",
+                      id: idSujeto,
+                      nombre: row["Nombre"] || oldRow.nombre || `ID: ${idSujeto}`,
+                      changes: changes
+                    });
+                  }
+                }
+                updateStmt.run(updateValues, (err) => {
+                  if (err)
+                    console.error(
+                      `Error al actualizar SPH ID ${idSujeto}:`,
+                      err.message,
+                    );
+                  pendingOps--;
+                  done();
+                });
+              }
+            );
+            updatesCount++;
+          } else {
+            skippedCount++;
             done();
-          });
-          updatesCount++;
-        } else {
-          skippedCount++;
-          done();
-        }
-      }, () => {
-        loopFinished = true;
-        checkFinished();
-      });
+          }
+        },
+        () => {
+          loopFinished = true;
+          checkFinished();
+        },
+      );
     },
   );
 }
@@ -1054,9 +1258,9 @@ function saveLastImportTimestamp(callback) {
 
 // Objeto acumulador de estadísticas de importación
 const allStats = {
-  sh: { inserts: 0, updates: 0, skipped: 0, deletes: 0 },
-  ph: { inserts: 0, updates: 0, skipped: 0, deletes: 0 },
-  sph: { inserts: 0, updates: 0, skipped: 0, deletes: 0 },
+  sh: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
+  ph: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
+  sph: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
   sharepoint: { uploaded: false, error: null },
 };
 
@@ -1072,7 +1276,7 @@ db.serialize(() => {
     const sheet = workbook.Sheets["SH"];
     const rows = XLSX.utils.sheet_to_json(sheet);
     console.log(
-      `\nProcesando ${rows.length} registros para la tabla "solicitudes_sh"...`
+      `\nProcesando ${rows.length} registros para la tabla "solicitudes_sh"...`,
     );
 
     rows.forEach((row) => {
@@ -1090,7 +1294,7 @@ db.serialize(() => {
       }
     });
     console.log(
-      `  → Mapa de solicitudes Aceptadas construido: ${Object.keys(solicitudAceptadaMap).length} folios únicos.`
+      `  → Mapa de solicitudes Aceptadas construido: ${Object.keys(solicitudAceptadaMap).length} folios únicos.`,
     );
 
     console.time("Tiempo: Sincronización SH");
@@ -1103,6 +1307,7 @@ db.serialize(() => {
       }
       if (stats) {
         allStats.sh = {
+          ...allStats.sh,
           inserts: stats.insertsCount,
           updates: stats.updatesCount,
           skipped: stats.skippedCount,
@@ -1121,7 +1326,7 @@ db.serialize(() => {
       const sheet = workbook.Sheets["PH"];
       const rows = XLSX.utils.sheet_to_json(sheet);
       console.log(
-        `\nProcesando ${rows.length} registros para la tabla "publicadas_ph"...`
+        `\nProcesando ${rows.length} registros para la tabla "publicadas_ph"...`,
       );
 
       console.time("Tiempo: Sincronización PH");
@@ -1134,6 +1339,7 @@ db.serialize(() => {
         }
         if (stats) {
           allStats.ph = {
+            ...allStats.ph,
             inserts: stats.insertsCount,
             updates: stats.updatesCount,
             skipped: stats.skippedCount,
@@ -1153,7 +1359,7 @@ db.serialize(() => {
       const sheet = workbook.Sheets["SPH"];
       const rows = XLSX.utils.sheet_to_json(sheet);
       console.log(
-        `\nProcesando ${rows.length} registros para la tabla "sujetos_pasivos_sph"...`
+        `\nProcesando ${rows.length} registros para la tabla "sujetos_pasivos_sph"...`,
       );
 
       console.time("Tiempo: Sincronización SPH");
@@ -1169,6 +1375,7 @@ db.serialize(() => {
         }
         if (stats) {
           allStats.sph = {
+            ...allStats.sph,
             inserts: stats.insertsCount,
             updates: stats.updatesCount,
             skipped: stats.skippedCount,
@@ -1195,31 +1402,43 @@ db.serialize(() => {
       (allStats.sph.updates || 0) +
       (allStats.sph.deletes || 0);
 
-    const userName = process.env.IMPORT_USER_NAME || 'Sistema';
-    const userEmail = process.env.IMPORT_USER_EMAIL || '';
+    const userName = process.env.IMPORT_USER_NAME || "Sistema";
+    const userEmail = process.env.IMPORT_USER_EMAIL || "";
     const userStr = userEmail ? `${userName} (${userEmail})` : userName;
 
     const nextStep = () => {
       console.log("Registrando bitácora de importación en el historial...");
       db.run(
-        'INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)',
-        [userStr, 'Exitoso', JSON.stringify(allStats)],
+        "INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)",
+        [userStr, "Exitoso", JSON.stringify(allStats)],
         (bitErr) => {
-          if (bitErr) console.error("Error al registrar bitácora de importación:", bitErr.message);
+          if (bitErr)
+            console.error(
+              "Error al registrar bitácora de importación:",
+              bitErr.message,
+            );
 
-          console.log("Ejecutando limpieza y optimización de base de datos (VACUUM)...");
+          console.log(
+            "Ejecutando limpieza y optimización de base de datos (VACUUM)...",
+          );
           console.time("Tiempo: VACUUM");
           db.run("VACUUM", (vErr) => {
             console.timeEnd("Tiempo: VACUUM");
             if (vErr) {
               console.error("Error al ejecutar VACUUM:", vErr.message);
             } else {
-              console.log("✓ Base de datos optimizada y compactada con éxito (VACUUM).");
+              console.log(
+                "✓ Base de datos optimizada y compactada con éxito (VACUUM).",
+              );
             }
 
             console.log("Ejecutando checkpoint de WAL...");
             db.run("PRAGMA wal_checkpoint(TRUNCATE)", (cpErr) => {
-              if (cpErr) console.error("Error al ejecutar checkpoint de WAL:", cpErr.message);
+              if (cpErr)
+                console.error(
+                  "Error al ejecutar checkpoint de WAL:",
+                  cpErr.message,
+                );
 
               console.timeEnd("Tiempo: Ejecución total de importación");
               console.log("\nImportación masiva completada con éxito.");
@@ -1280,7 +1499,8 @@ db.serialize(() => {
                       );
                       allStats.sharepoint = {
                         uploaded: false,
-                        error: "Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
+                        error:
+                          "Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
                       };
                     } else {
                       console.log(`[SharePoint Upload] Sitio: ${siteUrl}`);
@@ -1290,14 +1510,22 @@ db.serialize(() => {
 
                       const tempGzPath = dbPath + ".gz.tmp";
                       try {
-                        console.log("[SharePoint Upload] Comprimiendo base de datos de forma asíncrona...");
+                        console.log(
+                          "[SharePoint Upload] Comprimiendo base de datos de forma asíncrona...",
+                        );
                         await compressFileAsync(dbPath, tempGzPath);
-                        console.log("[SharePoint Upload] Compresión finalizada.");
+                        console.log(
+                          "[SharePoint Upload] Compresión finalizada.",
+                        );
 
                         const digest = await getRequestDigest(siteUrl, cookies);
-                        console.log("[SharePoint Upload] Request Digest obtenido.");
+                        console.log(
+                          "[SharePoint Upload] Request Digest obtenido.",
+                        );
 
-                        console.log("[SharePoint Upload] Subiendo version_lobby.json...");
+                        console.log(
+                          "[SharePoint Upload] Subiendo version_lobby.json...",
+                        );
                         await uploadFileToSharePoint(
                           siteUrl,
                           folderPath,
@@ -1307,7 +1535,9 @@ db.serialize(() => {
                           cookies,
                         );
 
-                        console.log("[SharePoint Upload] Subiendo lobby_control.db (comprimido)...");
+                        console.log(
+                          "[SharePoint Upload] Subiendo lobby_control.db (comprimido)...",
+                        );
                         await uploadFileToSharePoint(
                           siteUrl,
                           folderPath,
@@ -1334,9 +1564,14 @@ db.serialize(() => {
                         if (fs.existsSync(tempGzPath)) {
                           try {
                             fs.unlinkSync(tempGzPath);
-                            console.log("[SharePoint Upload] Archivo temporal comprimido eliminado.");
+                            console.log(
+                              "[SharePoint Upload] Archivo temporal comprimido eliminado.",
+                            );
                           } catch (e) {
-                            console.error("[SharePoint Upload] No se pudo eliminar el archivo temporal comprimido:", e.message);
+                            console.error(
+                              "[SharePoint Upload] No se pudo eliminar el archivo temporal comprimido:",
+                              e.message,
+                            );
                           }
                         }
                       }
@@ -1356,7 +1591,10 @@ db.serialize(() => {
                   if (process.env.ONEDRIVE_SYNC_PATH) {
                     const odPath = process.env.ONEDRIVE_SYNC_PATH;
                     if (fs.existsSync(odPath)) {
-                      const destJsonPath = path.join(odPath, "version_lobby.json");
+                      const destJsonPath = path.join(
+                        odPath,
+                        "version_lobby.json",
+                      );
                       const destDbPath = path.join(odPath, "lobby_control.db");
 
                       fs.writeFileSync(
@@ -1390,7 +1628,7 @@ db.serialize(() => {
               });
             });
           });
-        }
+        },
       );
     };
 
@@ -1400,7 +1638,7 @@ db.serialize(() => {
       });
     } else {
       console.log(
-        "No se detectaron cambios reales en los datos importados. Se omite la actualización de la marca de tiempo de última modificación, VACUUM y subida a SharePoint."
+        "No se detectaron cambios reales en los datos importados. Se omite la actualización de la marca de tiempo de última modificación, VACUUM y subida a SharePoint.",
       );
       // Cerrar la base de datos de forma limpia y notificar éxito al servidor
       db.close(() => {
@@ -1420,7 +1658,10 @@ function rebuildActiveSujetoIdsTable(done) {
   db.serialize(() => {
     db.run("BEGIN IMMEDIATE TRANSACTION", (txErr) => {
       if (txErr) {
-        console.error("Error al iniciar transacción para vigentes:", txErr.message);
+        console.error(
+          "Error al iniciar transacción para vigentes:",
+          txErr.message,
+        );
         if (typeof done === "function") done();
         return;
       }
@@ -1428,14 +1669,18 @@ function rebuildActiveSujetoIdsTable(done) {
 
     db.run("DELETE FROM sujetos_pasivos_vigentes", (err) => {
       if (err) {
-        console.error("Error al limpiar sujetos_pasivos_vigentes:", err.message);
+        console.error(
+          "Error al limpiar sujetos_pasivos_vigentes:",
+          err.message,
+        );
         db.run("ROLLBACK");
         if (typeof done === "function") done();
         return;
       }
     });
 
-    db.run(`
+    db.run(
+      `
       INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby)
       SELECT DISTINCT id_sujeto_lobby
       FROM sujetos_pasivos_sph
@@ -1447,25 +1692,34 @@ function rebuildActiveSujetoIdsTable(done) {
           OR LOWER(TRIM(fecha_termino)) LIKE '%indefin%'
           OR TRIM(fecha_termino) >= ?
         )
-    `, [todayStr], function(insertErr) {
-      if (insertErr) {
-        console.error("Error al poblar sujetos_pasivos_vigentes:", insertErr.message);
-        db.run("ROLLBACK");
-        if (typeof done === "function") done();
-      } else {
-        const changes = this ? this.changes : 0;
-        db.run("COMMIT", (commitErr) => {
-          if (commitErr) {
-            console.error("Error al hacer COMMIT de vigentes:", commitErr.message);
-            db.run("ROLLBACK");
-          } else {
-            console.log(
-              `✓ Sincronización vigentes: ${changes} registros vigentes creados en sujetos_pasivos_vigentes.`
-            );
-          }
+    `,
+      [todayStr],
+      function (insertErr) {
+        if (insertErr) {
+          console.error(
+            "Error al poblar sujetos_pasivos_vigentes:",
+            insertErr.message,
+          );
+          db.run("ROLLBACK");
           if (typeof done === "function") done();
-        });
-      }
-    });
+        } else {
+          const changes = this ? this.changes : 0;
+          db.run("COMMIT", (commitErr) => {
+            if (commitErr) {
+              console.error(
+                "Error al hacer COMMIT de vigentes:",
+                commitErr.message,
+              );
+              db.run("ROLLBACK");
+            } else {
+              console.log(
+                `✓ Sincronización vigentes: ${changes} registros vigentes creados en sujetos_pasivos_vigentes.`,
+              );
+            }
+            if (typeof done === "function") done();
+          });
+        }
+      },
+    );
   });
 }

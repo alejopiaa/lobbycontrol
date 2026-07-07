@@ -590,7 +590,7 @@ async function handle(req, setSharepointCookie) {
 
       return new Promise((resolve) => {
         if (all) {
-          const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
+          const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero, materia, especificacion_materia FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
           db.all(sql, params, (err, rows) => {
             if (err) return resolve({ status: 500, data: { error: err.message } });
             injectDynamicFields(rows, () => {
@@ -630,7 +630,7 @@ async function handle(req, setSharepointCookie) {
 
       return new Promise((resolve) => {
         if (all) {
-          const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
+          const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero, materia, especificacion_materia FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
           db.all(sql, params, (err, rows) => {
             if (err) return resolve({ status: 500, data: { error: err.message } });
             injectDynamicFields(rows, () => {
@@ -1156,12 +1156,34 @@ async function handle(req, setSharepointCookie) {
       excelSize = formatBytes(stats.size);
     } catch (e) {}
 
+    let signatureStatus = 'No disponible';
+    try {
+      const localVersionPath = path.join(dbDir, 'version_lobby.json');
+      if (fs.existsSync(localVersionPath)) {
+        const crypto = require('crypto');
+        const versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+        if (versionData.db_signature) {
+          const dbBuffer = fs.readFileSync(dbFile);
+          const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
+            .update(dbBuffer)
+            .digest('hex');
+          if (calculatedSignature === versionData.db_signature) {
+            signatureStatus = 'Válida';
+          } else {
+            signatureStatus = 'Alterada / Modificaciones no firmadas';
+          }
+        }
+      }
+    } catch (e) {
+      signatureStatus = 'Error al verificar';
+    }
+
     return new Promise((resolve) => {
       db.get('PRAGMA integrity_check', [], (err, row) => {
         const integrity = (err || !row) ? 'Error al verificar' : row.integrity_check;
         resolve({
           status: 200,
-          data: { dbSize, excelSize, excelPath: excelFile, integrity }
+          data: { dbSize, excelSize, excelPath: excelFile, integrity, signatureStatus }
         });
       });
     });

@@ -1,8 +1,8 @@
 // Helper para generar HTML de tooltip premium para el sujeto pasivo y su cargo
 function renderSujetoPasivoTooltip(nombre, cargo) {
-  const displayNombre = nombre || 'Sin Nombre';
-  const escapedCargo = escapeHtmlAttr(cargo || 'Sin Cargo Definido');
-  
+  const displayNombre = nombre || "Sin Nombre";
+  const escapedCargo = escapeHtmlAttr(cargo || "Sin Cargo Definido");
+
   return `
     <span class="font-semibold text-slate-200 cursor-help border-b border-dashed border-slate-500 hover:text-brand-400 hover:border-brand-400 transition-colors"
           onmouseenter="showGlobalTooltip(event, '${escapedCargo}')"
@@ -13,9 +13,14 @@ function renderSujetoPasivoTooltip(nombre, cargo) {
 }
 
 // Generador de controles de paginación
-function renderPaginationControls(viewName, totalItems, currentPage, pageSize = 10) {
+function renderPaginationControls(
+  viewName,
+  totalItems,
+  currentPage,
+  pageSize = 10,
+) {
   const totalPages = Math.ceil(totalItems / pageSize);
-  if (totalPages <= 1) return '';
+  if (totalPages <= 1) return "";
 
   const startItem = (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
@@ -33,12 +38,12 @@ function renderPaginationControls(viewName, totalItems, currentPage, pageSize = 
     pages.push(i);
   }
 
-  let buttonsHtml = '';
-  
+  let buttonsHtml = "";
+
   const prevDisabled = currentPage === 1;
   buttonsHtml += `
-    <button onclick="${prevDisabled ? '' : `changePage('${viewName}', ${currentPage - 1})`}" 
-            class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${prevDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800'}" 
+    <button onclick="${prevDisabled ? "" : `changePage('${viewName}', ${currentPage - 1})`}" 
+            class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${prevDisabled ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-800"}" 
             title="Anterior">
       <i data-lucide="chevron-left" class="h-4 w-4 text-slate-200"></i>
     </button>
@@ -53,14 +58,14 @@ function renderPaginationControls(viewName, totalItems, currentPage, pageSize = 
     }
   }
 
-  pages.forEach(p => {
+  pages.forEach((p) => {
     const isCurrent = p === currentPage;
     buttonsHtml += `
       <button onclick="changePage('${viewName}', ${p})" 
               class="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-semibold font-sans transition-all ${
-                isCurrent 
-                  ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20' 
-                  : 'border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white hover:bg-slate-800'
+                isCurrent
+                  ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
+                  : "border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white hover:bg-slate-800"
               }">
         ${p}
       </button>
@@ -78,8 +83,8 @@ function renderPaginationControls(viewName, totalItems, currentPage, pageSize = 
 
   const nextDisabled = currentPage === totalPages;
   buttonsHtml += `
-    <button onclick="${nextDisabled ? '' : `changePage('${viewName}', ${currentPage + 1})`}" 
-            class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${nextDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800'}" 
+    <button onclick="${nextDisabled ? "" : `changePage('${viewName}', ${currentPage + 1})`}" 
+            class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${nextDisabled ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-800"}" 
             title="Siguiente">
       <i data-lucide="chevron-right" class="h-4 w-4 text-slate-200"></i>
     </button>
@@ -99,9 +104,10 @@ function renderPaginationControls(viewName, totalItems, currentPage, pageSize = 
 
 // RENDER: VISTA DASHBOARD (VISTA INICIAL)
 function renderDashboard(container) {
-  const stats = calculateDashboardStats(dataStore.dashboardRawData, dashboardFilters);
-  
-
+  const stats = calculateDashboardStats(
+    dataStore.dashboardRawData,
+    dashboardFilters,
+  );
 
   container.innerHTML = `
     <div class="space-y-4">
@@ -110,7 +116,8 @@ function renderDashboard(container) {
       </div>
 
       <!-- CONTENEDOR FILTROS -->
-      ${renderGlassCard(`
+      ${renderGlassCard(
+        `
         <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
           <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
             <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
@@ -123,52 +130,56 @@ function renderDashboard(container) {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <!-- AÑO -->
           ${renderSearchInput({
-            id: 'dashboard-filter-anio',
-            fieldName: 'anio',
-            label: 'Año',
-            placeholder: 'Escribir año...',
+            id: "dashboard-filter-anio",
+            fieldName: "anio",
+            label: "Año",
+            placeholder: "Escribir año...",
             value: dashboardFilters.anio,
-            hasSuggestions: true
+            hasSuggestions: true,
           })}
           <!-- NOMBRE -->
           ${renderSearchInput({
-            id: 'dashboard-filter-nombre',
-            fieldName: 'nombre',
-            label: 'Nombre',
-            placeholder: 'Escribir nombre...',
+            id: "dashboard-filter-nombre",
+            fieldName: "nombre",
+            label: "Nombre",
+            placeholder: "Escribir nombre...",
             value: dashboardFilters.nombre,
-            hasSuggestions: true
+            hasSuggestions: true,
           })}
           <!-- CARGO -->
           ${renderSearchInput({
-            id: 'dashboard-filter-cargo',
-            fieldName: 'cargo',
-            label: 'Cargo',
-            placeholder: !dashboardFilters.nombre ? 'Seleccione nombre primero...' : 'Escribir cargo...',
+            id: "dashboard-filter-cargo",
+            fieldName: "cargo",
+            label: "Cargo",
+            placeholder: !dashboardFilters.nombre
+              ? "Seleccione nombre primero..."
+              : "Escribir cargo...",
             value: dashboardFilters.cargo,
             disabled: !dashboardFilters.nombre,
-            hasSuggestions: true
+            hasSuggestions: true,
           })}
           <!-- FECHA INICIO -->
           ${renderDateInput({
-            id: 'dashboard-filter-fechainicio',
-            fieldName: 'fechaInicio',
-            label: 'Fecha Inicio',
+            id: "dashboard-filter-fechainicio",
+            fieldName: "fechaInicio",
+            label: "Fecha Inicio",
             value: dashboardFilters.fechaInicio,
-            min: dashboardFilters.anio ? `${dashboardFilters.anio}-01-01` : '',
-            max: dashboardFilters.anio ? `${dashboardFilters.anio}-12-31` : ''
+            min: dashboardFilters.anio ? `${dashboardFilters.anio}-01-01` : "",
+            max: dashboardFilters.anio ? `${dashboardFilters.anio}-12-31` : "",
           })}
           <!-- FECHA TÉRMINO -->
           ${renderDateInput({
-            id: 'dashboard-filter-fechatermino',
-            fieldName: 'fechaTermino',
-            label: 'Fecha Término',
+            id: "dashboard-filter-fechatermino",
+            fieldName: "fechaTermino",
+            label: "Fecha Término",
             value: dashboardFilters.fechaTermino,
-            min: dashboardFilters.anio ? `${dashboardFilters.anio}-01-01` : '',
-            max: dashboardFilters.anio ? `${dashboardFilters.anio}-12-31` : ''
+            min: dashboardFilters.anio ? `${dashboardFilters.anio}-01-01` : "",
+            max: dashboardFilters.anio ? `${dashboardFilters.anio}-12-31` : "",
           })}
         </div>
-      `, 'rounded-2xl p-5 space-y-4 relative z-20')}
+      `,
+        "rounded-2xl p-5 space-y-4 relative z-20",
+      )}
 
       <!-- TRES TARJETAS PRINCIPALES -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -378,7 +389,8 @@ function renderSolicitudes(container) {
   const currentPage = paginationState.solicitudes.page;
   const pageSize = 10;
 
-  const isServerPaged = dataStore.solicitudes && !Array.isArray(dataStore.solicitudes);
+  const isServerPaged =
+    dataStore.solicitudes && !Array.isArray(dataStore.solicitudes);
   if (isServerPaged) {
     paginatedItems = dataStore.solicitudes.data || [];
     totalItems = dataStore.solicitudes.totalItems || 0;
@@ -386,34 +398,61 @@ function renderSolicitudes(container) {
     let filtered = dataStore.solicitudes || [];
     if (filters.folio) {
       const val = filters.folio.toLowerCase();
-      filtered = filtered.filter(item => (item.folio_lobby || '').toLowerCase().includes(val));
+      filtered = filtered.filter((item) =>
+        (item.folio_lobby || "").toLowerCase().includes(val),
+      );
     }
     if (filters.nombre) {
       const val = filters.nombre.toLowerCase();
-      filtered = filtered.filter(item => (item.sujeto_pasivo || '').toLowerCase().includes(val));
+      filtered = filtered.filter((item) =>
+        (item.sujeto_pasivo || "").toLowerCase().includes(val),
+      );
     }
     if (filters.cargo) {
       const val = filters.cargo.toLowerCase();
-      filtered = filtered.filter(item => item.cargo && getCargoClean(item.cargo).toLowerCase().includes(val));
+      filtered = filtered.filter(
+        (item) =>
+          item.cargo && getCargoClean(item.cargo).toLowerCase().includes(val),
+      );
     }
     if (filters.sujetoActivoRepresentado) {
       const val = filters.sujetoActivoRepresentado.toLowerCase();
-      filtered = filtered.filter(item => 
-        (item.sujeto_activo || '').toLowerCase().includes(val) || 
-        (item.representado || '').toLowerCase().includes(val) ||
-        (item.rut || '').toLowerCase().includes(val)
+      filtered = filtered.filter(
+        (item) =>
+          (item.sujeto_activo || "").toLowerCase().includes(val) ||
+          (item.representado || "").toLowerCase().includes(val) ||
+          (item.rut || "").toLowerCase().includes(val),
       );
     }
-    if (filters.relacionSujetoActivo || filters.relacionRut || filters.relacionRepresentado) {
-      filtered = filtered.filter(item => {
+    if (
+      filters.relacionSujetoActivo ||
+      filters.relacionRut ||
+      filters.relacionRepresentado
+    ) {
+      filtered = filtered.filter((item) => {
         let match = false;
-        if (filters.relacionSujetoActivo && item.sujeto_activo && item.sujeto_activo.toLowerCase() === filters.relacionSujetoActivo.toLowerCase()) {
+        if (
+          filters.relacionSujetoActivo &&
+          item.sujeto_activo &&
+          item.sujeto_activo.toLowerCase() ===
+            filters.relacionSujetoActivo.toLowerCase()
+        ) {
           match = true;
         }
-        if (filters.relacionRut && item.rut && item.rut.toLowerCase() === filters.relacionRut.toLowerCase()) {
+        if (
+          filters.relacionRut &&
+          item.rut &&
+          item.rut.toLowerCase() === filters.relacionRut.toLowerCase()
+        ) {
           match = true;
         }
-        if (filters.relacionRepresentado && filters.relacionRepresentado.toLowerCase() !== 'particular' && item.representado && item.representado.toLowerCase() === filters.relacionRepresentado.toLowerCase()) {
+        if (
+          filters.relacionRepresentado &&
+          filters.relacionRepresentado.toLowerCase() !== "particular" &&
+          item.representado &&
+          item.representado.toLowerCase() ===
+            filters.relacionRepresentado.toLowerCase()
+        ) {
           match = true;
         }
         return match;
@@ -421,51 +460,60 @@ function renderSolicitudes(container) {
     }
     if (filters.estado) {
       const val = filters.estado.toLowerCase();
-      filtered = filtered.filter(item => (item.estado || '').toLowerCase() === val);
+      filtered = filtered.filter(
+        (item) => (item.estado || "").toLowerCase() === val,
+      );
     }
     totalItems = filtered.length;
-    paginatedItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    paginatedItems = filtered.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize,
+    );
   }
 
-  let rowsHtml = '';
-  
+  let rowsHtml = "";
+
   if (paginatedItems.length === 0) {
     rowsHtml = `<tr><td colspan="9" class="px-6 py-8 text-center text-xs text-slate-300">No hay registros de solicitudes.</td></tr>`;
   } else {
-    paginatedItems.forEach(item => {
+    paginatedItems.forEach((item) => {
       rowsHtml += `
         <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
-          <td class="pl-6 pr-2 text-xs font-semibold text-slate-100 text-left">${escapeHtml(item.folio_lobby || 'Sin Folio')}</td>
+          <td class="pl-6 pr-2 text-xs font-semibold text-slate-100 text-left">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
           <td class="px-2 text-xs text-left">
             <div class="font-semibold text-slate-200" title="Fecha Ingreso">${formatDate(item.fecha_ingreso)}</div>
             <div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Legal Límite">
               ${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : calculateDeadline(item.fecha_ingreso)}
             </div>
           </td>
-          <td class="px-2 text-xs text-slate-300 font-medium text-left">${formatDate(item.fecha_respuesta) || '---'}</td>
-          <td class="px-2 text-xs text-slate-300 text-left">${formatDate(item.fecha_agendada) || '---'}</td>
+          <td class="px-2 text-xs text-slate-300 font-medium text-left">${formatDate(item.fecha_respuesta) || "---"}</td>
+          <td class="px-2 text-xs text-slate-300 text-left">${formatDate(item.fecha_agendada) || "---"}</td>
           <td class="px-2 text-xs text-slate-300 text-left">
-            <div class="font-medium text-slate-200 w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}">${escapeHtml(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}</div>
+            <div class="font-medium text-slate-200 w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
             <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.cargo_limpio || getCargoClean(item.cargo))}">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo))}</div>
           </td>
           <td class="px-2 text-xs text-slate-300 text-left">
             <div class="font-medium text-slate-200 w-full flex items-center justify-between gap-1">
-              <span class="truncate" title="${escapeHtmlAttr(item.sujeto_activo || 'Sin Activo')}">${escapeHtml(item.sujeto_activo || 'Sin Activo')}</span>
-              ${item.sujeto_activo ? `
-                <button onclick="filtrarRelacionados('solicitudes', '${escapeHtmlAttr(item.sujeto_activo)}', '${escapeHtmlAttr(item.rut || '')}', '${escapeHtmlAttr(item.representado || '')}')" 
+              <span class="truncate" title="${escapeHtmlAttr(item.sujeto_activo || "Sin Activo")}">${escapeHtml(item.sujeto_activo || "Sin Activo")}</span>
+              ${
+                item.sujeto_activo
+                  ? `
+                <button onclick="filtrarRelacionados('solicitudes', '${escapeHtmlAttr(item.sujeto_activo)}', '${escapeHtmlAttr(item.rut || "")}', '${escapeHtmlAttr(item.representado || "")}')" 
                         class="text-brand-500 dark:text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 hover:bg-brand-500/10 p-0.5 rounded-lg transition-all shrink-0 cursor-pointer" 
                         title="Filtrar solicitudes relacionadas (mismo RUN, representado y/o sujeto activo)">
                   <i data-lucide="info" class="h-3.5 w-3.5"></i>
                 </button>
-              ` : ''}
+              `
+                  : ""
+              }
             </div>
-            <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || 'Particular')}">${escapeHtml(item.representado || 'Particular')}</div>
+            <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || "Particular")}">${escapeHtml(item.representado || "Particular")}</div>
           </td>
           <td class="px-2 text-left">
             <div class="text-[10.5px] text-slate-300 font-sans leading-normal overflow-hidden" 
                  style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-height: 2.8em;"
-                 title="${escapeHtmlAttr(item.especificacion_materia || item.materia || '')}">
-              ${escapeHtml(item.especificacion_materia || item.materia || 'Sin Especificar')}
+                 title="${escapeHtmlAttr(item.especificacion_materia || item.materia || "")}">
+              ${escapeHtml(item.especificacion_materia || item.materia || "Sin Especificar")}
             </div>
           </td>
           <td class="px-2 text-xs text-left">
@@ -481,13 +529,20 @@ function renderSolicitudes(container) {
     });
   }
 
-  const existingTable = container.querySelector('#table-solicitudes');
+  const existingTable = container.querySelector("#table-solicitudes");
   if (existingTable && window.activeInputId) {
-    existingTable.querySelector('tbody').innerHTML = rowsHtml;
-    const counterEl = container.querySelector('#solicitudes-counter');
-    if (counterEl) counterEl.textContent = `${totalItems} registros encontrados`;
-    const pagEl = container.querySelector('#solicitudes-pagination-container');
-    if (pagEl) pagEl.innerHTML = renderPaginationControls('solicitudes', totalItems, currentPage, pageSize);
+    existingTable.querySelector("tbody").innerHTML = rowsHtml;
+    const counterEl = container.querySelector("#solicitudes-counter");
+    if (counterEl)
+      counterEl.textContent = `${totalItems} registros encontrados`;
+    const pagEl = container.querySelector("#solicitudes-pagination-container");
+    if (pagEl)
+      pagEl.innerHTML = renderPaginationControls(
+        "solicitudes",
+        totalItems,
+        currentPage,
+        pageSize,
+      );
     lucide.createIcons();
     return;
   }
@@ -500,7 +555,8 @@ function renderSolicitudes(container) {
     </div>
 
     <!-- CONTENEDOR FILTROS -->
-    ${renderGlassCard(`
+    ${renderGlassCard(
+      `
       <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
         <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
           <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
@@ -513,65 +569,73 @@ function renderSolicitudes(container) {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <!-- FOLIO -->
         ${renderSearchInput({
-          id: 'filter-solicitudes-folio',
-          fieldName: 'folio',
-          label: 'Folio',
-          placeholder: 'Buscar folio...',
+          id: "filter-solicitudes-folio",
+          fieldName: "folio",
+          label: "Folio",
+          placeholder: "Buscar folio...",
           value: filters.folio,
-          icon: 'hash'
+          icon: "hash",
         })}
         <!-- NOMBRE -->
         ${renderSearchInput({
-          id: 'solicitudes-filter-nombre',
-          fieldName: 'nombre',
-          label: 'Nombre Sujeto Pasivo',
-          placeholder: 'Escribir nombre...',
+          id: "solicitudes-filter-nombre",
+          fieldName: "nombre",
+          label: "Nombre Sujeto Pasivo",
+          placeholder: "Escribir nombre...",
           value: filters.nombre,
-          icon: 'user',
-          hasSuggestions: true
+          icon: "user",
+          hasSuggestions: true,
         })}
         <!-- CARGO -->
         ${renderSearchInput({
-          id: 'solicitudes-filter-cargo',
-          fieldName: 'cargo',
-          label: 'Cargo',
-          placeholder: !filters.nombre ? 'Seleccione nombre primero...' : 'Escribir cargo...',
+          id: "solicitudes-filter-cargo",
+          fieldName: "cargo",
+          label: "Cargo",
+          placeholder: !filters.nombre
+            ? "Seleccione nombre primero..."
+            : "Escribir cargo...",
           value: filters.cargo,
-          icon: 'user',
+          icon: "user",
           disabled: !filters.nombre,
-          hasSuggestions: true
+          hasSuggestions: true,
         })}
         <!-- SUJETO ACTIVO / REPRESENTADO -->
         ${renderSearchInput({
-          id: 'solicitudes-filter-sujetoActivoRepresentado',
-          fieldName: 'sujetoActivoRepresentado',
-          label: 'Sujeto Activo / Representado',
-          placeholder: 'Lobbista o gestor de interés...',
+          id: "solicitudes-filter-sujetoActivoRepresentado",
+          fieldName: "sujetoActivoRepresentado",
+          label: "Sujeto Activo / Representado",
+          placeholder: "Lobbista o gestor de interés...",
           value: filters.sujetoActivoRepresentado,
-          icon: 'users',
-          hasSuggestions: true
+          icon: "users",
+          hasSuggestions: true,
         })}
         <!-- ESTADO -->
         ${renderSelectInput({
-          id: 'filter-solicitudes-estado',
-          fieldName: 'estado',
-          label: 'Estado',
+          id: "filter-solicitudes-estado",
+          fieldName: "estado",
+          label: "Estado",
           value: filters.estado,
           optionsList: [
-            { value: '', text: 'Todos los Estados' },
-            { value: 'Ingresada', text: 'Ingresada' },
-            { value: 'Aceptada', text: 'Aceptada' },
-            { value: 'Rechazada', text: 'Rechazada' },
-            { value: 'Suspendida', text: 'Suspendida' },
-            { value: 'Cancelada', text: 'Cancelada' },
-            { value: 'Encomendada', text: 'Encomendada' }
-          ]
+            { value: "", text: "Todos los Estados" },
+            { value: "Ingresada", text: "Ingresada" },
+            { value: "Aceptada", text: "Aceptada" },
+            { value: "Rechazada", text: "Rechazada" },
+            { value: "Suspendida", text: "Suspendida" },
+            { value: "Cancelada", text: "Cancelada" },
+            { value: "Encomendada", text: "Encomendada" },
+          ],
         })}
       </div>
-    `, 'rounded-2xl p-5 space-y-4 relative z-20')}
+    `,
+      "rounded-2xl p-5 space-y-4 relative z-20",
+    )}
 
     <!-- BANNER DE RELACIÓN ACTIVO -->
-    ${filters.relacionSujetoActivo || filters.relacionRut || filters.relacionRepresentado ? `
+    ${
+      filters.relacionSujetoActivo ||
+      filters.relacionRut ||
+      filters.relacionRepresentado
+        ? `
       <div class="mb-4 p-4 rounded-2xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200/80 dark:border-brand-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-brand-900 dark:text-brand-200 relative overflow-hidden glass-card">
         <div class="flex items-center gap-3">
           <div class="p-2 rounded-xl bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-500/30">
@@ -580,9 +644,9 @@ function renderSolicitudes(container) {
           <div>
             <div class="font-bold text-brand-950 dark:text-white uppercase tracking-wider text-[10px] mb-0.5">Filtrando Solicitudes Relacionadas</div>
             <div class="font-medium text-slate-700 dark:text-slate-300">
-              Mostrando registros de sujeto activo <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionSujetoActivo || '---')}</strong>
-              ${filters.relacionRut ? ` (RUN: <strong class="text-brand-950 dark:text-white font-mono">${escapeHtml(filters.relacionRut)}</strong>)` : ''}
-              ${filters.relacionRepresentado ? ` y/o representado <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionRepresentado)}</strong>` : ''}
+              Mostrando registros de sujeto activo <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionSujetoActivo || "---")}</strong>
+              ${filters.relacionRut ? ` (RUN: <strong class="text-brand-950 dark:text-white font-mono">${escapeHtml(filters.relacionRut)}</strong>)` : ""}
+              ${filters.relacionRepresentado ? ` y/o representado <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionRepresentado)}</strong>` : ""}
             </div>
           </div>
         </div>
@@ -590,7 +654,9 @@ function renderSolicitudes(container) {
           Limpiar Filtro
         </button>
       </div>
-    ` : ''}
+    `
+        : ""
+    }
 
     <!-- TABLA -->
     <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
@@ -619,7 +685,7 @@ function renderSolicitudes(container) {
         </table>
       </div>
       <div id="solicitudes-pagination-container">
-        ${renderPaginationControls('solicitudes', totalItems, currentPage, pageSize)}
+        ${renderPaginationControls("solicitudes", totalItems, currentPage, pageSize)}
       </div>
     </div>
   `;
@@ -628,14 +694,15 @@ function renderSolicitudes(container) {
 // RENDER: VISTA PUBLICADAS PH
 function renderPublicadas(container) {
   const filters = paginationState.publicadas.filters;
-  const subTab = paginationState.publicadas.subTab || 'historial';
+  const subTab = paginationState.publicadas.subTab || "historial";
   let paginatedItems = [];
   let totalItems = 0;
   const currentPage = paginationState.publicadas.page;
   const pageSize = 10;
 
-  if (subTab === 'historial') {
-    const isServerPaged = dataStore.publicadas && !Array.isArray(dataStore.publicadas);
+  if (subTab === "historial") {
+    const isServerPaged =
+      dataStore.publicadas && !Array.isArray(dataStore.publicadas);
     if (isServerPaged) {
       paginatedItems = dataStore.publicadas.data || [];
       totalItems = dataStore.publicadas.totalItems || 0;
@@ -643,34 +710,61 @@ function renderPublicadas(container) {
       let filtered = dataStore.publicadas || [];
       if (filters.folio) {
         const val = filters.folio.toLowerCase();
-        filtered = filtered.filter(item => (item.folio_lobby || '').toLowerCase().includes(val));
+        filtered = filtered.filter((item) =>
+          (item.folio_lobby || "").toLowerCase().includes(val),
+        );
       }
       if (filters.nombre) {
         const val = filters.nombre.toLowerCase();
-        filtered = filtered.filter(item => (item.sujeto_pasivo || '').toLowerCase().includes(val));
+        filtered = filtered.filter((item) =>
+          (item.sujeto_pasivo || "").toLowerCase().includes(val),
+        );
       }
       if (filters.cargo) {
         const val = filters.cargo.toLowerCase();
-        filtered = filtered.filter(item => item.cargo && getCargoClean(item.cargo).toLowerCase().includes(val));
+        filtered = filtered.filter(
+          (item) =>
+            item.cargo && getCargoClean(item.cargo).toLowerCase().includes(val),
+        );
       }
       if (filters.sujetoActivoRepresentado) {
         const val = filters.sujetoActivoRepresentado.toLowerCase();
-        filtered = filtered.filter(item => 
-          (item.sujeto_activo || '').toLowerCase().includes(val) || 
-          (item.representado || '').toLowerCase().includes(val) ||
-          (item.rut || '').toLowerCase().includes(val)
+        filtered = filtered.filter(
+          (item) =>
+            (item.sujeto_activo || "").toLowerCase().includes(val) ||
+            (item.representado || "").toLowerCase().includes(val) ||
+            (item.rut || "").toLowerCase().includes(val),
         );
       }
-      if (filters.relacionSujetoActivo || filters.relacionRut || filters.relacionRepresentado) {
-        filtered = filtered.filter(item => {
+      if (
+        filters.relacionSujetoActivo ||
+        filters.relacionRut ||
+        filters.relacionRepresentado
+      ) {
+        filtered = filtered.filter((item) => {
           let match = false;
-          if (filters.relacionSujetoActivo && item.sujeto_activo && item.sujeto_activo.toLowerCase() === filters.relacionSujetoActivo.toLowerCase()) {
+          if (
+            filters.relacionSujetoActivo &&
+            item.sujeto_activo &&
+            item.sujeto_activo.toLowerCase() ===
+              filters.relacionSujetoActivo.toLowerCase()
+          ) {
             match = true;
           }
-          if (filters.relacionRut && item.rut && item.rut.toLowerCase() === filters.relacionRut.toLowerCase()) {
+          if (
+            filters.relacionRut &&
+            item.rut &&
+            item.rut.toLowerCase() === filters.relacionRut.toLowerCase()
+          ) {
             match = true;
           }
-          if (filters.relacionRepresentado && filters.relacionRepresentado.toLowerCase() !== 'particular' && item.representado && item.representado.toLowerCase() === filters.relacionRepresentado.toLowerCase()) {
+          if (
+            filters.relacionRepresentado &&
+            filters.relacionRepresentado.toLowerCase() !== "particular" &&
+            item.representado &&
+            item.representado.toLowerCase() ===
+              filters.relacionRepresentado.toLowerCase()
+          ) {
             match = true;
           }
           return match;
@@ -678,25 +772,36 @@ function renderPublicadas(container) {
       }
       if (filters.estado) {
         const val = filters.estado.toLowerCase();
-        filtered = filtered.filter(item => {
-          const isItemFuera = (item.cumplimiento || '').toLowerCase().includes('fuera');
-          const itemEstadoNormalized = isItemFuera ? 'fuera de plazo' : 'en plazo';
+        filtered = filtered.filter((item) => {
+          const isItemFuera = (item.cumplimiento || "")
+            .toLowerCase()
+            .includes("fuera");
+          const itemEstadoNormalized = isItemFuera
+            ? "fuera de plazo"
+            : "en plazo";
           return itemEstadoNormalized === val;
         });
       }
       totalItems = filtered.length;
-      paginatedItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+      paginatedItems = filtered.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize,
+      );
     }
   } else {
     // subTab === 'pendientes'
-    const isServerPaged = dataStore.solicitudesPendientesPublicacion && !Array.isArray(dataStore.solicitudesPendientesPublicacion);
+    const isServerPaged =
+      dataStore.solicitudesPendientesPublicacion &&
+      !Array.isArray(dataStore.solicitudesPendientesPublicacion);
     if (isServerPaged) {
       paginatedItems = dataStore.solicitudesPendientesPublicacion.data || [];
       totalItems = dataStore.solicitudesPendientesPublicacion.totalItems || 0;
     } else {
-      const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
-      let filtered = (dataStore.solicitudes || []).filter(item => {
-        if ((item.estado || '').toLowerCase() !== 'aceptada') return false;
+      const publicadosFolios = new Set(
+        (dataStore.publicadas || []).map((p) => p.folio_lobby).filter(Boolean),
+      );
+      let filtered = (dataStore.solicitudes || []).filter((item) => {
+        if ((item.estado || "").toLowerCase() !== "aceptada") return false;
         if (!item.fecha_agendada) return false;
         if (publicadosFolios.has(item.folio_lobby)) return false;
         return true;
@@ -704,34 +809,62 @@ function renderPublicadas(container) {
 
       if (filters.folio) {
         const val = filters.folio.toLowerCase();
-        filtered = filtered.filter(item => (item.folio_lobby || '').toLowerCase().includes(val));
+        filtered = filtered.filter((item) =>
+          (item.folio_lobby || "").toLowerCase().includes(val),
+        );
       }
       if (filters.nombre) {
         const val = filters.nombre.toLowerCase();
-        filtered = filtered.filter(item => (item.sujeto_pasivo || '').toLowerCase().includes(val));
+        filtered = filtered.filter((item) =>
+          (item.sujeto_pasivo || "").toLowerCase().includes(val),
+        );
       }
       if (filters.cargo) {
         const val = filters.cargo.toLowerCase();
-        filtered = filtered.filter(item => (item.cargo_limpio || (item.cargo && getCargoClean(item.cargo))).toLowerCase().includes(val));
+        filtered = filtered.filter((item) =>
+          (item.cargo_limpio || (item.cargo && getCargoClean(item.cargo)))
+            .toLowerCase()
+            .includes(val),
+        );
       }
       if (filters.sujetoActivoRepresentado) {
         const val = filters.sujetoActivoRepresentado.toLowerCase();
-        filtered = filtered.filter(item => 
-          (item.sujeto_activo || '').toLowerCase().includes(val) || 
-          (item.representado || '').toLowerCase().includes(val) ||
-          (item.rut || '').toLowerCase().includes(val)
+        filtered = filtered.filter(
+          (item) =>
+            (item.sujeto_activo || "").toLowerCase().includes(val) ||
+            (item.representado || "").toLowerCase().includes(val) ||
+            (item.rut || "").toLowerCase().includes(val),
         );
       }
-      if (filters.relacionSujetoActivo || filters.relacionRut || filters.relacionRepresentado) {
-        filtered = filtered.filter(item => {
+      if (
+        filters.relacionSujetoActivo ||
+        filters.relacionRut ||
+        filters.relacionRepresentado
+      ) {
+        filtered = filtered.filter((item) => {
           let match = false;
-          if (filters.relacionSujetoActivo && item.sujeto_activo && item.sujeto_activo.toLowerCase() === filters.relacionSujetoActivo.toLowerCase()) {
+          if (
+            filters.relacionSujetoActivo &&
+            item.sujeto_activo &&
+            item.sujeto_activo.toLowerCase() ===
+              filters.relacionSujetoActivo.toLowerCase()
+          ) {
             match = true;
           }
-          if (filters.relacionRut && item.rut && item.rut.toLowerCase() === filters.relacionRut.toLowerCase()) {
+          if (
+            filters.relacionRut &&
+            item.rut &&
+            item.rut.toLowerCase() === filters.relacionRut.toLowerCase()
+          ) {
             match = true;
           }
-          if (filters.relacionRepresentado && filters.relacionRepresentado.toLowerCase() !== 'particular' && item.representado && item.representado.toLowerCase() === filters.relacionRepresentado.toLowerCase()) {
+          if (
+            filters.relacionRepresentado &&
+            filters.relacionRepresentado.toLowerCase() !== "particular" &&
+            item.representado &&
+            item.representado.toLowerCase() ===
+              filters.relacionRepresentado.toLowerCase()
+          ) {
             match = true;
           }
           return match;
@@ -739,59 +872,81 @@ function renderPublicadas(container) {
       }
       if (filters.estado) {
         const val = filters.estado.toLowerCase();
-        filtered = filtered.filter(item => {
-          const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
+        filtered = filtered.filter((item) => {
+          const delayInfo = getPendingPublicationDelay(
+            item.fecha_agendada,
+            item,
+          );
           const isFuera = delayInfo.days > 0;
-          const itemEstadoNormalized = isFuera ? 'fuera de plazo' : 'en plazo';
+          const itemEstadoNormalized = isFuera ? "fuera de plazo" : "en plazo";
           return itemEstadoNormalized === val;
         });
       }
       totalItems = filtered.length;
-      paginatedItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+      paginatedItems = filtered.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize,
+      );
     }
   }
 
-  let rowsHtml = '';
-  
-  if (subTab === 'historial') {
+  let rowsHtml = "";
+
+  if (subTab === "historial") {
     if (paginatedItems.length === 0) {
       rowsHtml = `<tr><td colspan="7" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de audiencias publicadas.</td></tr>`;
     } else {
-      paginatedItems.forEach(item => {
-        const dateTimeParts = item.fecha_inicio ? item.fecha_inicio.split(' ') : [];
-        const formattedDate = dateTimeParts[0] ? formatDate(dateTimeParts[0]) : '-';
-        const timePart = dateTimeParts[1] ? dateTimeParts[1].substring(0, 5) : '';
-        const displayDateTime = timePart ? `${formattedDate} ${timePart}` : formattedDate;
+      paginatedItems.forEach((item) => {
+        const dateTimeParts = item.fecha_inicio
+          ? item.fecha_inicio.split(" ")
+          : [];
+        const formattedDate = dateTimeParts[0]
+          ? formatDate(dateTimeParts[0])
+          : "-";
+        const timePart = dateTimeParts[1]
+          ? dateTimeParts[1].substring(0, 5)
+          : "";
+        const displayDateTime = timePart
+          ? `${formattedDate} ${timePart}`
+          : formattedDate;
 
-        const isFuera = (item.cumplimiento || '').toLowerCase().includes('fuera');
-        const badgeClass = isFuera ? 'badge-status-vencido' : 'badge-status-enplazo';
-        const displayCumplimiento = item.cumplimiento || 'En plazo';
+        const isFuera = (item.cumplimiento || "")
+          .toLowerCase()
+          .includes("fuera");
+        const badgeClass = isFuera
+          ? "badge-status-vencido"
+          : "badge-status-enplazo";
+        const displayCumplimiento = item.cumplimiento || "En plazo";
 
         rowsHtml += `
           <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
-            <td class="pl-6 pr-2 text-xs font-semibold text-slate-100 text-left">${escapeHtml(item.folio_lobby || 'Sin Folio')}</td>
+            <td class="pl-6 pr-2 text-xs font-semibold text-slate-100 text-left">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
             <td class="px-2 text-xs text-slate-300 text-left">
               <div class="font-medium text-slate-200 w-full truncate">${displayDateTime}</div>
-              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate">${escapeHtml(item.forma || 'Presencial')}</div>
+              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate">${escapeHtml(item.forma || "Presencial")}</div>
             </td>
             <td class="px-2 text-xs text-slate-300 text-left">
-              <div class="font-medium text-slate-200 w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}">${escapeHtml(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}</div>
+              <div class="font-medium text-slate-200 w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
               <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(getCargoClean(item.cargo))}">${escapeHtml(getCargoClean(item.cargo))}</div>
             </td>
             <td class="px-2 text-xs text-slate-300 text-left">
               <div class="font-medium text-slate-200 w-full flex items-center justify-between gap-1">
-                <span class="truncate" title="${escapeHtmlAttr(item.sujeto_activo || 'Sin Activo')}">${escapeHtml(item.sujeto_activo || 'Sin Activo')}</span>
-                ${item.sujeto_activo ? `
-                  <button onclick="filtrarRelacionados('publicadas', '${escapeHtmlAttr(item.sujeto_activo)}', '${escapeHtmlAttr(item.rut || '')}', '${escapeHtmlAttr(item.representado || '')}')" 
+                <span class="truncate" title="${escapeHtmlAttr(item.sujeto_activo || "Sin Activo")}">${escapeHtml(item.sujeto_activo || "Sin Activo")}</span>
+                ${
+                  item.sujeto_activo
+                    ? `
+                  <button onclick="filtrarRelacionados('publicadas', '${escapeHtmlAttr(item.sujeto_activo)}', '${escapeHtmlAttr(item.rut || "")}', '${escapeHtmlAttr(item.representado || "")}')" 
                           class="text-brand-500 dark:text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 hover:bg-brand-500/10 p-0.5 rounded-lg transition-all shrink-0 cursor-pointer" 
                           title="Filtrar audiencias relacionadas (mismo RUN, representado y/o sujeto activo)">
                     <i data-lucide="info" class="h-3.5 w-3.5"></i>
                   </button>
-                ` : ''}
+                `
+                    : ""
+                }
               </div>
-              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || 'Particular')}">${escapeHtml(item.representado || 'Particular')}</div>
+              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || "Particular")}">${escapeHtml(item.representado || "Particular")}</div>
             </td>
-            <td class="px-2 text-xs text-slate-300 text-left"><div class="w-full truncate" title="${escapeHtmlAttr(item.especificacion_materia || item.materia || '')}">${escapeHtml(item.especificacion_materia || item.materia || 'Sin Especificar')}</div></td>
+            <td class="px-2 text-xs text-slate-300 text-left"><div class="w-full truncate" title="${escapeHtmlAttr(item.especificacion_materia || item.materia || "")}">${escapeHtml(item.especificacion_materia || item.materia || "Sin Especificar")}</div></td>
             <td class="px-2 text-xs text-slate-300 text-left">
               <div class="font-semibold text-slate-200">${formatDate(item.fecha_publicacion)}</div>
               <div class="mt-1">
@@ -799,9 +954,10 @@ function renderPublicadas(container) {
               </div>
             </td>
             <td class="pl-2 pr-6 text-left whitespace-nowrap">
-              ${item.id_solicitud_lobby
-                ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_solicitud_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition-all inline-block hover:shadow-md hover:shadow-emerald-900/40 whitespace-nowrap">Ver Solicitud</a>`
-                : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Solicitud</span>'
+              ${
+                item.id_solicitud_lobby
+                  ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_solicitud_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition-all inline-block hover:shadow-md hover:shadow-emerald-900/40 whitespace-nowrap">Ver Solicitud</a>`
+                  : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Solicitud</span>'
               }
             </td>
           </tr>
@@ -813,32 +969,36 @@ function renderPublicadas(container) {
     if (paginatedItems.length === 0) {
       rowsHtml = `<tr><td colspan="7" class="px-3 py-8 text-center text-xs text-slate-300">No hay solicitudes aceptadas pendientes de publicación.</td></tr>`;
     } else {
-      paginatedItems.forEach(item => {
+      paginatedItems.forEach((item) => {
         const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
 
         rowsHtml += `
           <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
-            <td class="pl-6 pr-2 py-4 align-middle text-xs font-semibold text-slate-100">${escapeHtml(item.folio_lobby || 'Sin Folio')}</td>
+            <td class="pl-6 pr-2 py-4 align-middle text-xs font-semibold text-slate-100">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
             <td class="px-2 py-4 align-middle text-xs text-slate-300">
               <div class="font-medium text-slate-200 w-full truncate">${formatDate(item.fecha_agendada)}</div>
-              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate">${escapeHtml(item.forma || 'Presencial')}</div>
+              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate">${escapeHtml(item.forma || "Presencial")}</div>
             </td>
             <td class="px-2 py-4 align-middle text-xs text-slate-300">
-              <div class="font-medium text-slate-200 w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}">${escapeHtml(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}</div>
+              <div class="font-medium text-slate-200 w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
               <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.cargo_limpio || getCargoClean(item.cargo))}">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo))}</div>
             </td>
             <td class="px-2 py-4 align-middle text-xs text-slate-300">
               <div class="font-medium text-slate-200 w-full flex items-center justify-between gap-1">
-                <span class="truncate" title="${escapeHtmlAttr(item.sujeto_activo || 'Sin Activo')}">${escapeHtml(item.sujeto_activo || 'Sin Activo')}</span>
-                ${item.sujeto_activo ? `
-                  <button onclick="filtrarRelacionados('publicadas', '${escapeHtmlAttr(item.sujeto_activo)}', '${escapeHtmlAttr(item.rut || '')}', '${escapeHtmlAttr(item.representado || '')}')" 
+                <span class="truncate" title="${escapeHtmlAttr(item.sujeto_activo || "Sin Activo")}">${escapeHtml(item.sujeto_activo || "Sin Activo")}</span>
+                ${
+                  item.sujeto_activo
+                    ? `
+                  <button onclick="filtrarRelacionados('publicadas', '${escapeHtmlAttr(item.sujeto_activo)}', '${escapeHtmlAttr(item.rut || "")}', '${escapeHtmlAttr(item.representado || "")}')" 
                           class="text-brand-500 dark:text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 hover:bg-brand-500/10 p-0.5 rounded-lg transition-all shrink-0 cursor-pointer" 
                           title="Filtrar solicitudes relacionadas (mismo RUN, representado y/o sujeto activo)">
                     <i data-lucide="info" class="h-3.5 w-3.5"></i>
                   </button>
-                ` : ''}
+                `
+                    : ""
+                }
               </div>
-              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || 'Particular')}">${escapeHtml(item.representado || 'Particular')}</div>
+              <div class="text-[10px] text-slate-300 mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || "Particular")}">${escapeHtml(item.representado || "Particular")}</div>
             </td>
             <td class="px-2 py-4 align-middle text-xs text-slate-300">
               <div class="font-semibold text-slate-200">${escapeHtml(delayInfo.deadlineStr)}</div>
@@ -856,17 +1016,28 @@ function renderPublicadas(container) {
     }
   }
 
-  const existingTable = container.querySelector('#table-publicadas');
-  if (existingTable && existingTable.dataset.subtab === subTab && window.activeInputId) {
-    existingTable.querySelector('tbody').innerHTML = rowsHtml;
-    const counterEl = container.querySelector('#publicadas-counter');
+  const existingTable = container.querySelector("#table-publicadas");
+  if (
+    existingTable &&
+    existingTable.dataset.subtab === subTab &&
+    window.activeInputId
+  ) {
+    existingTable.querySelector("tbody").innerHTML = rowsHtml;
+    const counterEl = container.querySelector("#publicadas-counter");
     if (counterEl) {
-      counterEl.textContent = subTab === 'historial' 
-        ? `${totalItems} registros publicados encontrados` 
-        : `${totalItems} solicitudes pendientes de publicación encontradas`;
+      counterEl.textContent =
+        subTab === "historial"
+          ? `${totalItems} registros publicados encontrados`
+          : `${totalItems} solicitudes pendientes de publicación encontradas`;
     }
-    const pagEl = container.querySelector('#publicadas-pagination-container');
-    if (pagEl) pagEl.innerHTML = renderPaginationControls('publicadas', totalItems, currentPage, pageSize);
+    const pagEl = container.querySelector("#publicadas-pagination-container");
+    if (pagEl)
+      pagEl.innerHTML = renderPaginationControls(
+        "publicadas",
+        totalItems,
+        currentPage,
+        pageSize,
+      );
     lucide.createIcons();
     return;
   }
@@ -881,23 +1052,24 @@ function renderPublicadas(container) {
     <!-- SELECCIÓN DE SUB-PESTAÑA -->
     <div class="flex gap-2 border-b border-slate-800/80 pb-2 mt-4">
       <button onclick="changePublicadasSubTab('historial')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all ${
-        subTab === 'historial' 
-          ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20' 
-          : 'text-slate-300 hover:text-white hover:bg-slate-800/40'
+        subTab === "historial"
+          ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
+          : "text-slate-300 hover:text-white hover:bg-slate-800/40"
       }">
         Historial Publicadas
       </button>
       <button onclick="changePublicadasSubTab('pendientes')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all ${
-        subTab === 'pendientes' 
-          ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20' 
-          : 'text-slate-300 hover:text-white hover:bg-slate-800/40'
+        subTab === "pendientes"
+          ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
+          : "text-slate-300 hover:text-white hover:bg-slate-800/40"
       }">
         Pendientes de Publicación
       </button>
     </div>
 
     <!-- CONTENEDOR FILTROS -->
-    ${renderGlassCard(`
+    ${renderGlassCard(
+      `
       <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
         <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
           <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
@@ -910,61 +1082,69 @@ function renderPublicadas(container) {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <!-- FOLIO -->
         ${renderSearchInput({
-          id: 'filter-publicadas-folio',
-          fieldName: 'folio',
-          label: 'Folio',
-          placeholder: 'Buscar folio...',
+          id: "filter-publicadas-folio",
+          fieldName: "folio",
+          label: "Folio",
+          placeholder: "Buscar folio...",
           value: filters.folio,
-          icon: 'hash'
+          icon: "hash",
         })}
         <!-- NOMBRE -->
         ${renderSearchInput({
-          id: 'publicadas-filter-nombre',
-          fieldName: 'nombre',
-          label: 'Nombre Sujeto Pasivo',
-          placeholder: 'Escribir nombre...',
+          id: "publicadas-filter-nombre",
+          fieldName: "nombre",
+          label: "Nombre Sujeto Pasivo",
+          placeholder: "Escribir nombre...",
           value: filters.nombre,
-          icon: 'user',
-          hasSuggestions: true
+          icon: "user",
+          hasSuggestions: true,
         })}
         <!-- CARGO -->
         ${renderSearchInput({
-          id: 'publicadas-filter-cargo',
-          fieldName: 'cargo',
-          label: 'Cargo',
-          placeholder: !filters.nombre ? 'Seleccione nombre primero...' : 'Escribir cargo...',
+          id: "publicadas-filter-cargo",
+          fieldName: "cargo",
+          label: "Cargo",
+          placeholder: !filters.nombre
+            ? "Seleccione nombre primero..."
+            : "Escribir cargo...",
           value: filters.cargo,
-          icon: 'user',
+          icon: "user",
           disabled: !filters.nombre,
-          hasSuggestions: true
+          hasSuggestions: true,
         })}
         <!-- SUJETO ACTIVO / REPRESENTADO -->
         ${renderSearchInput({
-          id: 'publicadas-filter-sujetoActivoRepresentado',
-          fieldName: 'sujetoActivoRepresentado',
-          label: 'Sujeto Activo / Representado',
-          placeholder: 'Lobbista, gestor de interés o RUT...',
+          id: "publicadas-filter-sujetoActivoRepresentado",
+          fieldName: "sujetoActivoRepresentado",
+          label: "Sujeto Activo / Representado",
+          placeholder: "Lobbista, gestor de interés o RUT...",
           value: filters.sujetoActivoRepresentado,
-          icon: 'users',
-          hasSuggestions: true
+          icon: "users",
+          hasSuggestions: true,
         })}
         <!-- ESTADO -->
         ${renderSelectInput({
-          id: 'filter-publicadas-estado',
-          fieldName: 'estado',
-          label: 'Estado de Cumplimiento',
+          id: "filter-publicadas-estado",
+          fieldName: "estado",
+          label: "Estado de Cumplimiento",
           value: filters.estado,
           optionsList: [
-            { value: '', text: 'Todos los Estados' },
-            { value: 'en plazo', text: 'En plazo' },
-            { value: 'fuera de plazo', text: 'Fuera de plazo' }
-          ]
+            { value: "", text: "Todos los Estados" },
+            { value: "en plazo", text: "En plazo" },
+            { value: "fuera de plazo", text: "Fuera de plazo" },
+          ],
         })}
       </div>
-    `, 'rounded-2xl p-5 space-y-4 relative z-20')}
+    `,
+      "rounded-2xl p-5 space-y-4 relative z-20",
+    )}
 
     <!-- BANNER DE RELACIÓN ACTIVO -->
-    ${filters.relacionSujetoActivo || filters.relacionRut || filters.relacionRepresentado ? `
+    ${
+      filters.relacionSujetoActivo ||
+      filters.relacionRut ||
+      filters.relacionRepresentado
+        ? `
       <div class="mb-4 p-4 rounded-2xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200/80 dark:border-brand-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-brand-900 dark:text-brand-200 relative overflow-hidden glass-card">
         <div class="flex items-center gap-3">
           <div class="p-2 rounded-xl bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-500/30">
@@ -973,9 +1153,9 @@ function renderPublicadas(container) {
           <div>
             <div class="font-bold text-brand-950 dark:text-white uppercase tracking-wider text-[10px] mb-0.5">Filtrando Audiencias Relacionadas</div>
             <div class="font-medium text-slate-700 dark:text-slate-300">
-              Mostrando registros de sujeto activo <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionSujetoActivo || '---')}</strong>
-              ${filters.relacionRut ? ` (RUN: <strong class="text-brand-950 dark:text-white font-mono">${escapeHtml(filters.relacionRut)}</strong>)` : ''}
-              ${filters.relacionRepresentado ? ` y/o representado <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionRepresentado)}</strong>` : ''}
+              Mostrando registros de sujeto activo <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionSujetoActivo || "---")}</strong>
+              ${filters.relacionRut ? ` (RUN: <strong class="text-brand-950 dark:text-white font-mono">${escapeHtml(filters.relacionRut)}</strong>)` : ""}
+              ${filters.relacionRepresentado ? ` y/o representado <strong class="text-brand-950 dark:text-white">${escapeHtml(filters.relacionRepresentado)}</strong>` : ""}
             </div>
           </div>
         </div>
@@ -983,15 +1163,18 @@ function renderPublicadas(container) {
           Limpiar Filtro
         </button>
       </div>
-    ` : ''}
+    `
+        : ""
+    }
 
     <!-- TABLA -->
     <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
       <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
         <div class="text-xs text-slate-300" id="publicadas-counter">
-          ${subTab === 'historial' 
-            ? `${totalItems} registros publicados encontrados` 
-            : `${totalItems} solicitudes pendientes de publicación encontradas`
+          ${
+            subTab === "historial"
+              ? `${totalItems} registros publicados encontrados`
+              : `${totalItems} solicitudes pendientes de publicación encontradas`
           }
         </div>
       </div>
@@ -999,7 +1182,9 @@ function renderPublicadas(container) {
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse table-fixed" id="table-publicadas" data-subtab="${subTab}">
           <thead>
-            ${subTab === 'historial' ? `
+            ${
+              subTab === "historial"
+                ? `
               <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
                 <th class="pl-6 pr-2 py-3 w-36 text-left">Folio</th>
                 <th class="px-2 py-3 w-28 text-left">Fecha / Forma</th>
@@ -1009,7 +1194,8 @@ function renderPublicadas(container) {
                 <th class="px-2 py-3 w-36 text-left">Publicación / Estado</th>
                 <th class="pl-2 pr-6 py-3 w-32 text-left whitespace-nowrap">Acción</th>
               </tr>
-            ` : `
+            `
+                : `
               <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
                 <th class="pl-6 pr-2 py-3 w-40 text-left">Folio</th>
                 <th class="px-2 py-3 w-36 text-left">Fecha Agendada</th>
@@ -1019,7 +1205,8 @@ function renderPublicadas(container) {
                 <th class="px-2 py-3 w-32 text-left">Estado</th>
                 <th class="pl-2 pr-6 py-3 w-32 text-left whitespace-nowrap">Acción</th>
               </tr>
-            `}
+            `
+            }
           </thead>
           <tbody>
             ${rowsHtml}
@@ -1027,7 +1214,7 @@ function renderPublicadas(container) {
         </table>
       </div>
       <div id="publicadas-pagination-container">
-        ${renderPaginationControls('publicadas', totalItems, currentPage, pageSize)}
+        ${renderPaginationControls("publicadas", totalItems, currentPage, pageSize)}
       </div>
     </div>
   `;
@@ -1038,33 +1225,41 @@ function renderSujetosPasivos(container) {
   const search = paginationState.sujetos_pasivos.search.toLowerCase();
   let filtered = dataStore.sujetos_pasivos;
   if (search) {
-    filtered = filtered.filter(item => {
-      const nombre = (item.nombre || '').toLowerCase();
-      const rut = (item.rut || '').toLowerCase();
-      const cargo = (item.cargo || '').toLowerCase();
-      const tipo = (item.tipo || '').toLowerCase();
-      return nombre.includes(search) || rut.includes(search) || cargo.includes(search) || tipo.includes(search);
+    filtered = filtered.filter((item) => {
+      const nombre = (item.nombre || "").toLowerCase();
+      const rut = (item.rut || "").toLowerCase();
+      const cargo = (item.cargo || "").toLowerCase();
+      const tipo = (item.tipo || "").toLowerCase();
+      return (
+        nombre.includes(search) ||
+        rut.includes(search) ||
+        cargo.includes(search) ||
+        tipo.includes(search)
+      );
     });
   }
 
   const totalItems = filtered.length;
   const currentPage = paginationState.sujetos_pasivos.page;
   const pageSize = 10;
-  const paginatedItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedItems = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
-  let rowsHtml = '';
-  
+  let rowsHtml = "";
+
   if (paginatedItems.length === 0) {
     rowsHtml = `<tr><td colspan="6" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de sujetos pasivos.</td></tr>`;
   } else {
-    paginatedItems.forEach(item => {
+    paginatedItems.forEach((item) => {
       rowsHtml += `
         <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
           <td class="pl-6 pr-2 text-xs font-semibold text-slate-200"><div class="w-full truncate" title="${escapeHtmlAttr(item.nombre)}">${escapeHtml(item.nombre)}</div></td>
-          <td class="px-2 text-xs text-slate-300 font-mono"><div class="w-full truncate">${escapeHtml(item.rut || 'No definido')}</div></td>
+          <td class="px-2 text-xs text-slate-300 font-mono"><div class="w-full truncate">${escapeHtml(item.rut || "No definido")}</div></td>
           <td class="px-2 text-xs text-slate-300 font-medium"><div class="w-full truncate" title="${escapeHtmlAttr(getCargoClean(item.cargo))}">${escapeHtml(getCargoClean(item.cargo))}</div></td>
-          <td class="px-2 text-xs text-slate-300"><div class="w-full truncate">${escapeHtml(item.tipo || 'Autoridad')}</div></td>
-          <td class="px-2 text-xs text-slate-300"><div class="w-full truncate">${escapeHtml(item.zona || 'Metropolitana')}</div></td>
+          <td class="px-2 text-xs text-slate-300"><div class="w-full truncate">${escapeHtml(item.tipo || "Autoridad")}</div></td>
+          <td class="px-2 text-xs text-slate-300"><div class="w-full truncate">${escapeHtml(item.zona || "Metropolitana")}</div></td>
           <td class="pl-2 pr-6 text-xs text-slate-300">
             <div class="text-xs text-slate-300 w-full truncate">${formatDate(item.fecha_incorporacion)}</div>
             ${item.fecha_termino ? `<div class="text-[10px] text-rose-300 w-full truncate">Término: ${formatDate(item.fecha_termino)}</div>` : '<div class="text-[10px] text-emerald-300 font-medium w-full truncate">Vigente</div>'}
@@ -1074,13 +1269,20 @@ function renderSujetosPasivos(container) {
     });
   }
 
-  const existingTable = container.querySelector('#table-sujetos');
+  const existingTable = container.querySelector("#table-sujetos");
   if (existingTable && window.activeInputId) {
-    existingTable.querySelector('tbody').innerHTML = rowsHtml;
-    const counterEl = container.querySelector('#sujetos-counter');
-    if (counterEl) counterEl.textContent = `Mostrando ${totalItems} registros en total`;
-    const pagEl = container.querySelector('#sujetos-pagination-container');
-    if (pagEl) pagEl.innerHTML = renderPaginationControls('sujetos_pasivos', totalItems, currentPage, pageSize);
+    existingTable.querySelector("tbody").innerHTML = rowsHtml;
+    const counterEl = container.querySelector("#sujetos-counter");
+    if (counterEl)
+      counterEl.textContent = `Mostrando ${totalItems} registros en total`;
+    const pagEl = container.querySelector("#sujetos-pagination-container");
+    if (pagEl)
+      pagEl.innerHTML = renderPaginationControls(
+        "sujetos_pasivos",
+        totalItems,
+        currentPage,
+        pageSize,
+      );
     lucide.createIcons();
     return;
   }
@@ -1097,11 +1299,11 @@ function renderSujetosPasivos(container) {
       <div class="p-4 border-b border-slate-800/80 flex flex-col md:flex-row gap-3 items-center justify-between">
         <div class="w-full md:w-80">
           ${renderSearchInput({
-            id: 'search-sujetos',
-            fieldName: 'search',
-            placeholder: 'Buscar por Nombre, RUT o Cargo...',
+            id: "search-sujetos",
+            fieldName: "search",
+            placeholder: "Buscar por Nombre, RUT o Cargo...",
             value: paginationState.sujetos_pasivos.search,
-            icon: 'search'
+            icon: "search",
           })}
         </div>
         <div class="text-xs text-slate-300" id="sujetos-counter">Mostrando ${totalItems} registros en total</div>
@@ -1125,7 +1327,7 @@ function renderSujetosPasivos(container) {
         </table>
       </div>
       <div id="sujetos-pagination-container">
-        ${renderPaginationControls('sujetos_pasivos', totalItems, currentPage, pageSize)}
+        ${renderPaginationControls("sujetos_pasivos", totalItems, currentPage, pageSize)}
       </div>
     </div>
   `;
@@ -1133,7 +1335,7 @@ function renderSujetosPasivos(container) {
 
 function changeAdminTab(tabName) {
   activeAdminTab = tabName;
-  const container = document.getElementById('main-content');
+  const container = document.getElementById("main-content");
   if (container) {
     renderUsuarios(container);
   }
@@ -1144,53 +1346,83 @@ function renderHistoryList() {
   if (list.length === 0) {
     return `<p class="text-center text-[10px] text-slate-500 py-4">No se registran sincronizaciones previas.</p>`;
   }
-  
-  return list.map(item => {
-    let badgeClass = 'badge-status-normal';
-    if (item.estado === 'Exitoso') {
-      badgeClass = 'badge-status-enplazo';
-    } else if (item.estado === 'Fallido') {
-      badgeClass = 'badge-status-vencido';
-    } else if (item.estado === 'Cancelado') {
-      badgeClass = 'badge-status-otros';
-    }
 
-    let dateStr = item.timestamp;
-    try {
-      const d = new Date(item.timestamp.replace(' ', 'T') + 'Z');
-      dateStr = d.toLocaleString('es-CL', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-    } catch(e) {}
+  return list
+    .map((item) => {
+      let badgeClass = "badge-status-normal";
+      if (item.estado === "Exitoso") {
+        badgeClass = "badge-status-enplazo";
+      } else if (item.estado === "Fallido") {
+        badgeClass = "badge-status-vencido";
+      } else if (item.estado === "Cancelado") {
+        badgeClass = "badge-status-otros";
+      }
 
-    let detailStr = '';
-    try {
-      const statsObj = JSON.parse(item.detalles);
-      const ins = (statsObj.sh?.inserts || 0) + (statsObj.ph?.inserts || 0) + (statsObj.sph?.inserts || 0);
-      const upd = (statsObj.sh?.updates || 0) + (statsObj.ph?.updates || 0) + (statsObj.sph?.updates || 0);
-      const del = (statsObj.sh?.deletes || 0) + (statsObj.ph?.deletes || 0) + (statsObj.sph?.deletes || 0);
-      detailStr = `${ins} creados, ${upd} act., ${del} elim.`;
-    } catch(e) {
-      detailStr = item.detalles || '';
-    }
+      let dateStr = item.timestamp;
+      try {
+        const d = new Date(item.timestamp.replace(" ", "T") + "Z");
+        dateStr = d.toLocaleString("es-CL", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      } catch (e) {}
 
-    return `
+      let detailStr = "";
+      let hasDetails = false;
+      try {
+        const statsObj = JSON.parse(item.detalles);
+        const ins =
+          (statsObj.sh?.inserts || 0) +
+          (statsObj.ph?.inserts || 0) +
+          (statsObj.sph?.inserts || 0);
+        const upd =
+          (statsObj.sh?.updates || 0) +
+          (statsObj.ph?.updates || 0) +
+          (statsObj.sph?.updates || 0);
+        const del =
+          (statsObj.sh?.deletes || 0) +
+          (statsObj.ph?.deletes || 0) +
+          (statsObj.sph?.deletes || 0);
+        detailStr = `${ins} creados, ${upd} act., ${del} elim.`;
+        hasDetails =
+          (statsObj.sh?.details && statsObj.sh.details.length > 0) ||
+          (statsObj.ph?.details && statsObj.ph.details.length > 0) ||
+          (statsObj.sph?.details && statsObj.sph.details.length > 0);
+      } catch (e) {
+        detailStr = item.detalles || "";
+      }
+
+      return `
       <div class="p-2.5 rounded-xl border text-[11px] space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors" style="background-color: var(--bg-main); border-color: var(--border-ui);">
         <div class="flex justify-between items-center gap-2">
           <span class="font-bold text-heading">${dateStr}</span>
-          <span class="px-1.5 py-0.5 rounded-md text-[9px] font-semibold ${badgeClass}">${item.estado}</span>
+          <div class="flex items-center gap-1.5">
+            <span class="px-1.5 py-0.5 rounded-md text-[9px] font-semibold ${badgeClass}">${item.estado}</span>
+            ${
+              hasDetails
+                ? `
+              <button onclick="viewSyncDetails(${item.id})" class="text-emerald-500 hover:text-emerald-400 p-0.5 transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center" title="Ver detalles de los cambios">
+                <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+              </button>
+            `
+                : ""
+            }
+          </div>
         </div>
         <div class="text-[10px] text-body-muted font-medium truncate" title="${item.usuario}">${item.usuario}</div>
         <div class="text-[10px] text-heading font-mono leading-tight whitespace-normal break-words">${detailStr}</div>
       </div>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 function generateUsuarioRowHtml(item) {
-  const names = (item.nombre || '').trim().split(/\s+/);
-  let initials = 'U';
+  const names = (item.nombre || "").trim().split(/\s+/);
+  let initials = "U";
   if (names.length >= 2) {
     initials = (names[0][0] + names[names.length - 1][0]).toUpperCase();
   } else if (names.length === 1 && names[0]) {
@@ -1198,42 +1430,46 @@ function generateUsuarioRowHtml(item) {
   }
 
   const colors = [
-    'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-    'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-    'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-    'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
-    'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+    "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
+    "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   ];
   let hash = 0;
-  const nameStr = item.nombre || '';
+  const nameStr = item.nombre || "";
   for (let i = 0; i < nameStr.length; i++) {
     hash = nameStr.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = Math.abs(hash) % colors.length;
   const avatarColorClass = colors[index];
 
-  let roleClasses = '';
+  let roleClasses = "";
   switch (item.rol) {
-    case 'Administrador':
-      roleClasses = 'bg-blue-500/10 text-blue-400 border-blue-500/20 border';
+    case "Administrador":
+      roleClasses = "bg-blue-500/10 text-blue-400 border-blue-500/20 border";
       break;
-    case 'Auditor':
-      roleClasses = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 border';
+    case "Auditor":
+      roleClasses =
+        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 border";
       break;
-    case 'Sujeto Pasivo':
-      roleClasses = 'bg-amber-500/10 text-amber-400 border-amber-500/20 border';
+    case "Sujeto Pasivo":
+      roleClasses = "bg-amber-500/10 text-amber-400 border-amber-500/20 border";
       break;
-    case 'Asistente técnico':
-      roleClasses = 'bg-purple-500/10 text-purple-400 border-purple-500/20 border';
+    case "Asistente técnico":
+      roleClasses =
+        "bg-purple-500/10 text-purple-400 border-purple-500/20 border";
       break;
     default:
-      roleClasses = 'bg-slate-500/10 text-slate-400 border-slate-500/20 border';
+      roleClasses = "bg-slate-500/10 text-slate-400 border-slate-500/20 border";
   }
 
-  let asistidoSubtext = '';
-  if (item.rol === 'Asistente técnico' && item.asistido_rut) {
-    const sp = (dataStore.sujetos_pasivos || []).find(s => s.rut === item.asistido_rut);
+  let asistidoSubtext = "";
+  if (item.rol === "Asistente técnico" && item.asistido_rut) {
+    const sp = (dataStore.sujetos_pasivos || []).find(
+      (s) => s.rut === item.asistido_rut,
+    );
     const asistidoNombre = sp ? sp.nombre : item.asistido_rut;
     asistidoSubtext = `
       <div class="text-[9px] text-slate-400 font-medium truncate mt-0.5" title="Asiste a: ${asistidoNombre}">
@@ -1252,7 +1488,7 @@ function generateUsuarioRowHtml(item) {
           <div class="font-semibold text-heading truncate max-w-[180px]">${escapeHtml(item.nombre)}</div>
         </div>
       </td>
-      <td class="px-2 text-xs text-slate-200 font-mono"><div class="w-full truncate">${escapeHtml(item.rut || '-')}</div></td>
+      <td class="px-2 text-xs text-slate-200 font-mono"><div class="w-full truncate">${escapeHtml(item.rut || "-")}</div></td>
       <td class="px-2 text-xs text-slate-200 font-mono"><div class="w-full truncate">${escapeHtml(item.correo)}</div></td>
       <td class="px-2 text-xs">
         <div class="w-full truncate">
@@ -1265,11 +1501,12 @@ function generateUsuarioRowHtml(item) {
           <button onclick="openUsuarioModal(${item.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-500/10 dark:hover:bg-brand-500/20 transition-all" title="Editar">
             <i data-lucide="edit-2" class="h-3.5 w-3.5"></i>
           </button>
-          ${currentUser && item.id === currentUser.id 
-            ? `<button disabled class="p-1.5 rounded-lg text-slate-600 cursor-not-allowed opacity-40" title="No puedes eliminar tu propio usuario">
+          ${
+            currentUser && item.id === currentUser.id
+              ? `<button disabled class="p-1.5 rounded-lg text-slate-600 cursor-not-allowed opacity-40" title="No puedes eliminar tu propio usuario">
                  <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                </button>`
-            : `<button onclick="deleteRecord('usuarios', ${item.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 transition-all" title="Eliminar">
+              : `<button onclick="deleteRecord('usuarios', ${item.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-500/10 dark:hover:bg-rose-500/20 transition-all" title="Eliminar">
                  <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                </button>`
           }
@@ -1280,23 +1517,27 @@ function generateUsuarioRowHtml(item) {
 }
 
 function filterUsuarios() {
-  const query = (document.getElementById('search-usuarios')?.value || '').toLowerCase().trim();
-  const tbody = document.querySelector('#table-usuarios tbody');
+  const query = (document.getElementById("search-usuarios")?.value || "")
+    .toLowerCase()
+    .trim();
+  const tbody = document.querySelector("#table-usuarios tbody");
   if (!tbody) return;
-  
+
   const items = dataStore.usuarios || [];
-  const filtered = items.filter(user => {
-    return (user.nombre || '').toLowerCase().includes(query) ||
-           (user.correo || '').toLowerCase().includes(query) ||
-           (user.rut || '').toLowerCase().includes(query) ||
-           (user.rol || '').toLowerCase().includes(query);
+  const filtered = items.filter((user) => {
+    return (
+      (user.nombre || "").toLowerCase().includes(query) ||
+      (user.correo || "").toLowerCase().includes(query) ||
+      (user.rut || "").toLowerCase().includes(query) ||
+      (user.rol || "").toLowerCase().includes(query)
+    );
   });
-  
-  let rowsHtml = '';
+
+  let rowsHtml = "";
   if (filtered.length === 0) {
     rowsHtml = `<tr><td colspan="5" class="px-3 py-8 text-center text-xs text-slate-300">No se encontraron usuarios coincidentes.</td></tr>`;
   } else {
-    filtered.forEach(item => {
+    filtered.forEach((item) => {
       rowsHtml += generateUsuarioRowHtml(item);
     });
   }
@@ -1306,20 +1547,20 @@ function filterUsuarios() {
 
 // RENDER: VISTA CONTROL USUARIOS
 function renderUsuarios(container) {
-  if (typeof activeAdminTab === 'undefined') {
-    activeAdminTab = 'usuarios';
+  if (typeof activeAdminTab === "undefined") {
+    activeAdminTab = "auditoria";
   }
 
-  let contentHtml = '';
+  let contentHtml = "";
 
-  if (activeAdminTab === 'usuarios') {
+  if (activeAdminTab === "usuarios") {
     const items = dataStore.usuarios || [];
-    let rowsHtml = '';
-    
+    let rowsHtml = "";
+
     if (items.length === 0) {
       rowsHtml = `<tr><td colspan="5" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de usuarios encontrados.</td></tr>`;
     } else {
-      items.forEach(item => {
+      items.forEach((item) => {
         rowsHtml += generateUsuarioRowHtml(item);
       });
     }
@@ -1364,15 +1605,18 @@ function renderUsuarios(container) {
         </div>
       </div>
     `;
-  } else if (activeAdminTab === 'sincronizacion') {
-    let lastSyncStr = 'Sin registros';
+  } else if (activeAdminTab === "sincronizacion") {
+    let lastSyncStr = "Sin registros";
     if (dataStore.syncHistory && dataStore.syncHistory.length > 0) {
       const lastSync = dataStore.syncHistory[0];
       try {
-        const d = new Date(lastSync.timestamp.replace(' ', 'T') + 'Z');
-        lastSyncStr = d.toLocaleString('es-CL', {
-          day: '2-digit', month: '2-digit', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
+        const d = new Date(lastSync.timestamp.replace(" ", "T") + "Z");
+        lastSyncStr = d.toLocaleString("es-CL", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
         });
       } catch (e) {
         lastSyncStr = lastSync.timestamp;
@@ -1387,7 +1631,7 @@ function renderUsuarios(container) {
           </div>
           <div>
             <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Solicitudes</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.solicitudes ?? '-'}</p>
+            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.solicitudes ?? "-"}</p>
           </div>
         </div>
         <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
@@ -1396,7 +1640,7 @@ function renderUsuarios(container) {
           </div>
           <div>
             <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Publicadas PH</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.publicadas ?? '-'}</p>
+            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.publicadas ?? "-"}</p>
           </div>
         </div>
         <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
@@ -1405,7 +1649,7 @@ function renderUsuarios(container) {
           </div>
           <div>
             <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sujetos Pasivos</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.sujetos_pasivos ?? '-'}</p>
+            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.sujetos_pasivos ?? "-"}</p>
           </div>
         </div>
         <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
@@ -1414,14 +1658,15 @@ function renderUsuarios(container) {
           </div>
           <div>
             <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Usuarios Activos</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.usuarios ?? '-'}</p>
+            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.usuarios ?? "-"}</p>
           </div>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6 animate-fade-in">
         <div class="lg:col-span-2 space-y-4">
-          ${renderGlassCard(`
+          ${renderGlassCard(
+            `
             <div class="border-b border-slate-800/60 pb-3 flex items-center gap-2 mb-4">
               <i data-lucide="refresh-cw" class="h-4 w-4 text-brand-400"></i>
               <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400">Panel de Sincronización</h3>
@@ -1437,7 +1682,7 @@ function renderUsuarios(container) {
                 </div>
                 <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
                   <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Ruta en Servidor (%APPDATA%)</span>
-                  <span class="text-[10px] font-mono text-heading font-semibold break-all" title="${dataStore.dbHealth?.excelPath || '-'}">${dataStore.dbHealth?.excelPath || '-'}</span>
+                  <span class="text-[10px] font-mono text-heading font-semibold break-all" title="${dataStore.dbHealth?.excelPath || "-"}">${dataStore.dbHealth?.excelPath || "-"}</span>
                 </div>
                 <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
                   <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Última Sincronización</span>
@@ -1486,11 +1731,14 @@ function renderUsuarios(container) {
                 </button>
               </div>
             </div>
-          `, 'rounded-2xl p-6 shadow-sm relative z-20')}
+          `,
+            "rounded-2xl p-6 shadow-sm relative z-20",
+          )}
         </div>
 
         <div class="space-y-4">
-          ${renderGlassCard(`
+          ${renderGlassCard(
+            `
             <div class="border-b border-slate-800/60 pb-3 flex items-center gap-2 mb-4">
               <i data-lucide="activity" class="h-4 w-4 text-brand-400"></i>
               <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400">Salud del Sistema</h3>
@@ -1498,20 +1746,27 @@ function renderUsuarios(container) {
             <div class="space-y-3.5 text-xs">
               <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
                 <span class="text-body-muted">Base de Datos:</span>
-                <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.dbSize || '-'}</span>
+                <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.dbSize || "-"}</span>
               </div>
               <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
                 <span class="text-body-muted">Archivo Excel:</span>
-                <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.excelSize || '-'}</span>
+                <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.excelSize || "-"}</span>
+              </div>
+              <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
+                <span class="text-body-muted">Integridad SQLite:</span>
+                <span class="font-bold font-mono px-2 py-0.5 rounded text-[10px] ${dataStore.dbHealth?.integrity === "ok" ? "badge-status-enplazo" : "badge-status-vencido"}" style="margin-left: auto;">${dataStore.dbHealth?.integrity || "-"}</span>
               </div>
               <div class="flex justify-between items-center py-1">
-                <span class="text-body-muted">Integridad SQLite:</span>
-                <span class="font-bold font-mono px-2 py-0.5 rounded text-[10px] ${dataStore.dbHealth?.integrity === 'ok' ? 'badge-status-enplazo' : 'badge-status-vencido'}" style="margin-left: auto;">${dataStore.dbHealth?.integrity || '-'}</span>
+                <span class="text-body-muted">Firma Digital (HMAC):</span>
+                <span class="font-bold font-mono px-2 py-0.5 rounded text-[10px] ${dataStore.dbHealth?.signatureStatus === "Válida" ? "badge-status-enplazo" : "badge-status-vencido"}" style="margin-left: auto;">${dataStore.dbHealth?.signatureStatus || "-"}</span>
               </div>
             </div>
-          `, 'rounded-2xl p-6 shadow-sm')}
+          `,
+            "rounded-2xl p-6 shadow-sm",
+          )}
 
-          ${renderGlassCard(`
+          ${renderGlassCard(
+            `
             <div class="border-b border-slate-800/60 pb-3 flex items-center gap-2 mb-4">
               <i data-lucide="history" class="h-4 w-4 text-brand-400"></i>
               <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400">Historial Reciente</h3>
@@ -1519,35 +1774,57 @@ function renderUsuarios(container) {
             <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
               ${renderHistoryList()}
             </div>
-          `, 'rounded-2xl p-6 shadow-sm')}
+          `,
+            "rounded-2xl p-6 shadow-sm",
+          )}
         </div>
       </div>
     `;
-  } else if (activeAdminTab === 'logs') {
+  } else if (activeAdminTab === "logs") {
     contentHtml = renderLogsTabHtml();
-  } else if (activeAdminTab === 'database') {
+  } else if (activeAdminTab === "database") {
     contentHtml = renderDatabaseInspectorHtml();
-  } else if (activeAdminTab === 'auditoria') {
+  } else if (activeAdminTab === "auditoria") {
     const list = dataStore.auditoria || [];
     // Ordenar ascendentemente por fecha para cálculo correcto de variaciones
-    const sortedAudits = [...list].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const sortedAudits = [...list].sort((a, b) =>
+      a.fecha.localeCompare(b.fecha),
+    );
 
     // Obtener valores actuales de la base de datos para la comparación de discrepancias
-    const liveVals = dataStore.valoresActuales || { ingresada: 0, aceptada: 0, rechazada: 0, suspendida: 0, cancelada: 0, encomendada: 0, publicada: 0 };
-    const liveTotal = liveVals.ingresada + liveVals.aceptada + liveVals.rechazada + liveVals.suspendida + liveVals.cancelada + liveVals.encomendada;
+    const liveVals = dataStore.valoresActuales || {
+      ingresada: 0,
+      aceptada: 0,
+      rechazada: 0,
+      suspendida: 0,
+      cancelada: 0,
+      encomendada: 0,
+      publicada: 0,
+    };
+    const liveTotal =
+      liveVals.ingresada +
+      liveVals.aceptada +
+      liveVals.rechazada +
+      liveVals.suspendida +
+      liveVals.cancelada +
+      liveVals.encomendada;
 
     const formatVariation = (val, prevVal) => {
-      if (prevVal === undefined || prevVal === null || prevVal === 0) return '';
+      if (prevVal === undefined || prevVal === null || prevVal === 0) return "";
       const diff = val - prevVal;
       const pct = (diff / prevVal) * 100;
-      if (pct === 0) return `<span class="text-slate-500 text-[9px] ml-1">0,00%</span>`;
-      const sign = pct > 0 ? '+' : '';
-      const colorClass = pct > 0 ? 'text-emerald-400 font-semibold animate-pulse-subtle' : 'text-rose-400 font-semibold';
-      return `<span class="${colorClass} text-[9px] ml-1">${sign}${pct.toFixed(2).replace('.', ',')}%</span>`;
+      if (pct === 0)
+        return `<span class="text-slate-500 text-[9px] ml-1">0,00%</span>`;
+      const sign = pct > 0 ? "+" : "";
+      const colorClass =
+        pct > 0
+          ? "text-emerald-400 font-semibold animate-pulse-subtle"
+          : "text-rose-400 font-semibold";
+      return `<span class="${colorClass} text-[9px] ml-1">${sign}${pct.toFixed(2).replace(".", ",")}%</span>`;
     };
 
     // Construcción de la Tabla Semanal (última ingresada primero)
-    let weeklyRowsHtml = '';
+    let weeklyRowsHtml = "";
     if (sortedAudits.length === 0) {
       weeklyRowsHtml = `<tr><td colspan="10" class="px-3 py-8 text-center text-xs text-slate-400">No hay registros de auditoría cargados.</td></tr>`;
     } else {
@@ -1556,24 +1833,39 @@ function renderUsuarios(container) {
         const prev = i > 0 ? sortedAudits[i - 1] : null;
 
         const curTotal = cur.total || 0;
-        const prevTotal = prev ? (prev.total || 0) : null;
+        const prevTotal = prev ? prev.total || 0 : null;
 
         // Comprobación de discrepancias (solo se alertan para el último registro semanal disponible y si está En Proceso)
         const isLatest = i === sortedAudits.length - 1;
-        const isEnProceso = cur.estado === 'En Proceso';
-        const discIngresada = isLatest && isEnProceso && (cur.ingresada !== liveVals.ingresada);
-        const discAceptada = isLatest && isEnProceso && (cur.aceptada !== liveVals.aceptada);
-        const discRechazada = isLatest && isEnProceso && (cur.rechazada !== liveVals.rechazada);
-        const discSuspendida = isLatest && isEnProceso && (cur.suspendida !== liveVals.suspendida);
-        const discCancelada = isLatest && isEnProceso && (cur.cancelada !== liveVals.cancelada);
-        const discEncomendada = isLatest && isEnProceso && (cur.encomendada !== liveVals.encomendada);
-        const discPublicada = isLatest && isEnProceso && (cur.publicada !== liveVals.publicada);
-        const discTotal = isLatest && isEnProceso && (curTotal !== liveTotal);
+        const isEnProceso = cur.estado === "En Proceso";
+        const discIngresada =
+          isLatest && isEnProceso && cur.ingresada !== liveVals.ingresada;
+        const discAceptada =
+          isLatest && isEnProceso && cur.aceptada !== liveVals.aceptada;
+        const discRechazada =
+          isLatest && isEnProceso && cur.rechazada !== liveVals.rechazada;
+        const discSuspendida =
+          isLatest && isEnProceso && cur.suspendida !== liveVals.suspendida;
+        const discCancelada =
+          isLatest && isEnProceso && cur.cancelada !== liveVals.cancelada;
+        const discEncomendada =
+          isLatest && isEnProceso && cur.encomendada !== liveVals.encomendada;
+        const discPublicada =
+          isLatest && isEnProceso && cur.publicada !== liveVals.publicada;
+        const discTotal = isLatest && isEnProceso && curTotal !== liveTotal;
 
-        const hasAnyDiscrepancy = discIngresada || discAceptada || discRechazada || discSuspendida || discCancelada || discEncomendada || discPublicada || discTotal;
+        const hasAnyDiscrepancy =
+          discIngresada ||
+          discAceptada ||
+          discRechazada ||
+          discSuspendida ||
+          discCancelada ||
+          discEncomendada ||
+          discPublicada ||
+          discTotal;
 
-        let warningBadge = '';
-        if (cur.estado === 'Cerrado') {
+        let warningBadge = "";
+        if (cur.estado === "Cerrado") {
           warningBadge = `
             <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 inline-flex shrink-0 select-none cursor-default">
               <i data-lucide="shield-check" class="h-2.5 w-2.5 shrink-0"></i> Validado
@@ -1585,20 +1877,29 @@ function renderUsuarios(container) {
               <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 inline-flex shrink-0 select-none cursor-default">
                 <i data-lucide="clock" class="h-2.5 w-2.5 shrink-0 animate-pulse"></i> En Proceso
               </span>
-              ${hasAnyDiscrepancy ? `
+              ${
+                hasAnyDiscrepancy
+                  ? `
               <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-1 inline-flex shrink-0 select-none cursor-default" title="Discrepancia detectada con la base de datos actual.">
                 <i data-lucide="alert-circle" class="h-2.5 w-2.5 shrink-0"></i> Discrepancia
               </span>
-              ` : ''}
+              `
+                  : ""
+              }
             </div>
           `;
         }
 
         const formatCell = (val, prevVal, isDisc, liveVal) => {
-          const formattedVal = val.toLocaleString('es-CL');
-          const variation = prevVal !== null ? formatVariation(val, prevVal) : '';
-          const discClass = isDisc ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30 rounded px-1.5 py-0.5' : '';
-          const titleText = isDisc ? `title="Cifra en Sistema: ${liveVal.toLocaleString('es-CL')} (Discrepancia: ${val - liveVal})"` : '';
+          const formattedVal = val.toLocaleString("es-CL");
+          const variation =
+            prevVal !== null ? formatVariation(val, prevVal) : "";
+          const discClass = isDisc
+            ? "bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30 rounded px-1.5 py-0.5"
+            : "";
+          const titleText = isDisc
+            ? `title="Cifra en Sistema: ${liveVal.toLocaleString("es-CL")} (Discrepancia: ${val - liveVal})"`
+            : "";
           return `<div class="flex flex-col items-start gap-0.5">
             <span class="${discClass} inline-block" ${titleText}>${formattedVal}</span>
             ${variation}
@@ -1608,27 +1909,28 @@ function renderUsuarios(container) {
         // Formatear fecha DD-MM-YYYY
         let dateStr = cur.fecha;
         try {
-          const parts = cur.fecha.split(' ');
+          const parts = cur.fecha.split(" ");
           if (parts[0]) {
-            const dateParts = parts[0].split('-');
+            const dateParts = parts[0].split("-");
             if (dateParts.length === 3) {
-              dateStr = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}${parts[1] ? ' ' + parts[1] : ''}`;
+              dateStr = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}${parts[1] ? " " + parts[1] : ""}`;
             }
           }
-        } catch(e) {}
+        } catch (e) {}
 
-        const cerrarBtnHtml = (isEnProceso && isLatest)
-          ? `<button onclick="closeAuditoriaRecord(${cur.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 transition-all shrink-0" title="Cerrar y Validar Control Semanal">
+        const cerrarBtnHtml =
+          isEnProceso && isLatest
+            ? `<button onclick="closeAuditoriaRecord(${cur.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 transition-all shrink-0" title="Cerrar y Validar Control Semanal">
                <i data-lucide="check-square" class="h-3.5 w-3.5"></i>
              </button>`
-          : `<div class="w-[26px] h-[26px] shrink-0"></div>`;
+            : `<div class="w-[26px] h-[26px] shrink-0"></div>`;
 
         weeklyRowsHtml += `
           <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[64px]">
             <td class="pl-6 pr-2 text-xs font-semibold text-slate-100 font-mono">
               <div class="flex flex-col">
                 <span class="text-slate-200 font-semibold text-[11px]">${dateStr}</span>
-                <span class="text-[9px] text-slate-500 font-medium">${cur.usuario || 'Sistema'}</span>
+                <span class="text-[9px] text-slate-500 font-medium">${cur.usuario || "Sistema"}</span>
               </div>
             </td>
             <td class="px-2 text-xs font-semibold text-slate-100">${formatCell(curTotal, prevTotal, discTotal, liveTotal)}</td>
@@ -1658,13 +1960,13 @@ function renderUsuarios(container) {
 
     // Construcción de la Tabla Mensual (Cierres de mes)
     const monthlyGroups = {};
-    sortedAudits.forEach(aud => {
+    sortedAudits.forEach((aud) => {
       const yyyymm = aud.fecha.slice(0, 7); // e.g. "2026-06"
       monthlyGroups[yyyymm] = aud; // Sobrescribe con el último registro cronológico del mes
     });
 
     const monthlyKeys = Object.keys(monthlyGroups).sort();
-    let monthlyRowsHtml = '';
+    let monthlyRowsHtml = "";
     if (monthlyKeys.length === 0) {
       monthlyRowsHtml = `<tr><td colspan="10" class="px-3 py-8 text-center text-xs text-slate-400">No hay datos de auditoría mensual disponibles.</td></tr>`;
     } else {
@@ -1675,20 +1977,34 @@ function renderUsuarios(container) {
         const prev = prevKey ? monthlyGroups[prevKey] : null;
 
         const curTotal = cur.total || 0;
-        const prevTotal = prev ? (prev.total || 0) : null;
+        const prevTotal = prev ? prev.total || 0 : null;
 
         let monthName = key;
         try {
-          const parts = key.split('-');
+          const parts = key.split("-");
           const yearShort = parts[0].slice(2);
-          const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+          const months = [
+            "ene",
+            "feb",
+            "mar",
+            "abr",
+            "may",
+            "jun",
+            "jul",
+            "ago",
+            "sep",
+            "oct",
+            "nov",
+            "dic",
+          ];
           const monthIndex = parseInt(parts[1], 10) - 1;
           monthName = `${months[monthIndex]}-${yearShort}`;
-        } catch(e) {}
+        } catch (e) {}
 
         const formatMonthlyCell = (val, prevVal) => {
-          const formattedVal = val.toLocaleString('es-CL');
-          const variation = prevVal !== null ? formatVariation(val, prevVal) : '';
+          const formattedVal = val.toLocaleString("es-CL");
+          const variation =
+            prevVal !== null ? formatVariation(val, prevVal) : "";
           return `<div class="flex flex-col items-start gap-0.5">
             <span>${formattedVal}</span>
             ${variation}
@@ -1720,7 +2036,7 @@ function renderUsuarios(container) {
               <i data-lucide="clipboard-check" class="h-4 w-4 text-brand-400"></i>
               Control de Auditoría Semanal
             </h3>
-            <p class="text-xs text-slate-400">Controles manuales validados por la municipalidad y variaciones relativas de estados.</p>
+            <p class="text-xs text-slate-400">Auditoría manual.</p>
           </div>
           <button id="btn-registrar-auditoria" onclick="openAuditoriaModal()" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-brand-500/20 shrink-0">
             <i data-lucide="plus" class="h-4 w-4"></i> Registrar Control Semanal
@@ -1793,23 +2109,23 @@ function renderUsuarios(container) {
 
     <div class="border-b border-slate-800 mt-6">
       <nav class="-mb-px flex space-x-8 overflow-x-auto whitespace-nowrap scrollbar-none" aria-label="Tabs">
-        <button onclick="changeAdminTab('usuarios')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === 'usuarios' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'} flex items-center gap-2 focus:outline-none shrink-0">
-          <i data-lucide="users" class="h-4 w-4"></i>
-          Gestión de Usuarios
-        </button>
-        <button onclick="changeAdminTab('auditoria')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === 'auditoria' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'} flex items-center gap-2 focus:outline-none shrink-0">
+        <button onclick="changeAdminTab('auditoria')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "auditoria" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
           <i data-lucide="clipboard-check" class="h-4 w-4"></i>
           Control de Auditoría
         </button>
-        <button onclick="changeAdminTab('sincronizacion')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === 'sincronizacion' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'} flex items-center gap-2 focus:outline-none shrink-0">
+        <button onclick="changeAdminTab('sincronizacion')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "sincronizacion" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
           <i data-lucide="refresh-cw" class="h-4 w-4"></i>
           Sincronización
         </button>
-        <button onclick="changeAdminTab('database')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === 'database' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'} flex items-center gap-2 focus:outline-none shrink-0">
+        <button onclick="changeAdminTab('usuarios')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "usuarios" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
+          <i data-lucide="users" class="h-4 w-4"></i>
+          Gestión de Usuarios
+        </button>
+        <button onclick="changeAdminTab('database')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "database" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
           <i data-lucide="database" class="h-4 w-4"></i>
           Base de Datos
         </button>
-        <button onclick="changeAdminTab('logs')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === 'logs' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'} flex items-center gap-2 focus:outline-none shrink-0">
+        <button onclick="changeAdminTab('logs')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "logs" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
           <i data-lucide="file-text" class="h-4 w-4"></i>
           Bitácora de Logs
         </button>
@@ -1819,11 +2135,11 @@ function renderUsuarios(container) {
     ${contentHtml}
   `;
 
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+  if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();
   }
 
-  if (activeAdminTab === 'logs' && typeof refreshAdminLogs === 'function') {
+  if (activeAdminTab === "logs" && typeof refreshAdminLogs === "function") {
     setTimeout(refreshAdminLogs, 50);
   }
 }
@@ -1832,7 +2148,8 @@ function renderUsuarios(container) {
 function renderLogsTabHtml() {
   return `
     <div class="space-y-4">
-      ${renderGlassCard(`
+      ${renderGlassCard(
+        `
         <!-- Header de la bitácora -->
         <div class="border-b border-slate-800/60 pb-4 flex items-center justify-between">
           <div class="flex items-center gap-3">
@@ -1889,35 +2206,47 @@ function renderLogsTabHtml() {
             </tbody>
           </table>
         </div>
-      `, 'rounded-2xl p-6 shadow-sm')}
+      `,
+        "rounded-2xl p-6 shadow-sm",
+      )}
     </div>
   `;
 }
 
 // RENDER: VISTA REPORTES ANALÍTICOS AVANZADOS
 function renderReportes(container) {
-  const processedData = processReportData(dataStore.reportesRawData, reportesFilters);
+  const processedData = processReportData(
+    dataStore.reportesRawData,
+    reportesFilters,
+  );
   const totalItems = processedData.length;
   const currentPage = paginationState.reportes.page;
   const pageSize = 10;
-  const paginatedItems = processedData.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedItems = processedData.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
-  const isNombreEmpty = !reportesFilters.nombre || reportesFilters.nombre === '';
-  const cargoPlaceholder = isNombreEmpty ? 'Seleccione nombre primero...' : 'Escribir cargo...';
+  const isNombreEmpty =
+    !reportesFilters.nombre || reportesFilters.nombre === "";
+  const cargoPlaceholder = isNombreEmpty
+    ? "Seleccione nombre primero..."
+    : "Escribir cargo...";
 
-  let rowsHtml = '';
+  let rowsHtml = "";
   if (paginatedItems.length === 0) {
-    const hasAnyFilter = (reportesFilters.nombre && reportesFilters.nombre !== '') ||
-                         (reportesFilters.cargo && reportesFilters.cargo !== '') ||
-                         reportesFilters.fechaInicio ||
-                         reportesFilters.fechaTermino ||
-                         (reportesFilters.estados && reportesFilters.estados.length > 0);
+    const hasAnyFilter =
+      (reportesFilters.nombre && reportesFilters.nombre !== "") ||
+      (reportesFilters.cargo && reportesFilters.cargo !== "") ||
+      reportesFilters.fechaInicio ||
+      reportesFilters.fechaTermino ||
+      (reportesFilters.estados && reportesFilters.estados.length > 0);
     const msg = hasAnyFilter
-      ? 'No hay registros que coincidan con los filtros aplicados.'
+      ? "No hay registros que coincidan con los filtros aplicados."
       : 'Por favor, ingrese un Sujeto Pasivo (o seleccione "Todos") u otros filtros para generar el reporte.';
     rowsHtml = `<tr><td colspan="7" class="px-6 py-8 text-center text-xs text-slate-300">${msg}</td></tr>`;
   } else {
-    paginatedItems.forEach(item => {
+    paginatedItems.forEach((item) => {
       rowsHtml += `
         <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[56px]">
           <td class="pl-6 pr-2 text-xs font-semibold text-slate-300 text-left w-12">${item.index}</td>
@@ -1927,36 +2256,43 @@ function renderReportes(container) {
           </td>
           <td class="px-2 text-xs text-left w-32">
             <div class="font-medium text-slate-200">${item.fechaIngreso}</div>
-            ${item.fechaLimiteRespuesta ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Legal Límite de Respuesta">${item.fechaLimiteRespuesta}</div>` : ''}
+            ${item.fechaLimiteRespuesta ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Legal Límite de Respuesta">${item.fechaLimiteRespuesta}</div>` : ""}
           </td>
           <td class="px-2 text-xs text-left w-32">
             <div class="font-medium text-slate-200">${item.fechaAgendada}</div>
-            ${item.fechaLimitePublicacion ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Límite de Publicación">${item.fechaLimitePublicacion}</div>` : ''}
+            ${item.fechaLimitePublicacion ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Límite de Publicación">${item.fechaLimitePublicacion}</div>` : ""}
           </td>
           <td class="px-2 text-xs text-left w-44">
-            ${item.badgeText === 'Pendiente de publicación'
-              ? `<span class="px-2 py-1 rounded text-[10px] font-semibold ${item.badgeClass} inline-block text-center leading-tight">Pendiente de<br>publicación</span>`
-              : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold ${item.badgeClass} whitespace-nowrap">${escapeHtml(item.badgeText)}</span>`
+            ${
+              item.badgeText === "Pendiente de publicación"
+                ? `<span class="px-2 py-1 rounded text-[10px] font-semibold ${item.badgeClass} inline-block text-center leading-tight">Pendiente de<br>publicación</span>`
+                : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold ${item.badgeClass} whitespace-nowrap">${escapeHtml(item.badgeText)}</span>`
             }
           </td>
           <td class="pl-2 pr-6 text-xs text-left w-28">
             ${(() => {
-              const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
+              const hasDays =
+                item.plazo.includes("(") && item.plazo.includes(")");
               let mainCode = item.plazo;
-              let subtextHtml = '';
-              
+              let subtextHtml = "";
+
               if (hasDays) {
-                const parts = item.plazo.split(' ');
+                const parts = item.plazo.split(" ");
                 mainCode = parts[0];
-                const days = parts[1].replace(/[()]/g, '');
-                if (mainCode === 'FDP' || mainCode === 'RFP') {
+                const days = parts[1].replace(/[()]/g, "");
+                if (mainCode === "FDP" || mainCode === "RFP") {
                   subtextHtml = `<div class="text-[9px] font-bold mt-0.5 leading-none opacity-90">${days}</div>`;
                 }
               }
-              
-              const isOverdue = mainCode === 'FDP' || mainCode === 'RFP' || item.plazo.includes('-');
-              const badgeClass = isOverdue ? 'badge-status-vencido' : 'badge-status-enplazo';
-              
+
+              const isOverdue =
+                mainCode === "FDP" ||
+                mainCode === "RFP" ||
+                item.plazo.includes("-");
+              const badgeClass = isOverdue
+                ? "badge-status-vencido"
+                : "badge-status-enplazo";
+
               if (subtextHtml) {
                 return `
                   <div class="px-2 py-1 rounded text-[10px] font-semibold flex flex-col items-center justify-center text-center w-12 ${badgeClass}">
@@ -1965,7 +2301,7 @@ function renderReportes(container) {
                   </div>
                 `;
               }
-              
+
               return `
                 <div class="px-2 py-1 rounded text-[10px] font-semibold flex flex-col items-center justify-center text-center w-12 ${badgeClass}">
                   ${mainCode}
@@ -1978,16 +2314,25 @@ function renderReportes(container) {
     });
   }
 
-  const existingTable = container.querySelector('#table-reportes');
+  const existingTable = container.querySelector("#table-reportes");
   if (existingTable && window.activeInputId) {
-    existingTable.querySelector('tbody').innerHTML = rowsHtml;
-    const counterEl = container.querySelector('#reportes-counter');
-    if (counterEl) counterEl.textContent = `${totalItems} registros coincidentes encontrados`;
-    const pagEl = container.querySelector('#reportes-pagination-container');
-    if (pagEl) pagEl.innerHTML = renderPaginationControls('reportes', totalItems, currentPage, pageSize);
-    
+    existingTable.querySelector("tbody").innerHTML = rowsHtml;
+    const counterEl = container.querySelector("#reportes-counter");
+    if (counterEl)
+      counterEl.textContent = `${totalItems} registros coincidentes encontrados`;
+    const pagEl = container.querySelector("#reportes-pagination-container");
+    if (pagEl)
+      pagEl.innerHTML = renderPaginationControls(
+        "reportes",
+        totalItems,
+        currentPage,
+        pageSize,
+      );
+
     // update export PDF button visibility
-    const exportBtnContainer = container.querySelector('#reportes-export-btn-container');
+    const exportBtnContainer = container.querySelector(
+      "#reportes-export-btn-container",
+    );
     if (exportBtnContainer) {
       exportBtnContainer.className = "flex items-center gap-2.5";
       exportBtnContainer.innerHTML = `
@@ -2004,12 +2349,16 @@ function renderReportes(container) {
         
         <div class="h-4 w-[1px] bg-slate-700/60 mx-1"></div>
 
-        ${totalItems > 0 ? `
+        ${
+          totalItems > 0
+            ? `
           <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
             <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
             Exportar PDF
           </button>
-        ` : ''}
+        `
+            : ""
+        }
       `;
     }
     lucide.createIcons();
@@ -2023,7 +2372,8 @@ function renderReportes(container) {
       </div>
 
       <!-- PANEL FILTROS AVANZADOS -->
-      ${renderGlassCard(`
+      ${renderGlassCard(
+        `
         <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
           <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
             <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
@@ -2037,39 +2387,39 @@ function renderReportes(container) {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <!-- NOMBRE -->
           ${renderSearchInput({
-            id: 'report-filter-nombre',
-            fieldName: 'nombre',
-            label: 'Nombre Sujeto Pasivo',
-            placeholder: 'Vigentes o escribir nombre...',
+            id: "report-filter-nombre",
+            fieldName: "nombre",
+            label: "Nombre Sujeto Pasivo",
+            placeholder: "Vigentes o escribir nombre...",
             value: reportesFilters.nombre,
-            hasSuggestions: true
+            hasSuggestions: true,
           })}
 
           <!-- CARGO -->
           ${renderSearchInput({
-            id: 'report-filter-cargo',
-            fieldName: 'cargo',
-            label: 'Cargo',
+            id: "report-filter-cargo",
+            fieldName: "cargo",
+            label: "Cargo",
             placeholder: cargoPlaceholder,
             value: reportesFilters.cargo,
             disabled: isNombreEmpty,
-            hasSuggestions: true
+            hasSuggestions: true,
           })}
 
           <!-- FECHA INICIO -->
           ${renderDateInput({
-            id: 'report-filter-fechainicio',
-            fieldName: 'fechaInicio',
-            label: 'Fecha Inicio',
-            value: reportesFilters.fechaInicio
+            id: "report-filter-fechainicio",
+            fieldName: "fechaInicio",
+            label: "Fecha Inicio",
+            value: reportesFilters.fechaInicio,
           })}
 
           <!-- FECHA TERMINO -->
           ${renderDateInput({
-            id: 'report-filter-fechatermino',
-            fieldName: 'fechaTermino',
-            label: 'Fecha Término',
-            value: reportesFilters.fechaTermino
+            id: "report-filter-fechatermino",
+            fieldName: "fechaTermino",
+            label: "Fecha Término",
+            value: reportesFilters.fechaTermino,
           })}
         </div>
 
@@ -2077,18 +2427,30 @@ function renderReportes(container) {
         <div class="space-y-2">
           <label class="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Estados de Solicitud (Selección Múltiple)</label>
           <div class="flex flex-wrap gap-2.5">
-            ${['Ingresada', 'Aceptada', 'Rechazada', 'Suspendida', 'Cancelada', 'Encomendada', 'Pendiente de publicación'].map(est => {
-              const checked = reportesFilters.estados.includes(est);
-              return `
-                <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/60 bg-slate-900/40 text-xs font-semibold cursor-pointer select-none transition-all hover:bg-slate-800/80 ${checked ? 'border-brand-500 bg-blue-500/10 text-blue-400 shadow-sm shadow-brand-500/20' : 'text-slate-300'}">
-                  <input type="checkbox" class="hidden report-estado-checkbox" data-estado="${est}" ${checked ? 'checked' : ''}>
+            ${[
+              "Ingresada",
+              "Aceptada",
+              "Rechazada",
+              "Suspendida",
+              "Cancelada",
+              "Encomendada",
+              "Pendiente de publicación",
+            ]
+              .map((est) => {
+                const checked = reportesFilters.estados.includes(est);
+                return `
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/60 bg-slate-900/40 text-xs font-semibold cursor-pointer select-none transition-all hover:bg-slate-800/80 ${checked ? "border-brand-500 bg-blue-500/10 text-blue-400 shadow-sm shadow-brand-500/20" : "text-slate-300"}">
+                  <input type="checkbox" class="hidden report-estado-checkbox" data-estado="${est}" ${checked ? "checked" : ""}>
                   <span>${est}</span>
                 </label>
               `;
-            }).join('')}
+              })
+              .join("")}
           </div>
         </div>
-      `, 'rounded-2xl p-5 space-y-4 relative z-20')}
+      `,
+        "rounded-2xl p-5 space-y-4 relative z-20",
+      )}
 
       <!-- TABLA DE REPORTES -->
       <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
@@ -2108,12 +2470,16 @@ function renderReportes(container) {
             
             <div class="h-4 w-[1px] bg-slate-700/60 mx-1"></div>
 
-            ${totalItems > 0 ? `
+            ${
+              totalItems > 0
+                ? `
               <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
                 <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
                 Exportar PDF
               </button>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
         </div>
 
@@ -2142,7 +2508,7 @@ function renderReportes(container) {
           </table>
         </div>
         <div id="reportes-pagination-container">
-          ${renderPaginationControls('reportes', totalItems, currentPage, pageSize)}
+          ${renderPaginationControls("reportes", totalItems, currentPage, pageSize)}
         </div>
       </div>
     </div>
@@ -2154,16 +2520,18 @@ function renderReportes(container) {
  * Presenta una pantalla de autenticación premium integrada en la SPA.
  */
 async function renderLogin(container) {
-  const isElectron = window.location.search.includes('platform=electron') || window.navigator.userAgent.toLowerCase().includes('electron');
+  const isElectron =
+    window.location.search.includes("platform=electron") ||
+    window.navigator.userAgent.toLowerCase().includes("electron");
 
   let isInitialized = true;
   if (isElectron) {
     try {
-      const res = await fetch('/api/auth/status');
+      const res = await fetch("/api/auth/status");
       const data = await res.json();
       isInitialized = !!(data && data.initialized);
     } catch (e) {
-      console.warn('Error al verificar estado de inicialización:', e);
+      console.warn("Error al verificar estado de inicialización:", e);
     }
   }
 
@@ -2195,7 +2563,9 @@ async function renderLogin(container) {
         </div>
 
         <!-- Opción Microsoft SSO (Solo en Electron) -->
-        ${isElectron ? `
+        ${
+          isElectron
+            ? `
         <div id="sso-container" class="space-y-4 relative z-10 text-center">
           <button id="btn-sso-login" onclick="triggerSsoLogin()" 
                   class="w-full py-3 bg-[#2f2f2f] hover:bg-[#3f3f3f] text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg mt-2 flex items-center justify-center gap-2.5 border border-slate-700 active:scale-[0.98]">
@@ -2208,7 +2578,9 @@ async function renderLogin(container) {
             <span id="btn-sso-text">Iniciar sesión</span>
           </button>
         </div>
-        ` : ''}
+        `
+            : ""
+        }
 
         <!-- Pie de página de login -->
         <div class="text-center text-[10px] text-body-muted pt-2 relative z-10 border-t border-slate-900/60">
@@ -2219,7 +2591,7 @@ async function renderLogin(container) {
   `;
 
   // Inicializar íconos de Lucide tras inyectar el HTML
-  if (typeof lucide !== 'undefined') {
+  if (typeof lucide !== "undefined") {
     lucide.createIcons();
   }
 }
@@ -2230,28 +2602,32 @@ async function renderLogin(container) {
 
 let inspectorState = {
   tables: [],
-  selectedTable: 'solicitudes_sh',
+  selectedTable: "solicitudes_sh",
   page: 1,
   limit: 10,
-  search: '',
+  search: "",
   columns: [],
   rows: [],
   total: 0,
-  loading: false
+  loading: false,
 };
 
 async function initDatabaseInspector() {
   if (inspectorState.tables.length === 0) {
     try {
-      const res = await fetch('/api/admin/inspector/tables');
+      const res = await fetch("/api/admin/inspector/tables");
       if (res.ok) {
         inspectorState.tables = await res.json();
         if (inspectorState.tables.length > 0) {
-          inspectorState.selectedTable = inspectorState.tables.includes('solicitudes_sh') ? 'solicitudes_sh' : inspectorState.tables[0];
+          inspectorState.selectedTable = inspectorState.tables.includes(
+            "solicitudes_sh",
+          )
+            ? "solicitudes_sh"
+            : inspectorState.tables[0];
         }
       }
     } catch (e) {
-      console.error('Error al inicializar tablas del inspector:', e);
+      console.error("Error al inicializar tablas del inspector:", e);
     }
   }
   await fetchInspectorData();
@@ -2267,7 +2643,7 @@ async function fetchInspectorData() {
       table: inspectorState.selectedTable,
       page: inspectorState.page,
       limit: inspectorState.limit,
-      search: inspectorState.search
+      search: inspectorState.search,
     });
     const res = await fetch(`/api/admin/inspector/data?${params.toString()}`);
     if (res.ok) {
@@ -2276,11 +2652,11 @@ async function fetchInspectorData() {
       inspectorState.rows = result.rows;
       inspectorState.total = result.total;
     } else {
-      showToast('Error al obtener datos de la tabla.', 'error');
+      showToast("Error al obtener datos de la tabla.", "error");
     }
   } catch (e) {
-    console.error('Error al obtener datos de la tabla:', e);
-    showToast('Error al conectar con el inspector.', 'error');
+    console.error("Error al obtener datos de la tabla:", e);
+    showToast("Error al conectar con el inspector.", "error");
   } finally {
     inspectorState.loading = false;
     updateInspectorUI();
@@ -2301,10 +2677,10 @@ function renderDatabaseInspectorHtml() {
 }
 
 function updateInspectorUI() {
-  const root = document.getElementById('database-inspector-root');
+  const root = document.getElementById("database-inspector-root");
   if (root) {
     root.innerHTML = renderDatabaseInspectorContent();
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
       window.lucide.createIcons();
     }
   }
@@ -2321,39 +2697,45 @@ function renderDatabaseInspectorContent() {
   }
 
   // Menú de selección de tablas
-  const tableOptions = inspectorState.tables.map(t => 
-    `<option value="${t}" ${inspectorState.selectedTable === t ? 'selected' : ''}>${t}</option>`
-  ).join('');
+  const tableOptions = inspectorState.tables
+    .map(
+      (t) =>
+        `<option value="${t}" ${inspectorState.selectedTable === t ? "selected" : ""}>${t}</option>`,
+    )
+    .join("");
 
   // Columnas y cabeceras
-  let headersHtml = '';
+  let headersHtml = "";
   let colCount = inspectorState.columns.length || 1;
   if (inspectorState.columns.length > 0) {
-    headersHtml = inspectorState.columns.map(col => 
-      `<th class="px-3 py-3 text-left font-bold text-[10px] text-slate-400 uppercase tracking-wider font-mono select-none whitespace-nowrap" title="${col.type} ${col.notnull ? 'NOT NULL' : ''}">${escapeHtml(col.name)}</th>`
-    ).join('');
+    headersHtml = inspectorState.columns
+      .map(
+        (col) =>
+          `<th class="px-3 py-3 text-left font-bold text-[10px] text-slate-400 uppercase tracking-wider font-mono select-none whitespace-nowrap" title="${col.type} ${col.notnull ? "NOT NULL" : ""}">${escapeHtml(col.name)}</th>`,
+      )
+      .join("");
   } else {
     headersHtml = `<th class="px-6 py-3 text-left">Columnas</th>`;
   }
 
   // Filas de datos
-  let rowsHtml = '';
+  let rowsHtml = "";
   if (inspectorState.rows.length === 0) {
     rowsHtml = `<tr><td colspan="${colCount}" class="px-6 py-8 text-center text-xs text-slate-400">La tabla está vacía o no tiene registros que coincidan con la búsqueda.</td></tr>`;
   } else {
-    inspectorState.rows.forEach(row => {
+    inspectorState.rows.forEach((row) => {
       rowsHtml += `<tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors">`;
-      inspectorState.columns.forEach(col => {
+      inspectorState.columns.forEach((col) => {
         let val = row[col.name];
-        let valStr = '';
+        let valStr = "";
         if (val === null || val === undefined) {
           valStr = `<span class="text-slate-600 font-mono italic text-[10px]">NULL</span>`;
-        } else if (typeof val === 'object') {
+        } else if (typeof val === "object") {
           valStr = `<span class="text-slate-300 font-mono text-[11px]">${escapeHtml(JSON.stringify(val))}</span>`;
         } else {
           valStr = `<span class="text-slate-300 text-xs">${escapeHtml(String(val))}</span>`;
         }
-        rowsHtml += `<td class="px-3 py-2.5 max-w-xs truncate font-medium align-middle" title="${escapeHtmlAttr(String(val || ''))}">${valStr}</td>`;
+        rowsHtml += `<td class="px-3 py-2.5 max-w-xs truncate font-medium align-middle" title="${escapeHtmlAttr(String(val || ""))}">${valStr}</td>`;
       });
       rowsHtml += `</tr>`;
     });
@@ -2361,23 +2743,29 @@ function renderDatabaseInspectorContent() {
 
   // Generar botones de paginación del inspector
   const totalPages = Math.ceil(inspectorState.total / inspectorState.limit);
-  const startItem = inspectorState.total === 0 ? 0 : (inspectorState.page - 1) * inspectorState.limit + 1;
-  const endItem = Math.min(inspectorState.page * inspectorState.limit, inspectorState.total);
+  const startItem =
+    inspectorState.total === 0
+      ? 0
+      : (inspectorState.page - 1) * inspectorState.limit + 1;
+  const endItem = Math.min(
+    inspectorState.page * inspectorState.limit,
+    inspectorState.total,
+  );
 
-  let pagesHtml = '';
+  let pagesHtml = "";
   if (totalPages > 1) {
     const prevDisabled = inspectorState.page === 1;
     const nextDisabled = inspectorState.page === totalPages;
 
     pagesHtml += `
       <div class="flex items-center gap-1.5 font-sans">
-        <button onclick="${prevDisabled ? '' : 'changeInspectorPage(' + (inspectorState.page - 1) + ')'}" 
-                class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${prevDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800'}">
+        <button onclick="${prevDisabled ? "" : "changeInspectorPage(" + (inspectorState.page - 1) + ")"}" 
+                class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${prevDisabled ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-800"}">
           <i data-lucide="chevron-left" class="h-4 w-4"></i>
         </button>
         <span class="text-xs text-slate-200 px-2.5 font-semibold font-sans">Página ${inspectorState.page} de ${totalPages}</span>
-        <button onclick="${nextDisabled ? '' : 'changeInspectorPage(' + (inspectorState.page + 1) + ')'}" 
-                class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${nextDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-800'}">
+        <button onclick="${nextDisabled ? "" : "changeInspectorPage(" + (inspectorState.page + 1) + ")"}" 
+                class="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-700 bg-slate-900/60 text-slate-200 hover:text-white transition-all ${nextDisabled ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-800"}">
           <i data-lucide="chevron-right" class="h-4 w-4"></i>
         </button>
       </div>
@@ -2435,7 +2823,7 @@ function renderDatabaseInspectorContent() {
 function onInspectorTableChange(table) {
   inspectorState.selectedTable = table;
   inspectorState.page = 1;
-  inspectorState.search = '';
+  inspectorState.search = "";
   fetchInspectorData();
 }
 
@@ -2454,11 +2842,11 @@ function changeInspectorPage(page) {
   fetchInspectorData();
 }
 
-let activeDbSubTab = 'sincronizacion';
+let activeDbSubTab = "sincronizacion";
 
 function changeDbSubTab(subTabName) {
   activeDbSubTab = subTabName;
-  const container = document.getElementById('main-content');
+  const container = document.getElementById("main-content");
   if (container) {
     renderUsuarios(container);
   }
@@ -2467,63 +2855,107 @@ function changeDbSubTab(subTabName) {
 // ==========================================
 // VISTA: CENTRO DE ALERTAS
 // ==========================================
-let activeAlertasTab = 'no_leidas';
-let alertasSearchQuery = '';
+let activeAlertasTab = "no_leidas";
+let alertasSearchQuery = "";
+let activeAlertasType = "todos";
 
 function renderAlertasCentro(container) {
   if (!container) return;
 
   const allAlerts = getActiveAlertsList(true);
-  const unreadAlerts = allAlerts.filter(w => w.estado_gestion !== 'leida');
-  const readAlerts = allAlerts.filter(w => w.estado_gestion === 'leida');
+  const unreadAlerts = allAlerts.filter((w) => w.estado_gestion !== "leida");
+  const readAlerts = allAlerts.filter((w) => w.estado_gestion === "leida");
 
-  const activeList = activeAlertasTab === 'no_leidas' ? unreadAlerts : readAlerts;
-  const filteredList = activeList.filter(w => {
+  const activeList =
+    activeAlertasTab === "no_leidas" ? unreadAlerts : readAlerts;
+  const filteredList = activeList.filter((w) => {
+    // Filtrar por tipo
+    if (activeAlertasType !== "todos" && w.type !== activeAlertasType) {
+      return false;
+    }
     if (!alertasSearchQuery) return true;
     const query = alertasSearchQuery.toLowerCase();
     return (
-      (w.sujeto_pasivo || '').toLowerCase().includes(query) ||
-      (w.folio || '').toLowerCase().includes(query) ||
-      (w.text || '').toLowerCase().includes(query)
+      (w.sujeto_pasivo || "").toLowerCase().includes(query) ||
+      (w.folio || "").toLowerCase().includes(query) ||
+      (w.text || "").toLowerCase().includes(query)
     );
   });
 
   const tabsHtml = `
-    <div class="flex border-b border-[var(--border-ui)] mb-6 gap-2">
-      <button onclick="switchAlertasTab('no_leidas')" class="px-4 py-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-        activeAlertasTab === 'no_leidas'
-          ? 'border-brand-500 text-[var(--text-primary)] font-bold'
-          : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-      }">
-        <i data-lucide="bell" class="h-4 w-4"></i>
-        No leídas
-        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">
-          ${unreadAlerts.length}
-        </span>
-      </button>
-      <button onclick="switchAlertasTab('leidas')" class="px-4 py-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-        activeAlertasTab === 'leidas'
-          ? 'border-brand-500 text-[var(--text-primary)] font-bold'
-          : 'border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-      }">
-        <i data-lucide="archive" class="h-4 w-4"></i>
-        Leídas / Historial
-        <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 font-bold">
-          ${readAlerts.length}
-        </span>
-      </button>
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between border-b border-[var(--border-ui)] mb-6 gap-4">
+      <div class="flex gap-2">
+        <button onclick="switchAlertasTab('no_leidas')" class="-mb-px px-4 py-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+          activeAlertasTab === "no_leidas"
+            ? "border-brand-500 text-[var(--text-primary)] font-bold"
+            : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+        }">
+          <i data-lucide="bell" class="h-4 w-4"></i>
+          No leídas
+          <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-brand-500/20 text-brand-700 dark:text-brand-300 font-bold">
+            ${unreadAlerts.length}
+          </span>
+        </button>
+        <button onclick="switchAlertasTab('leidas')" class="-mb-px px-4 py-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+          activeAlertasTab === "leidas"
+            ? "border-brand-500 text-[var(--text-primary)] font-bold"
+            : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+        }">
+          <i data-lucide="archive" class="h-4 w-4"></i>
+          Leídas / Historial
+          <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 font-bold">
+            ${readAlerts.length}
+          </span>
+        </button>
+      </div>
+
+      <!-- Filtro de tipo de alerta -->
+      <div class="flex items-center gap-1.5 pb-2.5 lg:pb-0 overflow-x-auto whitespace-nowrap scrollbar-none">
+        <span class="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mr-1 select-none">Tipo:</span>
+        <button onclick="switchAlertasType('todos')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+          activeAlertasType === "todos"
+            ? "bg-slate-200 dark:bg-slate-800 text-[var(--text-primary)] font-bold"
+            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-slate-800/40"
+        }">
+          Todos
+        </button>
+        <button onclick="switchAlertasType('solicitud')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+          activeAlertasType === "solicitud"
+            ? "bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 font-bold"
+            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-slate-800/40"
+        }">
+          <span class="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+          Solicitudes
+        </button>
+        <button onclick="switchAlertasType('publicacion')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+          activeAlertasType === "publicacion"
+            ? "bg-purple-500/10 border border-purple-500/30 text-purple-450 font-bold"
+            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-slate-800/40"
+        }">
+          <span class="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0"></span>
+          Publicaciones
+        </button>
+        <button onclick="switchAlertasType('agenda')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+          activeAlertasType === "agenda"
+            ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-450 font-bold"
+            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-slate-800/40"
+        }">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+          Agenda
+        </button>
+      </div>
     </div>
   `;
 
-  let actionButtonsHtml = '';
-  if (activeAlertasTab === 'no_leidas' && unreadAlerts.length > 0) {
+  let actionButtonsHtml = "";
+  if (activeAlertasTab === "no_leidas" && unreadAlerts.length > 0) {
     actionButtonsHtml = `
       <button onclick="bulkChangeAlertaEstado('leida')" class="btn-secondary px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap">
         <i data-lucide="check-check" class="h-4 w-4 text-emerald-600 dark:text-emerald-400"></i>
         Descartar todo
       </button>
     `;
-  } else if (activeAlertasTab === 'leidas' && readAlerts.length > 0) {
+  } else if (activeAlertasTab === "leidas" && readAlerts.length > 0) {
     actionButtonsHtml = `
       <button onclick="bulkChangeAlertaEstado('borrada')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/10 hover:bg-rose-100 dark:hover:bg-rose-900/20 border border-rose-200 dark:border-rose-800/30 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap">
         <i data-lucide="trash-2" class="h-4 w-4"></i>
@@ -2532,46 +2964,50 @@ function renderAlertasCentro(container) {
     `;
   }
 
-  let listHtml = '';
+  let listHtml = "";
   if (filteredList.length === 0) {
     const isSearch = !!alertasSearchQuery;
     listHtml = `
       <div class="text-center py-16 border border-dashed border-[var(--border-ui)] rounded-2xl bg-slate-900/5 dark:bg-slate-900/10">
-        <i data-lucide="${isSearch ? 'search' : (activeAlertasTab === 'no_leidas' ? 'check-circle' : 'archive')}" class="h-12 w-12 ${isSearch ? 'text-[var(--text-tertiary)]' : (activeAlertasTab === 'no_leidas' ? 'text-emerald-500/80' : 'text-[var(--text-tertiary)]')} mx-auto mb-3"></i>
-        <h3 class="text-sm font-bold text-[var(--text-primary)]">${isSearch ? 'Sin resultados' : (activeAlertasTab === 'no_leidas' ? '¡Todo al día!' : 'Historial vacío')}</h3>
+        <i data-lucide="${isSearch ? "search" : activeAlertasTab === "no_leidas" ? "check-circle" : "archive"}" class="h-12 w-12 ${isSearch ? "text-[var(--text-tertiary)]" : activeAlertasTab === "no_leidas" ? "text-emerald-500/80" : "text-[var(--text-tertiary)]"} mx-auto mb-3"></i>
+        <h3 class="text-sm font-bold text-[var(--text-primary)]">${isSearch ? "Sin resultados" : activeAlertasTab === "no_leidas" ? "¡Todo al día!" : "Historial vacío"}</h3>
         <p class="text-xs text-[var(--text-tertiary)] mt-1 max-w-md mx-auto">
-          ${isSearch ? 'Intente buscar con otros términos o revise los filtros.' : (activeAlertasTab === 'no_leidas' ? 'No tienes alertas pendientes de lectura.' : 'Aquí se guardarán las alertas que descartes desde la campanita.')}
+          ${isSearch ? "Intente buscar con otros términos o revise los filtros." : activeAlertasTab === "no_leidas" ? "No tienes alertas pendientes de lectura." : "Aquí se guardarán las alertas que descartes desde la campanita."}
         </p>
       </div>
     `;
   } else {
     listHtml = `
       <div class="grid grid-cols-1 gap-3.5">
-        ${filteredList.map(w => {
-          const typeBadge = w.type === 'solicitud' 
-            ? `<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Solicitud</span>`
-            : w.type === 'agenda'
-              ? `<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider text-emerald-500">Agenda</span>`
-              : `<span class="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Publicación</span>`;
-          
-          const urgencyBadge = w.color === 'red'
-            ? `<span class="flex h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
-            : w.color === 'blue'
-              ? `<span class="flex h-2.5 w-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
-              : `<span class="flex h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0 mt-1.5"></span>`;
- 
-          const dateIconHtml = `<i data-lucide="calendar" class="h-3.5 w-3.5 inline text-[var(--text-tertiary)] mr-1 align-text-bottom"></i>`;
- 
-          const toggleReadBtn = w.estado_gestion === 'leida'
-            ? `<button onclick="changeAlertaEstado('${w.type}', '${w.id}', null)" class="alert-action-btn btn-unread" title="Reactivar alerta (devolver a campanita)">
+        ${filteredList
+          .map((w) => {
+            const typeBadge =
+              w.type === "solicitud"
+                ? `<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Solicitud</span>`
+                : w.type === "agenda"
+                  ? `<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider text-emerald-500">Agenda</span>`
+                  : `<span class="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Publicación</span>`;
+
+            const urgencyBadge =
+              w.color === "red"
+                ? `<span class="flex h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
+                : w.color === "blue"
+                  ? `<span class="flex h-2.5 w-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse shrink-0 mt-1.5"></span>`
+                  : `<span class="flex h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0 mt-1.5"></span>`;
+
+            const dateIconHtml = `<i data-lucide="calendar" class="h-3.5 w-3.5 inline text-[var(--text-tertiary)] mr-1 align-text-bottom"></i>`;
+
+            const toggleReadBtn =
+              w.estado_gestion === "leida"
+                ? `<button onclick="changeAlertaEstado('${w.type}', '${w.id}', null)" class="alert-action-btn btn-unread" title="Reactivar alerta (devolver a campanita)">
                  <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
                </button>`
-            : `<button onclick="changeAlertaEstado('${w.type}', '${w.id}', 'leida')" class="alert-action-btn btn-read" title="Marcar como leída (descartar de campanita)">
+                : `<button onclick="changeAlertaEstado('${w.type}', '${w.id}', 'leida')" class="alert-action-btn btn-read" title="Marcar como leída (descartar de campanita)">
                  <i data-lucide="check" class="h-4 w-4"></i>
                </button>`;
- 
-          return `
-            <div class="glass-card px-6 py-5 rounded-2xl ${w.color === 'red' ? 'card-alert-urgent' : w.color === 'blue' ? 'card-alert-info' : 'card-alert-warning'} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 dark:hover:bg-slate-900/10 group font-sans">
+
+            return `
+            <div class="glass-card px-6 py-5 rounded-2xl ${w.color === "red" ? "card-alert-urgent" : w.color === "blue" ? "card-alert-info" : "card-alert-warning"} flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:bg-slate-50/40 dark:hover:bg-slate-900/10 group font-sans">
               <div class="flex gap-3.5 items-start text-left min-w-0">
                 ${urgencyBadge}
                 <div class="min-w-0">
@@ -2579,7 +3015,7 @@ function renderAlertasCentro(container) {
                     ${typeBadge}
                     <span class="text-xs text-[var(--text-secondary)] font-medium">Folio: <span class="font-mono text-[var(--text-primary)] font-bold">${w.folio}</span></span>
                   </div>
-                  <h4 class="text-sm font-bold text-[var(--text-primary)] truncate">${w.sujeto_pasivo || 'Sujeto Pasivo'}</h4>
+                  <h4 class="text-sm font-bold text-[var(--text-primary)] truncate">${w.sujeto_pasivo || "Sujeto Pasivo"}</h4>
                   <p class="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">${w.text}</p>
                   <div class="mt-2 text-[10px] text-[var(--text-tertiary)] font-mono flex items-center gap-1">
                     ${dateIconHtml} Límite: <span class="text-[var(--text-secondary)] font-semibold">${formatDate(w.deadline)}</span>
@@ -2598,11 +3034,12 @@ function renderAlertasCentro(container) {
               </div>
             </div>
           `;
-        }).join('')}
+          })
+          .join("")}
       </div>
     `;
   }
- 
+
   container.innerHTML = `
     <div class="space-y-6">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2632,70 +3069,80 @@ function renderAlertasCentro(container) {
     </div>
   `;
 
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+  if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();
   }
 }
 
 function switchAlertasTab(tab) {
   activeAlertasTab = tab;
-  const container = document.getElementById('main-content');
+  const container = document.getElementById("main-content");
+  renderAlertasCentro(container);
+}
+
+function switchAlertasType(type) {
+  activeAlertasType = type;
+  const container = document.getElementById("main-content");
   renderAlertasCentro(container);
 }
 
 function onAlertasSearch(val) {
   alertasSearchQuery = val;
-  const container = document.getElementById('main-content');
+  const container = document.getElementById("main-content");
   renderAlertasCentro(container);
 }
 
 // Acción individual: Cambiar estado (leída / no leída)
 async function changeAlertaEstado(type, id, estado) {
   try {
-    const res = await fetch('/api/alertas/gestionar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/api/alertas/gestionar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        alertas: [{ tipo: type, solicitud_id: id, estado: estado }]
-      })
+        alertas: [{ tipo: type, solicitud_id: id, estado: estado }],
+      }),
     });
     if (res.ok) {
-      showToast(estado === 'leida' ? 'Alerta marcada como leída.' : 'Alerta marcada como no leída.');
+      showToast(
+        estado === "leida"
+          ? "Alerta marcada como leída."
+          : "Alerta marcada como no leída.",
+      );
       await fetchAlertas();
     } else {
-      showToast('Error al actualizar el estado de la alerta.', 'error');
+      showToast("Error al actualizar el estado de la alerta.", "error");
     }
   } catch (err) {
     console.error(err);
-    showToast('Error de red al actualizar la alerta.', 'error');
+    showToast("Error de red al actualizar la alerta.", "error");
   }
 }
 
 // Acción individual: Borrar alerta (estado = 'borrada')
 function deleteAlerta(type, id) {
   openConfirmModal(
-    'Eliminar Alerta del Historial',
-    '¿Estás seguro de que deseas eliminar permanentemente esta alerta del historial? Ya no volverá a aparecer en el Centro de Alertas.',
+    "Eliminar Alerta del Historial",
+    "¿Estás seguro de que deseas eliminar permanentemente esta alerta del historial? Ya no volverá a aparecer en el Centro de Alertas.",
     async () => {
       try {
-        const res = await fetch('/api/alertas/gestionar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch("/api/alertas/gestionar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            alertas: [{ tipo: type, solicitud_id: id, estado: 'borrada' }]
-          })
+            alertas: [{ tipo: type, solicitud_id: id, estado: "borrada" }],
+          }),
         });
         if (res.ok) {
-          showToast('Alerta eliminada con éxito.');
+          showToast("Alerta eliminada con éxito.");
           await fetchAlertas();
         } else {
-          showToast('Error al eliminar la alerta.', 'error');
+          showToast("Error al eliminar la alerta.", "error");
         }
       } catch (err) {
         console.error(err);
-        showToast('Error de red al eliminar la alerta.', 'error');
+        showToast("Error de red al eliminar la alerta.", "error");
       }
-    }
+    },
   );
 }
 
@@ -2703,44 +3150,50 @@ function deleteAlerta(type, id) {
 function bulkChangeAlertaEstado(estado) {
   const allAlerts = getActiveAlertsList(true);
   let targetAlerts = [];
-  let modalTitle = '';
-  let modalText = '';
+  let modalTitle = "";
+  let modalText = "";
 
-  if (estado === 'leida') {
-    targetAlerts = allAlerts.filter(w => w.estado_gestion !== 'leida');
+  if (estado === "leida") {
+    targetAlerts = allAlerts.filter((w) => w.estado_gestion !== "leida");
     if (targetAlerts.length === 0) return;
-    modalTitle = 'Descartar todas las Alertas';
-    modalText = '¿Estás seguro de que deseas marcar todas las alertas actuales como leídas?';
-  } else if (estado === 'borrada') {
-    targetAlerts = allAlerts.filter(w => w.estado_gestion === 'leida');
+    modalTitle = "Descartar todas las Alertas";
+    modalText =
+      "¿Estás seguro de que deseas marcar todas las alertas actuales como leídas?";
+  } else if (estado === "borrada") {
+    targetAlerts = allAlerts.filter((w) => w.estado_gestion === "leida");
     if (targetAlerts.length === 0) return;
-    modalTitle = 'Limpiar Historial de Alertas';
-    modalText = '¿Estás seguro de que deseas borrar permanentemente todo el historial de alertas leídas? Esta acción no se puede deshacer.';
+    modalTitle = "Limpiar Historial de Alertas";
+    modalText =
+      "¿Estás seguro de que deseas borrar permanentemente todo el historial de alertas leídas? Esta acción no se puede deshacer.";
   }
 
   const performBulk = async () => {
     try {
-      const alertasToManage = targetAlerts.map(w => ({
+      const alertasToManage = targetAlerts.map((w) => ({
         tipo: w.type,
         solicitud_id: w.id,
-        estado: estado
+        estado: estado,
       }));
 
-      const res = await fetch('/api/alertas/gestionar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alertas: alertasToManage })
+      const res = await fetch("/api/alertas/gestionar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alertas: alertasToManage }),
       });
 
       if (res.ok) {
-        showToast(estado === 'leida' ? 'Todas las alertas fueron marcadas como leídas.' : 'Historial de alertas limpio con éxito.');
+        showToast(
+          estado === "leida"
+            ? "Todas las alertas fueron marcadas como leídas."
+            : "Historial de alertas limpio con éxito.",
+        );
         await fetchAlertas();
       } else {
-        showToast('Error al procesar la acción en lote.', 'error');
+        showToast("Error al procesar la acción en lote.", "error");
       }
     } catch (err) {
       console.error(err);
-      showToast('Error de red al realizar la acción en lote.', 'error');
+      showToast("Error de red al realizar la acción en lote.", "error");
     }
   };
 
@@ -2753,26 +3206,39 @@ function bulkChangeAlertaEstado(estado) {
 
 function formatLocalDateYYYYMMDD(date) {
   const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
 function getCalendarActiveTitle() {
-  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const months = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ];
   const year = currentCalendarDate.getFullYear();
-  
-  if (calendarViewMode === 'month') {
+
+  if (calendarViewMode === "month") {
     return `${months[currentCalendarDate.getMonth()]} ${year}`;
-  } else if (calendarViewMode === 'week') {
+  } else if (calendarViewMode === "week") {
     const currentDayOfWeek = currentCalendarDate.getDay();
     const daysToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
     const monDate = new Date(currentCalendarDate);
     monDate.setDate(monDate.getDate() + daysToMon);
-    
+
     const sunDate = new Date(monDate);
     sunDate.setDate(sunDate.getDate() + 6);
-    
+
     if (monDate.getMonth() === sunDate.getMonth()) {
       return `${monDate.getDate()} al ${sunDate.getDate()} de ${months[monDate.getMonth()]} ${monDate.getFullYear()}`;
     } else {
@@ -2788,72 +3254,73 @@ function getCalendarActiveTitle() {
 }
 
 function calculateCalendarDateRange() {
-  let start = '';
-  let end = '';
-  
-  if (calendarViewMode === 'month') {
+  let start = "";
+  let end = "";
+
+  if (calendarViewMode === "month") {
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const startDay = firstDay.getDay();
     let prevDays = startDay === 0 ? 6 : startDay - 1;
-    
+
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - prevDays);
-    
+
     const lastDay = new Date(year, month + 1, 0);
     const endDay = lastDay.getDay();
     let nextDays = endDay === 0 ? 0 : 7 - endDay;
-    
+
     const endDate = new Date(lastDay);
     endDate.setDate(endDate.getDate() + nextDays);
-    
-    start = formatLocalDateYYYYMMDD(startDate) + ' 00:00:00';
-    end = formatLocalDateYYYYMMDD(endDate) + ' 23:59:59';
-  } else if (calendarViewMode === 'week') {
+
+    start = formatLocalDateYYYYMMDD(startDate);
+    end = formatLocalDateYYYYMMDD(endDate) + " 23:59:59";
+  } else if (calendarViewMode === "week") {
     const currentDayOfWeek = currentCalendarDate.getDay();
     const daysToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-    
+
     const monDate = new Date(currentCalendarDate);
     monDate.setDate(monDate.getDate() + daysToMon);
-    
+
     const sunDate = new Date(monDate);
     sunDate.setDate(sunDate.getDate() + 6);
-    
-    start = formatLocalDateYYYYMMDD(monDate) + ' 00:00:00';
-    end = formatLocalDateYYYYMMDD(sunDate) + ' 23:59:59';
+
+    start = formatLocalDateYYYYMMDD(monDate);
+    end = formatLocalDateYYYYMMDD(sunDate) + " 23:59:59";
   } else {
     const dateStr = formatLocalDateYYYYMMDD(currentCalendarDate);
-    start = dateStr + ' 00:00:00';
-    end = dateStr + ' 23:59:59';
+    start = dateStr;
+    end = dateStr + " 23:59:59";
   }
-  
+
   return { start, end };
 }
 
 async function fetchAndDrawCalendar() {
-  const placeholder = document.getElementById('calendar-content-placeholder');
+  const placeholder = document.getElementById("calendar-content-placeholder");
   if (!placeholder) return;
-  
+
   placeholder.innerHTML = `
     <div class="absolute inset-0 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px] rounded-2xl min-h-[300px]">
       <div class="h-8 w-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin"></div>
     </div>
   `;
-  
+
   const range = calculateCalendarDateRange();
-  
+
   try {
     const params = new URLSearchParams({
-      all: 'true',
-      estado: 'Aceptada',
+      all: "true",
+      estado: "Aceptada",
       fecha_agendada_desde: range.start,
-      fecha_agendada_hasta: range.end
+      fecha_agendada_hasta: range.end,
     });
-    
+
     const res = await fetch(`/api/solicitudes?${params.toString()}`);
     if (res.ok) {
       calendarEvents = await res.json();
+      window.calendarEvents = calendarEvents;
       drawCalendarBodyOnly();
     } else {
       placeholder.innerHTML = `
@@ -2877,28 +3344,89 @@ async function fetchAndDrawCalendar() {
   }
 }
 
+function detectCalendarConflicts(events) {
+  if (!events || !Array.isArray(events)) return;
+
+  events.forEach((e) => {
+    e.hasConflict = false;
+    e.conflictDetails = "";
+  });
+
+  const groups = {};
+  events.forEach((e) => {
+    if (!e.fecha_agendada || !e.sujeto_pasivo) return;
+    const datePart = e.fecha_agendada.split(" ")[0];
+    const name = e.sujeto_pasivo.trim().toLowerCase();
+    const key = `${datePart}_${name}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+
+  Object.values(groups).forEach((group) => {
+    if (group.length <= 1) return;
+
+    // Calcular minutos transcurridos desde medianoche
+    group.forEach((e) => {
+      const timePart = e.fecha_agendada.split(" ")[1] || "00:00";
+      const [h, m] = timePart.split(":").map(Number);
+      e._epoch = h * 60 + m;
+    });
+
+    group.sort((a, b) => a._epoch - b._epoch);
+
+    // Comparar pares de reuniones
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i];
+        const b = group[j];
+
+        // Si la diferencia es menor a 30 minutos (es decir, b._epoch - a._epoch < 30), hay choque
+        if (b._epoch - a._epoch < 30) {
+          a.hasConflict = true;
+          b.hasConflict = true;
+
+          const timeA = a.fecha_agendada.split(" ")[1]
+            ? a.fecha_agendada.split(" ")[1].slice(0, 5)
+            : "00:00";
+          const timeB = b.fecha_agendada.split(" ")[1]
+            ? b.fecha_agendada.split(" ")[1].slice(0, 5)
+            : "00:00";
+
+          a.conflictDetails = `Choque: tiene otra reunión con este sujeto pasivo a las ${timeB}`;
+          b.conflictDetails = `Choque: tiene otra reunión con este sujeto pasivo a las ${timeA}`;
+        }
+      }
+    }
+
+    group.forEach((e) => delete e._epoch);
+  });
+}
+
 function drawCalendarBodyOnly() {
-  const titleDisplay = document.getElementById('calendar-title-display');
+  const titleDisplay = document.getElementById("calendar-title-display");
   if (titleDisplay) {
     titleDisplay.textContent = getCalendarActiveTitle();
   }
-  
+
+  detectCalendarConflicts(calendarEvents);
+
   let filtered = calendarEvents || [];
   if (calendarFilters.search) {
     const query = calendarFilters.search.toLowerCase().trim();
-    filtered = filtered.filter(e => 
-      (e.sujeto_pasivo || '').toLowerCase().includes(query) ||
-      (e.cargo_limpio || e.cargo || '').toLowerCase().includes(query) ||
-      (e.folio_lobby || '').toLowerCase().includes(query)
+    filtered = filtered.filter(
+      (e) =>
+        (e.sujeto_pasivo || "").toLowerCase().includes(query) ||
+        (e.cargo_limpio || e.cargo || "").toLowerCase().includes(query) ||
+        (e.folio_lobby || "").toLowerCase().includes(query),
     );
   }
-  
-  const placeholder = document.getElementById('calendar-content-placeholder');
+
+  const placeholder = document.getElementById("calendar-content-placeholder");
   if (!placeholder) return;
-  
-  if (calendarViewMode === 'month') {
+
+  if (calendarViewMode === "month") {
     drawMonthView(placeholder, filtered);
-  } else if (calendarViewMode === 'week') {
+  } else if (calendarViewMode === "week") {
     drawWeekView(placeholder, filtered);
   } else {
     drawDayView(placeholder, filtered);
@@ -2908,79 +3436,100 @@ function drawCalendarBodyOnly() {
 function drawMonthView(container, events) {
   const year = currentCalendarDate.getFullYear();
   const month = currentCalendarDate.getMonth();
-  
+
   const firstDayOfMonth = new Date(year, month, 1);
   const startDay = firstDayOfMonth.getDay();
   let prevMonthDaysCount = startDay === 0 ? 6 : startDay - 1;
-  
+
   const gridStartDate = new Date(firstDayOfMonth);
   gridStartDate.setDate(gridStartDate.getDate() - prevMonthDaysCount);
-  
+
   let html = `
     <div class="grid grid-cols-7 gap-px calendar-grid-wrapper rounded-2xl overflow-hidden border shadow-xl">
       <!-- Headers -->
-      ${['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'].map(day => `
+      ${[
+        "Lunes",
+        "Martes",
+        "Miércoles",
+        "Jueves",
+        "Viernes",
+        "Sábado",
+        "Domingo",
+      ]
+        .map(
+          (day) => `
         <div class="py-3 text-center text-[10px] font-bold uppercase tracking-wider calendar-header-cell border-b select-none">
           ${day}
         </div>
-      `).join('')}
+      `,
+        )
+        .join("")}
   `;
-  
+
   const today = new Date();
   const todayStr = formatLocalDateYYYYMMDD(today);
   const tempDate = new Date(gridStartDate);
-  
+
   for (let i = 0; i < 42; i++) {
     const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
     const isCurrentMonth = tempDate.getMonth() === month;
     const isToday = tempDateStr === todayStr;
-    
-    const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr));
-    
+
+    const cellEvents = events.filter(
+      (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
+    );
+
     html += `
-      <div class="calendar-cell p-2 flex flex-col justify-between border relative ${
-        isToday 
-          ? 'ring-1 ring-brand-500/50' 
-          : ''
-      }">
+      <div onclick="selectCalendarDay('${tempDateStr}')" 
+           class="calendar-cell p-2 flex flex-col justify-between relative cursor-pointer ${
+             isToday ? "ring-1 ring-brand-500/50" : ""
+           }">
         <div class="flex justify-between items-center mb-1.5 select-none">
           <span class="text-xs font-bold ${
-            isToday 
-              ? 'text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded-lg border border-brand-500/20' 
-              : (isCurrentMonth ? '' : 'opacity-40')
-          }" style="color: ${isToday ? '' : 'var(--text-secondary)'}">
+            isToday
+              ? "text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded-lg border border-brand-500/20"
+              : isCurrentMonth
+                ? ""
+                : "opacity-40"
+          }" style="color: ${isToday ? "" : "var(--text-secondary)"}">
             ${tempDate.getDate()}
           </span>
-          ${cellEvents.length > 0 ? `
-            <span class="px-1.5 py-0.5 rounded-lg text-[9px] font-bold cal-count-badge border">
-              ${cellEvents.length}
-            </span>
-          ` : ''}
         </div>
         <div class="flex-1 overflow-y-auto max-h-[68px] space-y-1 custom-scrollbar text-left pr-0.5">
-          ${cellEvents.map(e => {
-            const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
-            const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
-              ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
-              : '';
-            const chipClass = isPast ? 'cal-event-past' : 'cal-event-future';
-            
-            return `
+          ${cellEvents
+            .map((e) => {
+              const isPast =
+                e.fecha_agendada && e.fecha_agendada.split(" ")[0] < todayStr;
+              const timeStr =
+                e.fecha_agendada && e.fecha_agendada.split(" ")[1]
+                  ? e.fecha_agendada.split(" ")[1].slice(0, 5)
+                  : "00:00";
+              const chipClass = isPast ? "cal-event-past" : "cal-event-future";
+
+              return `
               <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="text-[9px] p-1 rounded-lg truncate cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${chipClass} border font-medium flex items-center justify-between gap-1 select-none"
-                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - ${escapeHtmlAttr(e.materia || '')}">
-                <span class="font-mono text-[8px] font-bold shrink-0 opacity-80">${timeStr}</span>
-                <span class="truncate flex-1">${escapeHtml(e.sujeto_pasivo)}</span>
+                   class="p-2 rounded-lg cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${chipClass} font-medium flex flex-col gap-1 select-none border-l-[3px] ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-sm" : ""}"
+                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${e.hasConflict ? `\n⚠️ ${escapeHtmlAttr(e.conflictDetails || "")}` : ""}">
+                <!-- Line 1: Time & Subject -->
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="font-mono text-[10px] font-bold shrink-0 opacity-80 ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
+                  <span class="truncate flex-1 text-left min-w-0 font-semibold text-[11px]" style="color: inherit">${escapeHtml(e.sujeto_pasivo)}</span>
+                </div>
+                <!-- Line 2: Folio -->
+                <div class="text-[9.5px] opacity-75 font-mono text-left truncate pl-px">
+                  Folio: ${escapeHtml(e.folio_lobby || "s/f")}
+                </div>
               </div>
             `;
-          }).join('')}
+            })
+            .join("")}
         </div>
       </div>
     `;
-    
+
     tempDate.setDate(tempDate.getDate() + 1);
   }
-  
+
   html += `</div>`;
   container.innerHTML = html;
 }
@@ -2988,65 +3537,106 @@ function drawMonthView(container, events) {
 function drawWeekView(container, events) {
   const currentDayOfWeek = currentCalendarDate.getDay();
   const daysToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
-  
+
   const monDate = new Date(currentCalendarDate);
   monDate.setDate(monDate.getDate() + daysToMon);
-  
+
   const today = new Date();
   const todayStr = formatLocalDateYYYYMMDD(today);
-  
-  let html = `<div class="grid grid-cols-1 md:grid-cols-7 gap-3.5" style="height: 600px;">`;
+
+  const dayNames = [
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+    "Domingo",
+  ];
+
+  // 1. Pre-calcular todos los días y sus eventos
+  const weekDays = [];
   const tempDate = new Date(monDate);
-  
+
   for (let i = 0; i < 7; i++) {
     const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
-    const isToday = tempDateStr === todayStr;
-    
-    const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr));
-    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    
+    const cellEvents = events.filter(
+      (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
+    );
+    weekDays.push({
+      index: i,
+      name: dayNames[i],
+      date: tempDate.getDate(),
+      dateStr: tempDateStr,
+      isToday: tempDateStr === todayStr,
+      events: cellEvents,
+    });
+    tempDate.setDate(tempDate.getDate() + 1);
+  }
+
+  // 2. Filtrar días a mostrar (Lunes a Viernes siempre se muestran; Sábado y Domingo solo si tienen eventos)
+  const visibleDays = weekDays.filter((day) => {
+    if (day.index < 5) return true; // Lunes a Viernes
+    return day.events.length > 0; // Sábado y Domingo
+  });
+
+  // 3. Determinar columnas del grid (el número de días visibles)
+  const colsCount = visibleDays.length;
+  let html = `<div class="grid grid-cols-1 md:grid-cols-${colsCount} gap-3.5" style="height: 600px;">`;
+
+  visibleDays.forEach((day) => {
     html += `
       <div class="cal-week-card glass-card flex flex-col rounded-2xl border ${
-        isToday 
-          ? 'ring-1 ring-brand-500/40' 
-          : ''
-      } p-3.5" style="height: 600px; overflow: hidden;">
+        day.isToday ? "ring-1 ring-brand-500/40" : ""
+      } p-4" style="height: 600px; overflow: hidden;">
         <div class="border-b pb-2 mb-3.5 text-center select-none" style="border-color: var(--border-ui);">
-          <p class="text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-brand-400' : ''}" style="color: ${isToday ? '' : 'var(--text-tertiary)'}">${dayNames[i]}</p>
-          <p class="text-lg font-bold mt-0.5" style="color: ${isToday ? '' : 'var(--text-primary)'}">${tempDate.getDate()}</p>
+          <p class="text-[10px] font-bold uppercase tracking-wider ${day.isToday ? "text-brand-400" : ""}" style="color: ${day.isToday ? "" : "var(--text-tertiary)"}">${day.name}</p>
+          <p class="text-lg font-bold mt-0.5" style="color: ${day.isToday ? "" : "var(--text-primary)"}">${day.date}</p>
         </div>
         <div class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
-          ${cellEvents.length === 0 ? `
+          ${
+            day.events.length === 0
+              ? `
             <div class="h-full flex items-center justify-center py-20">
               <p class="text-[10px] font-medium italic select-none" style="color: var(--cal-empty-text)">Sin reuniones</p>
             </div>
-          ` : cellEvents.map(e => {
-            const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
-            const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
-              ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
-              : '';
-            const chipClass = isPast ? 'cal-event-past' : 'cal-event-future';
-            
-            return `
+          `
+              : day.events
+                  .map((e) => {
+                    const isPast =
+                      e.fecha_agendada &&
+                      e.fecha_agendada.split(" ")[0] < todayStr;
+                    const timeStr =
+                      e.fecha_agendada && e.fecha_agendada.split(" ")[1]
+                        ? e.fecha_agendada.split(" ")[1].slice(0, 5)
+                        : "00:00";
+                    const chipClass = isPast
+                      ? "cal-event-past"
+                      : "cal-event-future";
+
+                    return `
               <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="p-3 rounded-xl border cursor-pointer text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${chipClass}">
+                   class="p-3 rounded-xl border cursor-pointer text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${chipClass} ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-sm" : ""}"
+                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${e.hasConflict ? `\n⚠️ ${escapeHtmlAttr(e.conflictDetails || "")}` : ""}">
                 <div class="flex items-center justify-between mb-1.5 select-none">
-                  <span class="text-[9px] font-bold font-mono">${timeStr}</span>
-                  <span class="text-[8px] font-semibold cal-folio-badge px-1 py-0.5 rounded border">Folio ${e.folio_lobby || 's/f'}</span>
+                  <span class="text-[9px] font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
+                  <div class="flex gap-1 items-center">
+                    ${e.hasConflict ? `<span class="text-[7.5px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25 px-1 py-0.5 rounded shadow-sm select-none">⚠️ CHOQUE</span>` : ""}
+                    <span class="text-[8px] font-semibold cal-folio-badge px-1 py-0.5 rounded border">Folio ${e.folio_lobby || "s/f"}</span>
+                  </div>
                 </div>
                 <h4 class="text-xs font-bold truncate" style="color: var(--text-primary)" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
-                <p class="text-[9px] truncate mt-0.5" style="color: var(--text-tertiary)" title="${escapeHtmlAttr(e.sujeto_activo || 'Lobbista')}">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</p>
-                <p class="text-[9px] line-clamp-2 mt-2 italic border-l pl-2 leading-relaxed" style="color: var(--text-tertiary); border-color: var(--border-ui)" title="${escapeHtmlAttr(e.materia || '')}">${escapeHtml(e.materia || 'Sin materia')}</p>
+                <p class="text-[9px] truncate mt-0.5" style="color: var(--text-tertiary)" title="${escapeHtmlAttr(e.sujeto_activo || "Lobbista")}">${escapeHtml(e.sujeto_activo || "Sin Lobbista")}</p>
               </div>
             `;
-          }).join('')}
+                  })
+                  .join("")
+          }
         </div>
       </div>
     `;
-    
-    tempDate.setDate(tempDate.getDate() + 1);
-  }
-  
+  });
+
   html += `</div>`;
   container.innerHTML = html;
 }
@@ -3055,235 +3645,307 @@ function drawDayView(container, events) {
   const today = new Date();
   const todayStr = formatLocalDateYYYYMMDD(today);
   const activeDateStr = formatLocalDateYYYYMMDD(currentCalendarDate);
-  
-  const cellEvents = events.filter(e => e.fecha_agendada && e.fecha_agendada.startsWith(activeDateStr));
-  
+
+  const cellEvents = events.filter(
+    (e) => e.fecha_agendada && e.fecha_agendada.startsWith(activeDateStr),
+  );
+
   let html = `
-    <div class="max-w-2xl mx-auto cal-day-card glass-card rounded-3xl border p-6 shadow-xl" style="min-height: 600px;">
+    <div class="cal-day-card glass-card rounded-2xl border p-6 shadow-xl" style="min-height: 600px;">
       <div class="border-b pb-4 mb-4 flex justify-between items-center select-none" style="border-color: var(--border-ui)">
         <div class="text-left">
           <h3 class="text-sm font-bold" style="color: var(--text-primary)">Reuniones del Día</h3>
           <p class="text-xs" style="color: var(--text-tertiary)">${formatDate(activeDateStr)}</p>
         </div>
         <span class="px-2.5 py-1 rounded-lg text-xs font-bold cal-folio-badge border">
-          ${cellEvents.length} ${cellEvents.length === 1 ? 'Reunión' : 'Reuniones'}
+          ${cellEvents.length} ${cellEvents.length === 1 ? "Reunión" : "Reuniones"}
         </span>
       </div>
       
-      <div class="space-y-4">
-        ${cellEvents.length === 0 ? `
+      <div>
+        ${
+          cellEvents.length === 0
+            ? `
           <div class="py-16 text-center select-none">
             <i data-lucide="calendar" class="h-10 w-10 mx-auto mb-3" style="color: var(--border-ui)"></i>
             <p class="text-xs italic" style="color: var(--cal-empty-text)">No hay reuniones programadas para este día.</p>
           </div>
-        ` : cellEvents.map(e => {
-          const isPast = e.fecha_agendada && e.fecha_agendada.split(' ')[0] < todayStr;
-          const timeStr = e.fecha_agendada && e.fecha_agendada.split(' ')[1] 
-            ? e.fecha_agendada.split(' ')[1].slice(0, 5) 
-            : 'Hora no especificada';
-          
-          return `
-            <div onclick="showAgendaDetailsModal(${e.id})" 
-                 class="p-5 rounded-2xl border text-left cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${isPast ? 'cal-event-past' : 'cal-event-future'} flex gap-4 items-start">
-              <div class="flex flex-col items-center shrink-0 w-16 select-none">
-                <span class="text-xs font-bold font-mono">${timeStr}</span>
-                <span class="text-[9px] font-semibold mt-1.5 uppercase tracking-wider" style="color: var(--text-tertiary)">Inicio</span>
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 mb-1.5 flex-wrap select-none">
-                  <span class="cal-folio-badge border text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Folio: ${e.folio_lobby || 'Sin Folio'}</span>
-                </div>
-                <h4 class="text-sm font-bold truncate" style="color: var(--text-primary)">${escapeHtml(e.sujeto_pasivo)}</h4>
-                <p class="text-xs font-semibold mt-0.5 truncate" style="color: var(--text-tertiary)">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
-                
-                <div class="mt-3.5 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span class="text-[10px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Sujeto Activo / Lobbista</span>
-                    <span class="font-medium" style="color: var(--text-secondary)">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</span>
+        `
+            : `
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            ${cellEvents
+              .map((e) => {
+                const isPast =
+                  e.fecha_agendada && e.fecha_agendada.split(" ")[0] < todayStr;
+                const timeStr =
+                  e.fecha_agendada && e.fecha_agendada.split(" ")[1]
+                    ? e.fecha_agendada.split(" ")[1].slice(0, 5)
+                    : "00:00";
+
+                return `
+                <div onclick="showAgendaDetailsModal(${e.id})" 
+                     class="p-4 rounded-xl border text-left cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${isPast ? "cal-event-past" : "cal-event-future"} flex gap-3.5 items-start ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-md" : ""}">
+                  <div class="flex flex-col items-center shrink-0 w-14 select-none">
+                    <span class="text-xs font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
+                    <span class="text-[8px] font-semibold mt-1 uppercase tracking-wider" style="color: var(--text-tertiary)">Inicio</span>
                   </div>
-                  <div>
-                    <span class="text-[10px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Representado</span>
-                    <span class="font-medium" style="color: var(--text-secondary)">${escapeHtml(e.representado || 'Particular')}</span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 mb-1 flex-wrap select-none">
+                      ${e.hasConflict ? `<span class="border border-amber-500/35 bg-amber-500/10 text-amber-500 text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shadow-sm">⚠️ CHOQUE DE HORARIO</span>` : ""}
+                      <span class="cal-folio-badge border text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Folio: ${e.folio_lobby || "Sin Folio"}</span>
+                    </div>
+                    <h4 class="text-xs font-bold truncate" style="color: var(--text-primary)">${escapeHtml(e.sujeto_pasivo)}</h4>
+                    <p class="text-[10px] font-semibold mt-0.5 truncate" style="color: var(--text-tertiary)">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
+                    
+                    ${
+                      e.hasConflict
+                        ? `
+                      <div class="mt-2 text-[10px] font-bold text-amber-500 dark:text-amber-400 flex items-center gap-1.5 select-none bg-amber-500/5 p-2 rounded-lg border border-amber-500/15">
+                        <i data-lucide="alert-triangle" class="h-3.5 w-3.5 shrink-0 text-amber-500"></i>
+                        <span>${escapeHtml(e.conflictDetails)}</span>
+                      </div>
+                    `
+                        : ""
+                    }
+                    
+                    <div class="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
+                      <div>
+                        <span class="text-[8px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Sujeto Activo</span>
+                        <span class="font-medium truncate block" style="color: var(--text-secondary)" title="${escapeHtmlAttr(e.sujeto_activo || "Sin Lobbista")}">${escapeHtml(e.sujeto_activo || "Sin Lobbista")}</span>
+                      </div>
+                      <div>
+                        <span class="text-[8px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Representado</span>
+                        <span class="font-medium truncate block" style="color: var(--text-secondary)" title="${escapeHtmlAttr(e.representado || "Particular")}">${escapeHtml(e.representado || "Particular")}</span>
+                      </div>
+                    </div>
+                    <div class="mt-2.5 pt-2" style="border-top: 1px solid var(--border-ui)">
+                      <span class="text-[8px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Especificación de la Materia</span>
+                      <p class="text-[10px] mt-0.5 leading-relaxed line-clamp-3" style="color: var(--text-tertiary)">${escapeHtml(e.especificacion_materia || e.materia || "Sin especificar")}</p>
+                    </div>
                   </div>
                 </div>
-                <div class="mt-3.5 pt-2.5" style="border-top: 1px solid var(--border-ui)">
-                  <span class="text-[10px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Materia</span>
-                  <p class="text-xs mt-0.5 leading-relaxed line-clamp-2" style="color: var(--text-tertiary)">${escapeHtml(e.materia || 'Sin especificar')}</p>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('')}
+              `;
+              })
+              .join("")}
+          </div>
+        `
+        }
       </div>
     </div>
   `;
-  
+
   container.innerHTML = html;
   lucide.createIcons();
 }
 
 function showAgendaDetailsModal(eventId) {
-  const item = calendarEvents.find(e => e.id === eventId);
-  if (!item) return;
-  
-  const modal = document.getElementById('modal-container');
-  if (!modal) return;
-  
-  const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
-  const isPublished = item.folio_lobby && publicadosFolios.has(item.folio_lobby);
-  
-  let pubStatusHtml = '';
-  if (isPublished) {
-    pubStatusHtml = `
-      <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
-        <i data-lucide="check" class="h-3 w-3"></i> Publicada
-      </span>
-    `;
-  } else {
-    const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
-    const badgeColorClass = delayInfo.badgeClass === 'badge-status-vencido' 
-      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
-      : 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
-      
-    const plazoText = delayInfo.text === 'En plazo' 
-      ? 'Dentro de plazo (DDP)' 
-      : `Fuera de plazo (FDP - Atrasada ${delayInfo.days} días)`;
+  try {
+    const event = window.event;
+    if (event) event.stopPropagation();
 
-    pubStatusHtml = `
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
-          <i data-lucide="x" class="h-3 w-3"></i> No Publicada
+    const eventsList = window.calendarEvents || calendarEvents || [];
+    const item = eventsList.find((e) => e.id == eventId);
+    if (!item) {
+      alert(
+        "Error: No se encontró la reunión con ID " +
+          eventId +
+          " en el listado de eventos (" +
+          eventsList.length +
+          " eventos cargados).",
+      );
+      return;
+    }
+
+    const modal = document.getElementById("modal-container");
+    if (!modal) {
+      alert(
+        "Error: No se encontró el contenedor '#modal-container' en el DOM.",
+      );
+      return;
+    }
+
+    const publicadosFolios = new Set(
+      (dataStore.publicadas?.data || dataStore.publicadas || [])
+        .map((p) => p.folio_lobby)
+        .filter(Boolean),
+    );
+    const isPublished =
+      item.folio_lobby && publicadosFolios.has(item.folio_lobby);
+
+    let pubStatusHtml = "";
+    if (isPublished) {
+      pubStatusHtml = `
+        <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
+          <i data-lucide="check" class="h-3 w-3"></i> Publicada
         </span>
-        <span class="px-2.5 py-1 ${badgeColorClass} rounded-lg text-[10px] font-semibold shrink-0">
-          ${plazoText}
-        </span>
+      `;
+    } else {
+      const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
+      const badgeColorClass =
+        delayInfo.badgeClass === "badge-status-vencido"
+          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+          : "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+
+      const plazoText =
+        delayInfo.text === "En plazo"
+          ? "Dentro de plazo (DDP)"
+          : `Fuera de plazo (FDP - Atrasada ${delayInfo.days} días)`;
+
+      pubStatusHtml = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
+            <i data-lucide="x" class="h-3 w-3"></i> No Publicada
+          </span>
+          <span class="px-2.5 py-1 ${badgeColorClass} rounded-lg text-[10px] font-semibold shrink-0">
+            ${plazoText}
+          </span>
+        </div>
+      `;
+    }
+
+    modal.classList.remove("hidden");
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
+              <i data-lucide="calendar" class="h-4.5 w-4.5"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Audiencia</h3>
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+            </div>
+          </div>
+          <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <!-- Info grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha / Hora Agendada</span>
+            <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_agendada)}</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Publicación</span>
+            <div class="mt-1">${pubStatusHtml}</div>
+          </div>
+        </div>
+
+        <hr class="border-slate-200 dark:border-slate-800">
+
+        <div class="space-y-3.5 text-xs">
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Pasivo (Autoridad)</span>
+            <p class="text-sm font-bold text-slate-800 dark:text-slate-100">${escapeHtml(item.sujeto_pasivo)}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo))}</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Activo (Lobbista/Gestor)</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold mt-0.5">${escapeHtml(item.sujeto_activo || "Sin Lobbista")}</p>
+              ${item.rut ? '<p class="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">RUT: ' + escapeHtml(item.rut) + "</p>" : ""}
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Representado</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold mt-0.5">${escapeHtml(item.representado || "Particular")}</p>
+            </div>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Materia</span>
+            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || "Sin especificar")}</p>
+          </div>
+
+          ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span><p class="text-xs text-slate-600 dark:text-slate-300 mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">' + escapeHtml(item.especificacion_materia) + "</p></div>" : ""}
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 pt-2">
+          ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ""}
+          <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+            Cerrar
+          </button>
+        </div>
       </div>
     `;
+
+    lucide.createIcons();
+  } catch (err) {
+    alert(
+      "Error al abrir el modal de detalles:\n" +
+        err.message +
+        "\n\nStack:\n" +
+        err.stack,
+    );
+    console.error(err);
   }
-
-  modal.classList.remove('hidden');
-  modal.innerHTML = `
-    <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
-      <!-- Header -->
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div class="flex items-center gap-2">
-          <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
-            <i data-lucide="calendar" class="h-4.5 w-4.5"></i>
-          </div>
-          <div>
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Audiencia</h3>
-            <span class="text-xs font-semibold text-slate-200">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || 'Sin Folio'}</span></span>
-          </div>
-        </div>
-        <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
-          <i data-lucide="x" class="h-4 w-4"></i>
-        </button>
-      </div>
-
-      <!-- Info grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-        <div>
-          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha / Hora Agendada</span>
-          <span class="text-slate-200 font-semibold">${formatDate(item.fecha_agendada)}</span>
-        </div>
-        <div>
-          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Publicación</span>
-          <div class="mt-1">${pubStatusHtml}</div>
-        </div>
-      </div>
-
-      <hr class="border-slate-800">
-
-      <div class="space-y-3.5 text-xs">
-        <div>
-          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Pasivo (Autoridad)</span>
-          <p class="text-sm font-bold text-slate-100">${escapeHtml(item.sujeto_pasivo)}</p>
-          <p class="text-xs text-slate-400 font-medium mt-0.5">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo))}</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Sujeto Activo (Lobbista/Gestor)</span>
-            <p class="text-slate-200 font-semibold mt-0.5">${escapeHtml(item.sujeto_activo || 'Sin Lobbista')}</p>
-            ${item.rut ? '<p class="text-[10px] text-slate-400 font-mono mt-0.5">RUT: ' + escapeHtml(item.rut) + '</p>' : ''}
-          </div>
-          <div>
-            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Representado</span>
-            <p class="text-slate-200 font-semibold mt-0.5">${escapeHtml(item.representado || 'Particular')}</p>
-          </div>
-        </div>
-
-        <hr class="border-slate-800">
-
-        <div>
-          <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Materia</span>
-          <p class="text-xs text-slate-200 font-semibold mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || 'Sin especificar')}</p>
-        </div>
-
-        ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span><p class="text-xs text-slate-300 mt-1 bg-slate-900/30 border border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">' + escapeHtml(item.especificacion_materia) + '</p></div>' : ''}
-      </div>
-
-      <!-- Footer -->
-      <div class="flex justify-end gap-3 pt-2">
-        ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ''}
-        <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
-          Cerrar
-        </button>
-      </div>
-    </div>
-  `;
-  
-  lucide.createIcons();
 }
 
 function renderAgenda(container) {
-  const searchVal = calendarFilters.search || '';
-  
+  const searchVal = calendarFilters.search || "";
+
+  // Generar opciones para meses (0 a 11)
+  const monthNames = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+  ];
+  const currentMonth = currentCalendarDate.getMonth();
+  const monthOptions = monthNames
+    .map(
+      (name, idx) =>
+        `<option value="${idx}" ${idx === currentMonth ? "selected" : ""}>${name}</option>`,
+    )
+    .join("");
+
+  // Generar opciones para años (desde 2014 hasta el año actual + 1)
+  const currentYear = currentCalendarDate.getFullYear();
+  const maxYear = new Date().getFullYear() + 1;
+  const yearOptionsList = [];
+  for (let y = 2014; y <= maxYear; y++) {
+    yearOptionsList.push(
+      `<option value="${y}" ${y === currentYear ? "selected" : ""}>${y}</option>`,
+    );
+  }
+  const yearOptions = yearOptionsList.join("");
+
   let headerHtml = `
     <div class="space-y-6 font-sans">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="space-y-1 text-left">
-          <h2 class="text-xl font-bold text-heading flex items-center gap-2">
-            <i data-lucide="calendar" class="h-5 w-5 text-brand-500"></i>
-            Agenda de Audiencias
+          <h2 class="text-xl font-bold text-heading flex items-center gap-2 select-none flex-wrap">
+            <span class="flex items-center gap-2">
+              <i data-lucide="calendar" class="h-5 w-5 text-brand-500"></i>
+              Agenda de Audiencias
+            </span>
+            <span id="calendar-title-display" class="text-xs font-bold px-2.5 py-0.5 bg-brand-500/10 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400 rounded-xl border border-brand-500/20 shadow-sm animate-fade-in">
+              Cargando...
+            </span>
           </h2>
           <p class="text-xs text-slate-400">Revisión de audiencias programadas y verificación de plazos.</p>
         </div>
-        
-        <!-- Controls: View Selector & Nav -->
-        <div class="flex items-center gap-3 self-end md:self-center flex-wrap">
-          <!-- Navigation -->
-          <div class="flex items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 gap-1">
-            <button onclick="navigateCalendar(-1)" class="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer" title="Anterior">
-              <i data-lucide="chevron-left" class="h-4 w-4"></i>
-            </button>
-            <button onclick="goCalendarToday()" class="px-3 py-1 text-xs font-semibold rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer">
-              Hoy
-            </button>
-            <button onclick="navigateCalendar(1)" class="h-7 w-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer" title="Siguiente">
-              <i data-lucide="chevron-right" class="h-4 w-4"></i>
-            </button>
-          </div>
-          
-          <!-- View selector -->
-          <div class="flex items-center bg-slate-950/40 p-1 rounded-xl border border-slate-800/80 gap-0.5">
-            ${['month', 'week', 'day'].map(view => {
-              const label = view === 'month' ? 'Mes' : view === 'week' ? 'Semana' : 'Día';
-              const active = calendarViewMode === view;
-              const activeClass = active 
-                ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/10' 
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50';
-              return '<button onclick="changeCalendarViewMode(\'' + view + '\')" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ' + activeClass + '">' + label + '</button>';
-            }).join('')}
-          </div>
-        </div>
       </div>
 
-      <!-- Filters & Search -->
-      <div class="glass-card p-4 rounded-2xl flex flex-col md:flex-row items-center gap-4 justify-between">
-        <!-- Search bar with autocomplete -->
-        <div class="relative w-full md:max-w-md" id="cal-search-wrapper">
-          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style="color: var(--text-tertiary)"></i>
+      <!-- Integrated Controls Bar (Uncluttered, symmetrical, and elastically aligned) -->
+      <div class="glass-card p-2.5 rounded-2xl flex flex-col md:flex-row items-center gap-4 border border-slate-200 dark:border-slate-800/60 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+        <!-- Search bar with autocomplete (Stretches to fill space) -->
+        <div class="relative flex-1 w-full" id="cal-search-wrapper">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500"></i>
           <input type="text" id="search-calendar" 
                  oninput="onCalendarSearchInput(this.value)" 
                  onfocus="onCalendarSearchFocus()"
@@ -3291,13 +3953,56 @@ function renderAgenda(container) {
                  placeholder="Buscar por autoridad, cargo o folio..." 
                  value="${escapeHtmlAttr(searchVal)}" 
                  autocomplete="off"
-                 class="w-full py-2 pl-9 pr-4 rounded-xl text-xs glass-input focus:outline-none transition-colors" style="color: var(--text-primary)">
+                 class="w-full py-2 pl-10 pr-4 rounded-xl text-xs border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 focus:bg-white dark:focus:bg-slate-950 focus:border-brand-500 dark:focus:border-brand-500 focus:outline-none transition-all" style="color: var(--text-primary)">
           <div id="cal-suggestions-list" class="cal-suggestions absolute top-full left-0 right-0 mt-1 hidden"></div>
         </div>
         
-        <!-- Dinamic Calendar Title -->
-        <div class="text-sm font-bold text-right pr-2 select-none" id="calendar-title-display" style="color: var(--text-primary)">
-          Cargando...
+        <!-- Controls grouped on the right -->
+        <div class="flex items-center gap-3 shrink-0 flex-wrap justify-end w-full md:w-auto">
+          <!-- Navigation with Month/Year Quick Selectors -->
+          <div class="flex items-center bg-slate-50 dark:bg-slate-950/40 p-1 px-2.5 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-2">
+            <button onclick="navigateCalendar(-1)" class="h-6 w-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all cursor-pointer" title="Anterior">
+              <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+            </button>
+            <button onclick="goCalendarToday()" class="text-xs font-semibold px-2 py-0.5 text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all cursor-pointer" title="Volver a Hoy">
+              Hoy
+            </button>
+            
+            <select id="cal-month-select" onchange="onCalendarDropdownChange()" class="bg-transparent border-0 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:outline-none cursor-pointer pr-1">
+              ${monthOptions}
+            </select>
+            
+            <select id="cal-year-select" onchange="onCalendarDropdownChange()" class="bg-transparent border-0 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:outline-none cursor-pointer pr-1">
+              ${yearOptions}
+            </select>
+            
+            <button onclick="navigateCalendar(1)" class="h-6 w-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all cursor-pointer" title="Siguiente">
+              <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+            </button>
+          </div>
+          
+          <!-- View selector -->
+          <div class="flex items-center bg-slate-50 dark:bg-slate-950/40 p-1 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-0.5">
+            ${["month", "week", "day"]
+              .map((view) => {
+                const label =
+                  view === "month" ? "Mes" : view === "week" ? "Semana" : "Día";
+                const active = calendarViewMode === view;
+                const activeClass = active
+                  ? "bg-brand-600 text-white shadow-sm font-bold"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white font-semibold";
+                return (
+                  "<button onclick=\"changeCalendarViewMode('" +
+                  view +
+                  '\')" class="px-3.5 py-1 rounded-lg text-xs transition-all cursor-pointer ' +
+                  activeClass +
+                  '">' +
+                  label +
+                  "</button>"
+                );
+              })
+              .join("")}
+          </div>
         </div>
       </div>
 
@@ -3307,140 +4012,176 @@ function renderAgenda(container) {
       </div>
     </div>
   `;
-  
+
   container.innerHTML = headerHtml;
   lucide.createIcons();
-  
+
   fetchAndDrawCalendar();
 }
 
 // Registrar funciones de la Agenda en el ámbito global window
-window.changeCalendarViewMode = function(mode) {
+window.changeCalendarViewMode = function (mode) {
   calendarViewMode = mode;
   renderView();
 };
 
-window.navigateCalendar = function(direction) {
-  if (calendarViewMode === 'month') {
+window.navigateCalendar = function (direction) {
+  if (calendarViewMode === "month") {
     currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
-  } else if (calendarViewMode === 'week') {
-    currentCalendarDate.setDate(currentCalendarDate.getDate() + (direction * 7));
-  } else if (calendarViewMode === 'day') {
+  } else if (calendarViewMode === "week") {
+    currentCalendarDate.setDate(currentCalendarDate.getDate() + direction * 7);
+  } else if (calendarViewMode === "day") {
     currentCalendarDate.setDate(currentCalendarDate.getDate() + direction);
   }
   renderView();
 };
 
-window.goCalendarToday = function() {
+window.goCalendarToday = function () {
   currentCalendarDate = new Date();
-  calendarFilters.search = '';
+  calendarFilters.search = "";
   renderView();
 };
 
-window.onCalendarSearchInput = function(val) {
+window.onCalendarDropdownChange = function () {
+  const mSelect = document.getElementById("cal-month-select");
+  const ySelect = document.getElementById("cal-year-select");
+  if (mSelect && ySelect) {
+    currentCalendarDate.setMonth(parseInt(mSelect.value, 10));
+    currentCalendarDate.setFullYear(parseInt(ySelect.value, 10));
+    renderView();
+  }
+};
+
+window.onCalendarSearchInput = function (val) {
   calendarFilters.search = val;
   drawCalendarBodyOnly();
   showCalendarSuggestions(val);
 };
 
-window.onCalendarSearchFocus = function() {
-  const input = document.getElementById('search-calendar');
+window.onCalendarSearchFocus = function () {
+  const input = document.getElementById("search-calendar");
   if (input) showCalendarSuggestions(input.value);
 };
 
-window.onCalendarSearchKeydown = function(e) {
-  const list = document.getElementById('cal-suggestions-list');
-  if (!list || list.classList.contains('hidden')) return;
-  
-  const items = list.querySelectorAll('.cal-suggestion-item');
+window.onCalendarSearchKeydown = function (e) {
+  const list = document.getElementById("cal-suggestions-list");
+  if (!list || list.classList.contains("hidden")) return;
+
+  const items = list.querySelectorAll(".cal-suggestion-item");
   if (!items.length) return;
-  
+
   let activeIdx = -1;
-  items.forEach((item, i) => { if (item.classList.contains('active')) activeIdx = i; });
-  
-  if (e.key === 'ArrowDown') {
+  items.forEach((item, i) => {
+    if (item.classList.contains("active")) activeIdx = i;
+  });
+
+  if (e.key === "ArrowDown") {
     e.preventDefault();
-    if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+    if (activeIdx >= 0) items[activeIdx].classList.remove("active");
     activeIdx = (activeIdx + 1) % items.length;
-    items[activeIdx].classList.add('active');
-    items[activeIdx].scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'ArrowUp') {
+    items[activeIdx].classList.add("active");
+    items[activeIdx].scrollIntoView({ block: "nearest" });
+  } else if (e.key === "ArrowUp") {
     e.preventDefault();
-    if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+    if (activeIdx >= 0) items[activeIdx].classList.remove("active");
     activeIdx = activeIdx <= 0 ? items.length - 1 : activeIdx - 1;
-    items[activeIdx].classList.add('active');
-    items[activeIdx].scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'Enter' && activeIdx >= 0) {
+    items[activeIdx].classList.add("active");
+    items[activeIdx].scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter" && activeIdx >= 0) {
     e.preventDefault();
     const selectedText = items[activeIdx].dataset.value;
-    const input = document.getElementById('search-calendar');
-    if (input) { input.value = selectedText; }
+    const input = document.getElementById("search-calendar");
+    if (input) {
+      input.value = selectedText;
+    }
     calendarFilters.search = selectedText;
     drawCalendarBodyOnly();
-    list.classList.add('hidden');
-  } else if (e.key === 'Escape') {
-    list.classList.add('hidden');
+    list.classList.add("hidden");
+  } else if (e.key === "Escape") {
+    list.classList.add("hidden");
   }
 };
 
 function showCalendarSuggestions(val) {
-  const list = document.getElementById('cal-suggestions-list');
+  const list = document.getElementById("cal-suggestions-list");
   if (!list) return;
-  
-  const query = (val || '').toLowerCase().trim();
+
+  const query = (val || "").toLowerCase().trim();
   if (!query || query.length < 2) {
-    list.classList.add('hidden');
+    list.classList.add("hidden");
     return;
   }
-  
+
   // Build unique suggestions from calendarEvents
   const sugSet = new Set();
-  (calendarEvents || []).forEach(e => {
+  (calendarEvents || []).forEach((e) => {
     if (e.sujeto_pasivo) sugSet.add(e.sujeto_pasivo);
     if (e.cargo_limpio) sugSet.add(e.cargo_limpio);
-    else if (e.cargo) { const cl = getCargoClean(e.cargo); if (cl) sugSet.add(cl); }
+    else if (e.cargo) {
+      const cl = getCargoClean(e.cargo);
+      if (cl) sugSet.add(cl);
+    }
     if (e.folio_lobby) sugSet.add(e.folio_lobby);
   });
-  
+
   const matches = [];
-  sugSet.forEach(s => {
+  sugSet.forEach((s) => {
     if (s.toLowerCase().includes(query)) matches.push(s);
   });
-  matches.sort((a, b) => a.localeCompare(b, 'es'));
-  
+  matches.sort((a, b) => a.localeCompare(b, "es"));
+
   if (matches.length === 0) {
-    list.classList.add('hidden');
+    list.classList.add("hidden");
     return;
   }
-  
-  list.innerHTML = matches.slice(0, 12).map(m => {
-    const idx = m.toLowerCase().indexOf(query);
-    const before = escapeHtml(m.substring(0, idx));
-    const match = escapeHtml(m.substring(idx, idx + query.length));
-    const after = escapeHtml(m.substring(idx + query.length));
-    return '<div class="cal-suggestion-item" data-value="' + escapeHtmlAttr(m) + '" onclick="selectCalendarSuggestion(this.dataset.value)">' + before + '<strong>' + match + '</strong>' + after + '</div>';
-  }).join('');
-  list.classList.remove('hidden');
+
+  list.innerHTML = matches
+    .slice(0, 12)
+    .map((m) => {
+      const idx = m.toLowerCase().indexOf(query);
+      const before = escapeHtml(m.substring(0, idx));
+      const match = escapeHtml(m.substring(idx, idx + query.length));
+      const after = escapeHtml(m.substring(idx + query.length));
+      return (
+        '<div class="cal-suggestion-item" data-value="' +
+        escapeHtmlAttr(m) +
+        '" onclick="selectCalendarSuggestion(this.dataset.value)">' +
+        before +
+        "<strong>" +
+        match +
+        "</strong>" +
+        after +
+        "</div>"
+      );
+    })
+    .join("");
+  list.classList.remove("hidden");
 }
 
-window.selectCalendarSuggestion = function(val) {
-  const input = document.getElementById('search-calendar');
-  if (input) { input.value = val; }
+window.selectCalendarSuggestion = function (val) {
+  const input = document.getElementById("search-calendar");
+  if (input) {
+    input.value = val;
+  }
   calendarFilters.search = val;
   drawCalendarBodyOnly();
-  const list = document.getElementById('cal-suggestions-list');
-  if (list) list.classList.add('hidden');
+  const list = document.getElementById("cal-suggestions-list");
+  if (list) list.classList.add("hidden");
 };
 
 // Close suggestions on click outside
-document.addEventListener('click', function(e) {
-  const wrapper = document.getElementById('cal-search-wrapper');
-  const list = document.getElementById('cal-suggestions-list');
+document.addEventListener("click", function (e) {
+  const wrapper = document.getElementById("cal-search-wrapper");
+  const list = document.getElementById("cal-suggestions-list");
   if (wrapper && list && !wrapper.contains(e.target)) {
-    list.classList.add('hidden');
+    list.classList.add("hidden");
   }
 });
 
-window.showAgendaDetailsModal = function(eventId) {
-  showAgendaDetailsModal(eventId);
+window.showAgendaDetailsModal = showAgendaDetailsModal;
+
+window.selectCalendarDay = function (dateStr) {
+  currentCalendarDate = new Date(dateStr + "T12:00:00");
+  calendarViewMode = "day";
+  renderView();
 };

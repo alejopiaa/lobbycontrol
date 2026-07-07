@@ -4,6 +4,25 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
+## [2.5.0] - 2026-07-07
+
+### Añadido
+- **Auditor de Cambios de Sincronización**:
+  - Registro de diferencias detalladas (`detalles` JSON) en `historial_sincronizaciones` para cada proceso de importación o sincronización remota.
+  - Modal interactivo de auditoría que se abre automáticamente tras sincronizar, clasificando los registros en pestañas: Agregados (verde), Modificados (ámbar con diff tachado/resaltado) y Eliminados (rojo).
+  - Botón interactivo de "Ver detalle" (ojo) en la bitácora histórica de sincronizaciones en Administración.
+- **Escudo de Integridad de Datos**:
+  - Endpoint IPC `GET /api/admin/db-health` extendido para validar en tiempo real la firma de la base de datos `lobby.db` usando HMAC-SHA256 y la clave secreta corporativa contra `version_lobby.json`.
+  - Badge adaptativo de "Firma Digital (HMAC)" en la tarjeta de Salud del Sistema (Administración) que muestra si el archivo se encuentra Válido o Alterado.
+- **Segmentación de Alertas**:
+  - Filtro por tipo de alertas (Pills interactivos: Todos, Solicitudes, Publicaciones, Agenda) en el Centro de Alertas para facilitar la clasificación de plazos legales y eventos de hoy.
+
+### Cambiado
+- **Navegación en Administración**:
+  - Reordenamiento de las pestañas en el panel administrativo: Control de Auditoría (abierto por defecto al entrar), Sincronización, Gestión de Usuarios, Base de Datos y Bitácora de Logs.
+
+---
+
 ## [2.4.0] - 2026-07-03
 
 ### Añadido

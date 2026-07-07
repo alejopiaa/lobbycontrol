@@ -10,8 +10,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Auditor de Cambios de Sincronización (Excel/SharePoint Diff)**:
   - Comparador campo por campo en script `import_lobby.js` para registrar exactamente diferencias de filas agregadas, modificadas y eliminadas en la base de datos local.
   - Almacenamiento de deltas detallados en formato JSON dentro de la columna `detalles` de `historial_sincronizaciones`.
-  - Reemplazo de las antiguas alertas toast por la apertura automática de un modal interactivo detallado al completar la sincronización.
-  - El modal de auditoría clasifica y muestra cambios en tres pestañas: Agregados (verde), Modificados (ámbar con comparación tachado/verde de valores viejo y nuevo) y Eliminados (rojo).
+  - Nuevo modal interactivo de auditoría de sincronizaciones que clasifica y muestra cambios en tres pestañas: Agregados (verde), Modificados (ámbar con comparación tachado/verde de valores viejo y nuevo) y Eliminados (rojo).
   - Botón interactivo de "Ver detalle" (ojo) en cada registro de la bitácora de sincronizaciones en Administración.
 - **Escudo de Integridad de Datos**:
   - Endpoint IPC `GET /api/admin/db-health` extendido para validar en tiempo real la firma de la base de datos `lobby.db` usando HMAC-SHA256 y la clave secreta corporativa contra `version_lobby.json`.
@@ -20,6 +19,8 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
   - Filtro por tipo de alertas (Pills interactivos: Todos, Solicitudes, Publicaciones, Agenda) en el Centro de Alertas para facilitar la clasificación de plazos legales y eventos de hoy.
 
 ### Cambiado
+- **Feedback de Sincronización**:
+  - Reemplazo de las antiguas alertas toast por la apertura automática del nuevo modal de auditoría interactivo al completar una sincronización.
 - **Optimización y Estandarización de CSS** (`public/css/style.css`):
   - Centralización de variables del calendario (`--cal-*`) dentro del bloque global `:root` y en el selector `.dark` para evitar duplicidad y mejorar soporte del tema oscuro.
   - Consolidación y unificación de selectores repetidos para colores de fondo, tarjetas y bordes de la interfaz.

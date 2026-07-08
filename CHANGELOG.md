@@ -4,6 +4,31 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
+## [2.6.0] - 2026-07-08
+
+### Añadido
+- **Filtro Segmentado de Logs (Estilo Centro de Alertas)**:
+  - Nueva barra segmentada de botones redondeados con indicadores circulares de color (dots) a la izquierda de cada etiqueta (por ejemplo: Crítico con dot rojo, Advertencia con dot ámbar, Auth con dot celeste, Info con dot gris), imitando el diseño estético de los filtros del Centro de Alertas.
+  - Paginación integrada en la Bitácora de Logs con bloques de 15 registros por página.
+  - Re-renderizado instantáneo de la vista de administración al alternar de filtro para reflejar visualmente el estado activo.
+
+### Cambiado
+- **Estilo de Bordes y Contraste de Tablas**:
+  - Reemplazo de los bordes duros negros (`border-slate-800`) en la tabla de logs por bordes responsivos y suaves (`border-slate-200` en tema claro, `border-slate-800/60` en tema oscuro) para una integración visual agradable.
+  - Reemplazo de colores de texto y bordes estáticos en la vista de **Reportes** por variables responsivas (`text-heading` para el título principal y clases neutrales para inputs y tablas), solucionando el problema de visualización con colores de fondo oscuros fijos.
+  - Rediseño de los selectores de estados de solicitud en Reportes (Selección Múltiple) a chips claros (`light-first`) con bordes limpios en modo claro que se destacan en azul de marca al seleccionarse.
+
+### Eliminado
+- **Leyenda Redundante en Logs**:
+  - Remoción de la leyenda inferior de colores en la bitácora de logs. El texto instructivo *"Clic en una fila para ver detalles"* se integró limpiamente en el subtítulo del encabezado.
+
+### Corregido
+- **Mapeo de Índices en Logs Filtrados**:
+  - Mapeo de la selección de filas al índice original del arreglo en memoria, previniendo errores de apertura del modal de detalle al usar paginación o filtros.
+  - Corrección de la referencia del estado `paginationState` en views.js al remover el prefijo redundante `window.`.
+
+---
+
 ## [2.5.0] - 2026-07-07
 
 ### Añadido

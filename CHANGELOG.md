@@ -7,25 +7,24 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ## [2.6.0] - 2026-07-08
 
 ### Añadido
-- **Filtro Segmentado de Logs (Estilo Centro de Alertas)**:
-  - Nueva barra segmentada de botones redondeados con indicadores circulares de color (dots) a la izquierda de cada etiqueta (por ejemplo: Crítico con dot rojo, Advertencia con dot ámbar, Auth con dot celeste, Info con dot gris), imitando el diseño estético de los filtros del Centro de Alertas.
-  - Paginación integrada en la Bitácora de Logs con bloques de 15 registros por página.
-  - Re-renderizado instantáneo de la vista de administración al alternar de filtro para reflejar visualmente el estado activo.
+- **Filtros de Logs Segmentados**:
+  - Nueva barra interactiva de botones segmentados con indicadores de color para clasificar rápidamente los logs del sistema (Crítico, Advertencia, Autenticación, Info).
+  - Paginación en la Bitácora de Logs que distribuye los eventos en páginas de 15 registros para una navegación más cómoda.
 
 ### Cambiado
-- **Estilo de Bordes y Contraste de Tablas**:
-  - Reemplazo de los bordes duros negros (`border-slate-800`) en la tabla de logs por bordes responsivos y suaves (`border-slate-200` en tema claro, `border-slate-800/60` en tema oscuro) para una integración visual agradable.
-  - Reemplazo de colores de texto y bordes estáticos en la vista de **Reportes** por variables responsivas (`text-heading` para el título principal y clases neutrales para inputs y tablas), solucionando el problema de visualización con colores de fondo oscuros fijos.
-  - Rediseño de los selectores de estados de solicitud en Reportes (Selección Múltiple) a chips claros (`light-first`) con bordes limpios en modo claro que se destacan en azul de marca al seleccionarse.
+- **Mejoras Visuales y de Contraste**:
+  - Suavizado de bordes y líneas divisorias en la tabla de logs para integrarse de forma fluida con el tema activo.
+  - Ajustes de contraste en la sección de Reportes para asegurar la legibilidad del título, tablas y campos en el modo claro.
+  - Rediseño de los selectores de estado en Reportes, que ahora se presentan como botones claros (light-first) por defecto y se resaltan en azul al ser seleccionados.
 
 ### Eliminado
-- **Leyenda Redundante en Logs**:
-  - Remoción de la leyenda inferior de colores en la bitácora de logs. El texto instructivo *"Clic en una fila para ver detalles"* se integró limpiamente en el subtítulo del encabezado.
+- **Leyenda de Logs Redundante**:
+  - Remoción de la leyenda explicativa de severidad. Se integró la indicación *"Clic en una fila para ver detalles"* directamente en el encabezado.
 
 ### Corregido
-- **Mapeo de Índices en Logs Filtrados**:
-  - Mapeo de la selección de filas al índice original del arreglo en memoria, previniendo errores de apertura del modal de detalle al usar paginación o filtros.
-  - Corrección de la referencia del estado `paginationState` en views.js al remover el prefijo redundante `window.`.
+- **Navegación e Interacción de Logs**:
+  - Corrección del modal de detalle de logs para que muestre la información correcta al hacer clic sobre una fila filtrada o paginada.
+  - Corrección al alternar los filtros de severidad que causaba que el botón de selección "Todos" se mantuviera marcado visualmente.
 
 ---
 

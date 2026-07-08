@@ -126,7 +126,9 @@ async function handle(req, setSharepointCookie) {
     pathName === '/api/auth/sso' || 
     pathName === '/api/auth/trigger-sso' || 
     pathName === '/api/auth/status' ||
-    pathName === '/api/db-last-update'
+    pathName === '/api/auth/me' ||
+    pathName === '/api/db-last-update' ||
+    pathName === '/api/app-version'
   );
   if (!isPublicRoute && !user) {
     return { status: 401, data: { error: 'No autorizado. Inicie sesión.' } };
@@ -144,6 +146,21 @@ async function handle(req, setSharepointCookie) {
   // GET /api/auth/me
   if (method === 'GET' && pathName === '/api/auth/me') {
     return { status: 200, data: user || null };
+  }
+
+  // POST /api/log
+  if (method === 'POST' && pathName === '/api/log') {
+    const { logEvent } = require('../config/logger');
+    const { code, message, details, severity } = body;
+    logEvent(code, message, details || '', severity || 'info');
+    return { status: 200, data: { success: true } };
+  }
+
+  // GET /api/app-version
+  if (method === 'GET' && pathName === '/api/app-version') {
+    const pkg = require('../../package.json');
+    const { app } = require('electron');
+    return { status: 200, data: { version: pkg.version, isDev: !app.isPackaged } };
   }
 
   // GET /api/auth/status
@@ -180,12 +197,15 @@ async function handle(req, setSharepointCookie) {
           if (updated) {
             db.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
               const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
+              const { logEvent } = require('../config/logger');
+              logEvent("INFO-SYNC-203", "Sincronización automática completada (Con cambios)", `Firma actualizada: ${lastUpdate} | Por: ${user.correo}`);
               resolve({
                 status: 200,
                 data: { success: true, updated: true, dbLastUpdate: lastUpdate }
               });
             });
           } else {
+            // Sincronización en segundo plano sin cambios: silencioso, sin registrar log para evitar saturación
             resolve({
               status: 200,
               data: { success: true, updated: false }
@@ -194,6 +214,8 @@ async function handle(req, setSharepointCookie) {
         })
         .catch((err) => {
           console.error('Error al sincronizar en segundo plano:', err);
+          const { logError } = require('../config/logger');
+          logError("ERR-SYNC-301", "Sincronización automática en segundo plano falló", `Error: ${err.message} | Por: ${user.correo}`);
           resolve({ status: 500, data: { error: err.message } });
         });
     });
@@ -407,9 +429,12 @@ async function handle(req, setSharepointCookie) {
     return new Promise((resolve) => {
       usersDb.run(query, [correo, nombre, rol || 'Analista', rut || '', asistido_rut || ''], function(err) {
         if (err) {
+          const { logError } = require('../config/logger');
           if (err.message.includes('UNIQUE constraint failed')) {
+            logError("ERR-USR-604", "Fallo al crear usuario: Correo ya registrado", `Intento: ${correo} | Por: ${user.correo}`);
             return resolve({ status: 400, data: { error: 'El correo electrónico ya está registrado.' } });
           }
+          logError("ERR-USR-604", "Fallo al crear usuario", `Intento: ${correo} | Error: ${err.message} | Por: ${user.correo}`);
           return resolve({ status: 500, data: { error: err.message } });
         }
         
@@ -417,6 +442,8 @@ async function handle(req, setSharepointCookie) {
         const { uploadDatabaseToSharePoint } = require('../config/db-sync');
         uploadDatabaseToSharePoint(usersDb, req.sharepointCookie, 'usuarios')
           .then(() => {
+            const { logEvent } = require('../config/logger');
+            logEvent("INFO-USR-601", "Usuario creado", `Creado: ${correo} (Rol: ${rol || 'Analista'}) | Por: ${user.correo}`);
             resolve({
               status: 201,
               data: { id: newId, correo, nombre, rol: rol || 'Analista', rut: rut || '', asistido_rut: asistido_rut || '' }
@@ -425,6 +452,8 @@ async function handle(req, setSharepointCookie) {
           .catch((uploadErr) => {
             // Revertir inserción local
             usersDb.run('DELETE FROM usuarios WHERE id = ?', [newId], () => {
+              const { logError } = require('../config/logger');
+              logError("ERR-USR-604", "Fallo al sincronizar usuario creado con SharePoint", `Correo: ${correo} | Error: ${uploadErr.message} | Por: ${user.correo}`);
               resolve({ status: 500, data: { error: 'Error al sincronizar con SharePoint: ' + uploadErr.message + '. El cambio fue revertido.' } });
             });
           });
@@ -444,12 +473,18 @@ async function handle(req, setSharepointCookie) {
 
         const query = 'UPDATE usuarios SET correo = ?, nombre = ?, rol = ?, rut = ?, asistido_rut = ? WHERE id = ?';
         usersDb.run(query, [correo, nombre, rol, rut || '', asistido_rut || '', id], function(err) {
-          if (err) return resolve({ status: 500, data: { error: err.message } });
+          if (err) {
+            const { logError } = require('../config/logger');
+            logError("ERR-USR-604", "Fallo al modificar usuario", `ID: ${id} | Correo: ${correo} | Error: ${err.message} | Por: ${user.correo}`);
+            return resolve({ status: 500, data: { error: err.message } });
+          }
           if (this.changes === 0) return resolve({ status: 404, data: { error: 'Usuario no encontrado.' } });
 
           const { uploadDatabaseToSharePoint } = require('../config/db-sync');
           uploadDatabaseToSharePoint(usersDb, req.sharepointCookie, 'usuarios')
             .then(() => {
+              const { logEvent } = require('../config/logger');
+              logEvent("INFO-USR-602", "Usuario modificado", `Modificado: ${correo} (Rol: ${rol}) | Por: ${user.correo}`);
               resolve({ status: 200, data: { id, correo, nombre, rol, rut: rut || '', asistido_rut: asistido_rut || '' } });
             })
             .catch((uploadErr) => {
@@ -458,6 +493,8 @@ async function handle(req, setSharepointCookie) {
                 'UPDATE usuarios SET correo = ?, nombre = ?, rol = ?, rut = ?, asistido_rut = ? WHERE id = ?',
                 [oldUser.correo, oldUser.nombre, oldUser.rol, oldUser.rut, oldUser.asistido_rut, id],
                 () => {
+                  const { logError } = require('../config/logger');
+                  logError("ERR-USR-604", "Fallo al sincronizar modificación de usuario con SharePoint", `Correo: ${correo} | Error: ${uploadErr.message} | Por: ${user.correo}`);
                   resolve({ status: 500, data: { error: 'Error al sincronizar con SharePoint: ' + uploadErr.message + '. El cambio fue revertido.' } });
                 }
               );
@@ -479,12 +516,18 @@ async function handle(req, setSharepointCookie) {
         if (!oldUser) return resolve({ status: 404, data: { error: 'Usuario no encontrado.' } });
 
         usersDb.run('DELETE FROM usuarios WHERE id = ?', id, function(err) {
-          if (err) return resolve({ status: 500, data: { error: err.message } });
+          if (err) {
+            const { logError } = require('../config/logger');
+            logError("ERR-USR-604", "Fallo al eliminar usuario", `ID: ${id} | Error: ${err.message} | Por: ${user.correo}`);
+            return resolve({ status: 500, data: { error: err.message } });
+          }
           if (this.changes === 0) return resolve({ status: 404, data: { error: 'Usuario no encontrado.' } });
 
           const { uploadDatabaseToSharePoint } = require('../config/db-sync');
           uploadDatabaseToSharePoint(usersDb, req.sharepointCookie, 'usuarios')
             .then(() => {
+              const { logEvent } = require('../config/logger');
+              logEvent("INFO-USR-603", "Usuario eliminado", `Eliminado: ${oldUser.correo} | Por: ${user.correo}`);
               resolve({ status: 200, data: { message: 'Usuario eliminado correctamente', id } });
             })
             .catch((uploadErr) => {
@@ -493,6 +536,8 @@ async function handle(req, setSharepointCookie) {
                 'INSERT INTO usuarios (id, correo, nombre, rol, rut, asistido_rut) VALUES (?, ?, ?, ?, ?, ?)',
                 [oldUser.id, oldUser.correo, oldUser.nombre, oldUser.rol, oldUser.rut, oldUser.asistido_rut],
                 () => {
+                  const { logError } = require('../config/logger');
+                  logError("ERR-USR-604", "Fallo al sincronizar eliminación de usuario con SharePoint", `Correo: ${oldUser.correo} | Error: ${uploadErr.message} | Por: ${user.correo}`);
                   resolve({ status: 500, data: { error: 'Error al sincronizar con SharePoint: ' + uploadErr.message + '. El cambio fue revertido.' } });
                 }
               );
@@ -1010,6 +1055,8 @@ async function handle(req, setSharepointCookie) {
         console.log(`Excel recibido y guardado con éxito en: ${excelFile}`);
       } catch (writeErr) {
         console.error('Error al guardar el archivo Excel subido:', writeErr);
+        const { logError } = require('../config/logger');
+        logError("ERR-IMP-702", "Fallo al guardar archivo Excel subido", `Error: ${writeErr.message} | Por: ${user.correo}`);
         return { status: 500, data: { error: `No se pudo guardar el archivo Excel: ${writeErr.message}` } };
       }
     }
@@ -1039,10 +1086,24 @@ async function handle(req, setSharepointCookie) {
     return new Promise((resolve) => {
       let finished = false;
 
+      const cleanupExcel = () => {
+        if (fs.existsSync(excelFile)) {
+          try {
+            fs.unlinkSync(excelFile);
+            console.log(`[Import Cleanup] Archivo temporal Excel eliminado con éxito: ${excelFile}`);
+          } catch (e) {
+            console.warn(`[Import Cleanup] No se pudo eliminar el archivo Excel temporal: ${excelFile}`, e.message);
+          }
+        }
+      };
+
       child.on('message', (message) => {
         if (message && message.type === 'import_stats') {
           finished = true;
           isImporting = false;
+          cleanupExcel();
+          const { logEvent } = require('../config/logger');
+          logEvent("INFO-IMP-701", "Importación desde Excel exitosa", `Por: ${user.correo} | Stats: ${JSON.stringify(message.stats)}`);
           resolve({
             status: 200,
             data: { success: true, stats: message.stats }
@@ -1055,6 +1116,9 @@ async function handle(req, setSharepointCookie) {
         if (!finished) {
           finished = true;
           isImporting = false;
+          cleanupExcel();
+          const { logError } = require('../config/logger');
+          logError("ERR-IMP-702", "Fallo al importar desde Excel", `Error: ${err.message} | Por: ${user.correo}`);
           resolve({
             status: 500,
             data: { error: 'Error interno durante el procesamiento del archivo Excel: ' + err.message }
@@ -1066,6 +1130,9 @@ async function handle(req, setSharepointCookie) {
         if (!finished) {
           finished = true;
           isImporting = false;
+          cleanupExcel();
+          const { logError } = require('../config/logger');
+          logError("ERR-IMP-702", "Proceso de importación Excel finalizó inesperadamente", `Código salida: ${code} | Por: ${user.correo}`);
           resolve({
             status: 500,
             data: { error: `El proceso de importación finalizó inesperadamente con código de salida ${code}.` }
@@ -1085,6 +1152,16 @@ async function handle(req, setSharepointCookie) {
     return new Promise((resolve) => {
       checkAndSyncDatabase(db, req.sharepointCookie)
         .then((updated) => {
+          const { logEvent } = require('../config/logger');
+          if (updated) {
+            db.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
+              const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
+              logEvent("INFO-SYNC-201", "Sincronización manual completada (Con cambios)", `Firma actualizada: ${lastUpdate} | Por: ${user.correo}`);
+            });
+          } else {
+            logEvent("INFO-SYNC-202", "Sincronización manual completada (Sin cambios)", `Por: ${user.correo}`);
+          }
+
           resolve({
             status: 200,
             data: {
@@ -1098,6 +1175,8 @@ async function handle(req, setSharepointCookie) {
         })
         .catch((err) => {
           console.error('Error al sincronizar:', err);
+          const { logError } = require('../config/logger');
+          logError("ERR-SYNC-302", "Sincronización manual falló", `Error: ${err.message} | Por: ${user.correo}`);
           resolve({ status: 500, data: { error: `Error al sincronizar: ${err.message}` } });
         });
     });
@@ -1199,8 +1278,12 @@ async function handle(req, setSharepointCookie) {
 
     try {
       fs.copyFileSync(dbFile, targetPath);
+      const { logEvent } = require('../config/logger');
+      logEvent("INFO-SYS-402", "Respaldo manual solicitado", `Archivo: ${path.basename(targetPath)} | Destino: ${targetPath} | Por: ${user.correo}`);
       return { status: 200, data: { success: true } };
     } catch (e) {
+      const { logError } = require('../config/logger');
+      logError("ERR-SYS-403", "Fallo al crear respaldo manual", `Destino: ${targetPath} | Error: ${e.message} | Por: ${user.correo}`);
       return { status: 500, data: { error: 'No se pudo copiar el archivo de base de datos para respaldo: ' + e.message } };
     }
   }

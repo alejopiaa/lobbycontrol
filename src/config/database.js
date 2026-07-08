@@ -49,6 +49,17 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
+// Limpieza preventiva de archivos Excel huérfanos de ejecuciones anteriores (a prueba de fallos)
+const orphanExcelPath = path.join(dbDir, 'lobby_data.xlsx');
+if (fs.existsSync(orphanExcelPath)) {
+  try {
+    fs.unlinkSync(orphanExcelPath);
+    console.log('[Database Init] Archivo Excel temporal huérfano de sesión anterior eliminado con éxito.');
+  } catch (err) {
+    console.warn('[Database Init] No se pudo eliminar el archivo Excel temporal huérfano:', err.message);
+  }
+}
+
 // Verificar firma digital del archivo de base de datos para depuración (sin acción destructiva)
 if (fs.existsSync(dbPath)) {
   const localVersionPath = path.join(dbDir, 'version_lobby.json');

@@ -144,7 +144,8 @@ let paginationState = {
     }
   },
   sujetos_pasivos: { page: 1, search: '' },
-  reportes: { page: 1 }
+  reportes: { page: 1 },
+  logs: { page: 1, filterType: 'all' }
 };
 
 // Variables para control de cancelaciones asíncronas y temporizadores de UI
@@ -177,19 +178,60 @@ let dashboardDropdownCache = {
   sujetosActivosRepresentados: []
 };
 
+// Administrar visualmente el estado de la cápsula flotante de conexión
+function updateCapsuleStatus(state, details = '') {
+  const pingEl = document.getElementById('capsule-indicator-ping');
+  const dotEl = document.getElementById('capsule-indicator-dot');
+  const labelEl = document.getElementById('capsule-label');
+  const netStatusEl = document.getElementById('capsule-net-status');
+  const lastUpdateEl = document.getElementById('capsule-last-update');
+
+  if (details && lastUpdateEl) {
+    lastUpdateEl.textContent = details;
+  }
+
+  if (pingEl && dotEl && labelEl && netStatusEl) {
+    pingEl.className = 'animate-ping absolute inline-flex h-full w-full rounded-full';
+    dotEl.className = 'relative inline-flex rounded-full h-2 w-2';
+    netStatusEl.className = 'font-semibold';
+
+    if (state === 'synced') {
+      pingEl.classList.remove('hidden');
+      pingEl.classList.add('bg-emerald-400');
+      dotEl.classList.add('bg-emerald-500');
+      labelEl.textContent = 'Conectado';
+      netStatusEl.textContent = 'Conectado';
+      netStatusEl.classList.add('text-emerald-600', 'dark:text-emerald-400');
+    } else if (state === 'syncing') {
+      pingEl.classList.remove('hidden');
+      pingEl.classList.add('bg-amber-400');
+      dotEl.classList.add('bg-amber-500');
+      labelEl.textContent = 'Actualizando...';
+      netStatusEl.textContent = 'Sincronizando...';
+      netStatusEl.classList.add('text-amber-500');
+    } else if (state === 'error') {
+      pingEl.classList.add('hidden');
+      dotEl.classList.add('bg-rose-500');
+      labelEl.textContent = 'Desconectado';
+      netStatusEl.textContent = 'Error Sync';
+      netStatusEl.classList.add('text-rose-600', 'dark:text-rose-400');
+    }
+  }
+}
+
 // Obtener y actualizar fecha de última actualización de la base de datos en el header
 async function fetchAndUpdateDbTimestamp() {
   try {
     const res = await fetch('/api/db-last-update');
     if (res.ok) {
       const data = await res.json();
-      const el = document.getElementById('db-last-update');
-      if (el && data.dbLastUpdate) {
-        el.textContent = data.dbLastUpdate;
+      if (data.dbLastUpdate) {
+        updateCapsuleStatus('synced', data.dbLastUpdate);
       }
     }
   } catch (err) {
     console.error('Error al obtener fecha de última actualización:', err);
+    updateCapsuleStatus('error');
   }
 }
 
@@ -364,15 +406,8 @@ function initBackgroundSync() {
   const runSync = async () => {
     if (!currentUser) return;
 
-    const lastUpdateEl = document.getElementById('db-last-update');
-    const originalText = lastUpdateEl ? lastUpdateEl.textContent : '';
-
-    // 1. Mostrar estado "Actualizando..." y parpadeo ámbar
-    if (lastUpdateEl) {
-      lastUpdateEl.textContent = 'Actualizando...';
-      lastUpdateEl.classList.remove('text-emerald-300');
-      lastUpdateEl.classList.add('text-amber-400', 'animate-pulse');
-    }
+    // 1. Mostrar estado "Actualizando..."
+    updateCapsuleStatus('syncing');
 
     try {
       console.log('[Auto-Sync] Verificando nueva versión de base de datos...');
@@ -383,47 +418,26 @@ function initBackgroundSync() {
         
         if (data.success && data.updated) {
           console.log('[Auto-Sync] ¡Base de datos actualizada con éxito!');
-          
-          // 2. Mostrar aviso sutil (Toast) de éxito
           showToast('Base de datos actualizada con nuevos registros.', 'success');
           
-          // 3. Destello verde esmeralda y escalar tamaño
-          if (lastUpdateEl) {
-            lastUpdateEl.textContent = data.dbLastUpdate || 'Al día';
-            lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
-            lastUpdateEl.classList.add('text-emerald-400', 'scale-105');
-            setTimeout(() => {
-              lastUpdateEl.classList.remove('text-emerald-400', 'scale-105');
-              lastUpdateEl.classList.add('text-emerald-300');
-            }, 3000);
-          }
+          // 2. Éxito
+          updateCapsuleStatus('synced', data.dbLastUpdate || 'Al día');
           
-          // 4. Refrescar la vista actual para renderizar los nuevos datos al instante
           if (typeof renderView === 'function') {
             renderView();
           }
         } else {
-          // Si no hubo actualización, restablecer el texto original sin molestar
-          if (lastUpdateEl) {
-            lastUpdateEl.textContent = originalText;
-            lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
-            lastUpdateEl.classList.add('text-emerald-300');
-          }
+          // Si no hubo cambios, recuperar el valor actual
+          const lastUpdateEl = document.getElementById('capsule-last-update');
+          const lastText = lastUpdateEl ? lastUpdateEl.textContent : 'Al día';
+          updateCapsuleStatus('synced', lastText);
         }
       } else {
-        if (lastUpdateEl) {
-          lastUpdateEl.textContent = originalText;
-          lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
-          lastUpdateEl.classList.add('text-emerald-300');
-        }
+        updateCapsuleStatus('error');
       }
     } catch (err) {
       console.error('[Auto-Sync] Error en la verificación automática:', err);
-      if (lastUpdateEl) {
-        lastUpdateEl.textContent = originalText;
-        lastUpdateEl.classList.remove('text-amber-400', 'animate-pulse');
-        lastUpdateEl.classList.add('text-emerald-300');
-      }
+      updateCapsuleStatus('error');
     }
   };
 
@@ -431,9 +445,56 @@ function initBackgroundSync() {
   setTimeout(runSync, 2000);
 
   // 2. Ejecutar de forma periódica en segundo plano
-  // NOTA: Configurado temporalmente a 30 segundos para pruebas rápidas (luego cambiar a 5 minutos)
-  const syncIntervalTime = 30 * 1000; 
+  // Configurado a 5 minutos para producción
+  const syncIntervalTime = 5 * 60 * 1000; 
   window.bgSyncInterval = setInterval(runSync, syncIntervalTime);
+}
+
+
+// Obtener y mostrar la versión de la app desde el backend (package.json)
+async function fetchAppVersion() {
+  try {
+    const response = await window.api.invokeRoute({
+      url: '/api/app-version',
+      method: 'GET'
+    });
+    if (response && response.status === 200 && response.data) {
+      const versionEl = document.getElementById('app-version');
+      if (versionEl) {
+        versionEl.textContent = `v${response.data.version}`;
+      }
+      const devTag = document.getElementById('capsule-dev-tag');
+      if (devTag) {
+        if (response.data.isDev) {
+          devTag.classList.remove('hidden');
+        } else {
+          devTag.classList.add('hidden');
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error al cargar la versión de la app:', err);
+  }
+}
+
+// Reloj digital en vivo para el header (Fecha y hora actual)
+function startLiveClock() {
+  const dateEl = document.getElementById('current-date');
+  const timeEl = document.getElementById('current-time');
+  if (!dateEl || !timeEl) return;
+
+  const updateClock = () => {
+    const now = new Date();
+    const optionsDate = { weekday: 'long', day: 'numeric', month: 'long' };
+    let dateStr = now.toLocaleDateString('es-CL', optionsDate);
+    dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    const timeStr = now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    dateEl.textContent = dateStr;
+    timeEl.textContent = timeStr;
+  };
+
+  updateClock();
+  setInterval(updateClock, 1000);
 }
 
 // Al cargar el documento
@@ -441,6 +502,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   lucide.createIcons();
   updateThemeIcons();
   fetchAndUpdateDbTimestamp();
+  startLiveClock();
+  fetchAppVersion();
   
   const isAuthenticated = await checkAuth();
   if (isAuthenticated) {
@@ -781,14 +844,17 @@ async function switchView(viewName) {
   currentView = viewName;
   localStorage.setItem('lobby_current_view', viewName);
   
-  // Controlar visibilidad del Header según si es vista de Login o no
+  // Controlar visibilidad del Header y Cápsula según si es vista de Login o no
   const header = document.querySelector('header');
+  const capsule = document.getElementById('system-status-capsule');
   if (viewName === 'login') {
     if (header) header.classList.add('hidden');
+    if (capsule) capsule.classList.add('hidden');
     renderView();
     return;
   } else {
     if (header) header.classList.remove('hidden');
+    if (capsule) capsule.classList.remove('hidden');
     updateHeaderUserSection();
   }
   
@@ -798,9 +864,9 @@ async function switchView(viewName) {
     const el = document.getElementById(`nav-${btn}`);
     if (el) {
       if (btn === viewName) {
-        el.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 sidebar-nav-active";
+        el.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 sidebar-nav-active";
       } else {
-        el.className = "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 sidebar-nav-inactive";
+        el.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 sidebar-nav-inactive";
       }
     }
   });
@@ -2713,6 +2779,16 @@ async function exportReportToPDF() {
 
     if (silentResult && silentResult.success) {
       showToast(`Reporte ${codigoReporte} guardado correctamente.`, 'success');
+      window.api.invokeRoute({
+        url: '/api/log',
+        method: 'POST',
+        body: {
+          code: 'INFO-REP-501',
+          message: 'Reporte PDF generado (Individual)',
+          details: `Archivo: ${defaultName} | Destino: ${targetPath} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
+          severity: 'info'
+        }
+      }).catch(err => console.error('Error al registrar log de reporte:', err));
     } else {
       showToast('No se pudo generar el archivo PDF.', 'error');
       console.error('Error generando PDF individual:', silentResult ? silentResult.error : 'Desconocido');
@@ -2948,58 +3024,128 @@ async function downloadBackup() {
 // Almacenar entradas de logs en memoria para acceso desde el modal
 let _logEntries = [];
 
-async function refreshAdminLogs() {
+async function refreshAdminLogs(force = false) {
   const container = document.getElementById('logs-table-body');
   const countEl = document.getElementById('logs-count-badge');
   if (!container) return;
   
-  container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs">Cargando registros...</td></tr>`;
-  
-  try {
-    const res = await fetch('/api/admin/logs');
-    const data = await res.json();
-    
-    if (!data || !data.entries || data.entries.length === 0) {
-      _logEntries = [];
-      container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs">
-        <div class="flex flex-col items-center gap-2">
-          <i data-lucide="check-circle" class="h-8 w-8 text-emerald-600/40"></i>
-          <span>No hay errores registrados. ¡Todo en orden!</span>
-        </div>
-      </td></tr>`;
-      if (countEl) countEl.textContent = '0';
-      if (window.lucide) lucide.createIcons();
+  if (force || _logEntries.length === 0) {
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">Cargando registros...</td></tr>`;
+    try {
+      const res = await fetch('/api/admin/logs');
+      const data = await res.json();
+      _logEntries = (data && data.entries) ? data.entries : [];
+    } catch (err) {
+      console.error('Error al obtener bitácora de logs:', err);
+      container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-rose-400 text-xs font-semibold">Error de red al obtener bitácora de logs.</td></tr>`;
       return;
     }
-    
-    _logEntries = data.entries;
-    if (countEl) countEl.textContent = String(data.entries.length);
-    
-    const severityColor = (code) => {
-      if (code.startsWith('ERR-GEN') || code.startsWith('ERR-DB-5')) return 'bg-rose-500/20 text-rose-400 border-rose-800/40';
-      if (code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC')) return 'bg-amber-500/20 text-amber-400 border-amber-800/40';
-      if (code.startsWith('ERR-AUTH')) return 'bg-sky-500/20 text-sky-400 border-sky-800/40';
-      return 'bg-slate-500/20 text-slate-400 border-slate-700/40';
-    };
-    
-    container.innerHTML = data.entries.map((entry, i) => `
-      <tr class="border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors cursor-pointer group" onclick="openLogDetailModal(${i})">
-        <td class="py-2.5 px-3 text-[10px] text-slate-500 font-mono whitespace-nowrap">${entry.timestamp}</td>
+  }
+
+  if (_logEntries.length === 0) {
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">
+      <div class="flex flex-col items-center gap-2">
+        <i data-lucide="check-circle" class="h-8 w-8 text-emerald-600/40"></i>
+        <span>No hay logs registrados. ¡Todo en orden!</span>
+      </div>
+    </td></tr>`;
+    if (countEl) countEl.textContent = '0';
+    const paginationContainer = document.getElementById('logs-pagination-container');
+    if (paginationContainer) paginationContainer.innerHTML = '';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Filtrar
+  const filterType = (paginationState.logs && paginationState.logs.filterType) ? paginationState.logs.filterType : 'all';
+  const filtered = _logEntries.filter(entry => {
+    if (filterType === 'all') return true;
+    const code = entry.code || '';
+    if (filterType === 'warn') {
+      return code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC');
+    }
+    if (filterType === 'auth') {
+      return code.startsWith('ERR-AUTH') || code.startsWith('AUTH-');
+    }
+    if (filterType === 'error') {
+      return code.startsWith('ERR-') && !code.startsWith('ERR-NET') && !code.startsWith('ERR-SYNC') && !code.startsWith('ERR-AUTH');
+    }
+    if (filterType === 'info') {
+      return !code.startsWith('ERR-') && !code.startsWith('AUTH-');
+    }
+    return true;
+  });
+
+  if (countEl) countEl.textContent = String(filtered.length);
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">No hay registros que coincidan con el filtro seleccionado.</td></tr>`;
+    const paginationContainer = document.getElementById('logs-pagination-container');
+    if (paginationContainer) paginationContainer.innerHTML = '';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Paginación
+  const pageSize = 15;
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  
+  let currentPage = (paginationState.logs && paginationState.logs.page) ? paginationState.logs.page : 1;
+  if (currentPage > totalPages) {
+    currentPage = totalPages;
+    if (paginationState.logs) paginationState.logs.page = currentPage;
+  }
+  
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginated = filtered.slice(startIndex, startIndex + pageSize);
+
+  const severityColor = (code) => {
+    if (code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC')) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 dark:border-amber-800/40';
+    if (code.startsWith('ERR-AUTH') || code.startsWith('AUTH-')) return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 dark:border-sky-800/40';
+    if (code.startsWith('ERR-')) return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 dark:border-rose-800/40';
+    return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 dark:border-slate-700/40';
+  };
+
+  container.innerHTML = paginated.map((entry) => {
+    const originalIndex = _logEntries.indexOf(entry);
+    return `
+      <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group" onclick="openLogDetailModal(${originalIndex})">
+        <td class="py-2.5 px-3 text-[10px] text-slate-450 dark:text-slate-500 font-mono whitespace-nowrap">${entry.timestamp}</td>
         <td class="py-2.5 px-3">
           <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${severityColor(entry.code)}">${entry.code}</span>
         </td>
-        <td class="py-2.5 px-3 text-[11px] text-slate-300 max-w-[350px] truncate">${entry.message}</td>
+        <td class="py-2.5 px-3 text-[11px] text-slate-700 dark:text-slate-350 max-w-[350px] truncate font-medium">${entry.message}</td>
         <td class="py-2.5 px-3 text-right">
-          <span class="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-brand-400 font-semibold">Ver detalle →</span>
+          <span class="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-brand-600 dark:text-brand-400 font-bold">Ver detalle →</span>
         </td>
       </tr>
-    `).join('');
-    
-    if (window.lucide) lucide.createIcons();
-  } catch (err) {
-    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-rose-400 text-xs">Error de red al obtener bitácora de logs.</td></tr>`;
+    `;
+  }).join('');
+
+  // Renderizar controles de paginación
+  const paginationContainer = document.getElementById('logs-pagination-container');
+  if (paginationContainer) {
+    paginationContainer.innerHTML = renderPaginationControls('logs', totalItems, currentPage, pageSize);
   }
+
+  if (window.lucide) lucide.createIcons();
 }
+
+window.filterLogsByType = function (type) {
+  if (!paginationState.logs) {
+    paginationState.logs = { page: 1, filterType: 'all' };
+  }
+  paginationState.logs.filterType = type;
+  paginationState.logs.page = 1;
+  
+  const container = document.getElementById("main-content");
+  if (container && typeof renderUsuarios === "function") {
+    renderUsuarios(container);
+  } else {
+    refreshAdminLogs(false);
+  }
+};
 
 // ============================================================================
 // MODAL DE AUDITORÍA Y DETALLE DE CAMBIOS DE IMPORTACIÓN
@@ -4761,5 +4907,15 @@ async function generarReportesMasivos() {
   // 6. Finalizar
   closeModal();
   showToast(`Generación masiva completada: ${totalGroups} reportes exportados en ${destFolder}`, 'success');
+  window.api.invokeRoute({
+    url: '/api/log',
+    method: 'POST',
+    body: {
+      code: 'INFO-REP-504',
+      message: 'Generación masiva completada',
+      details: `Total: ${totalGroups} reportes exportados en ${destFolder} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
+      severity: 'info'
+    }
+  }).catch(err => console.error('Error al registrar log de generación masiva:', err));
 }
 

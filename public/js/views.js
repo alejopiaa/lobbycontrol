@@ -2146,69 +2146,93 @@ function renderUsuarios(container) {
 
 // RENDER: PESTAÑA BITÁCORA DE LOGS
 function renderLogsTabHtml() {
+  const currentFilter = (typeof paginationState !== 'undefined' && paginationState.logs) ? paginationState.logs.filterType : 'all';
+  
+  const getPillClass = (type, activeType) => {
+    if (type === activeType) {
+      if (type === 'all') return 'bg-slate-200 dark:bg-slate-800 text-[var(--text-primary)] font-bold';
+      if (type === 'error') return 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-455 font-bold';
+      if (type === 'warn') return 'bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-455 font-bold';
+      if (type === 'auth') return 'bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-455 shadow-sm font-bold';
+      if (type === 'info') return 'bg-slate-500/10 border border-slate-500/30 text-slate-700 dark:text-slate-400 font-bold';
+    }
+    // Inactivos
+    if (type === 'error') return 'border border-transparent text-slate-500 dark:text-slate-400 hover:text-rose-500 hover:bg-rose-500/5 dark:hover:bg-rose-500/10';
+    if (type === 'warn') return 'border border-transparent text-slate-500 dark:text-slate-400 hover:text-amber-500 hover:bg-amber-500/5 dark:hover:bg-amber-500/10';
+    if (type === 'auth') return 'border border-transparent text-slate-500 dark:text-slate-400 hover:text-sky-500 hover:bg-sky-500/5 dark:hover:bg-sky-500/10';
+    return 'border border-transparent text-slate-500 dark:text-slate-400 hover:text-[var(--text-primary)] hover:bg-slate-250/50 dark:hover:bg-slate-800/40';
+  };
+
   return `
-    <div class="space-y-4">
-      ${renderGlassCard(
-        `
-        <!-- Header de la bitácora -->
-        <div class="border-b border-slate-800/60 pb-4 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
-              <i data-lucide="file-text" class="h-4.5 w-4.5"></i>
-            </div>
-            <div>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-heading">Bitácora de Errores</h3>
-              <p class="text-[10px] text-slate-500 mt-0.5">Últimos 200 eventos registrados por el sistema</p>
-            </div>
+    <div class="space-y-4 animate-fade-in font-sans">
+      <div class="pb-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <div class="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-455 flex items-center justify-center shrink-0">
+            <i data-lucide="file-text" class="h-4.5 w-4.5"></i>
           </div>
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-heading font-sans">Bitácora de Logs</h3>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium">
+              Últimos eventos registrados • Clic en una fila para ver detalles
+            </p>
+          </div>
+        </div>
+        
+        <!-- Filtro Segmentado Premium y Acciones -->
+        <div class="flex items-center gap-3.5 flex-wrap">
+          <!-- Selector de Tipo de Registro (Segmentado Estilo Alertas) -->
+          <div class="flex items-center gap-1.5 pb-2.5 lg:pb-0 overflow-x-auto whitespace-nowrap scrollbar-none">
+            <span class="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mr-1 select-none">Filtro:</span>
+            <button onclick="filterLogsByType('all')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${getPillClass('all', currentFilter)}">
+              Todos
+            </button>
+            <button onclick="filterLogsByType('error')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${getPillClass('error', currentFilter)}">
+              <span class="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0"></span>
+              Crítico
+            </button>
+            <button onclick="filterLogsByType('warn')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${getPillClass('warn', currentFilter)}">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0"></span>
+              Advertencia
+            </button>
+            <button onclick="filterLogsByType('auth')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${getPillClass('auth', currentFilter)}">
+              <span class="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0"></span>
+              Auth
+            </button>
+            <button onclick="filterLogsByType('info')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${getPillClass('info', currentFilter)}">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500 shrink-0"></span>
+              Info
+            </button>
+          </div>
+
           <div class="flex items-center gap-2">
-            <span id="logs-count-badge" class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-300 tabular-nums">—</span>
-            <button onclick="refreshAdminLogs()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.95] border border-slate-700">
+            <span id="logs-count-badge" class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300 tabular-nums">—</span>
+            
+            <button onclick="refreshAdminLogs(true)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-[0.95] border border-slate-200 dark:border-slate-700">
               <i data-lucide="refresh-cw" class="h-3 w-3"></i> Actualizar
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- Leyenda de severidad -->
-        <div class="flex items-center gap-4 pt-3 pb-1">
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block w-2 h-2 rounded-full bg-rose-500"></span>
-            <span class="text-[9px] text-slate-500 font-medium">Crítico</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
-            <span class="text-[9px] text-slate-500 font-medium">Advertencia</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block w-2 h-2 rounded-full bg-sky-500"></span>
-            <span class="text-[9px] text-slate-500 font-medium">Autenticación</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block w-2 h-2 rounded-full bg-slate-500"></span>
-            <span class="text-[9px] text-slate-500 font-medium">Info</span>
-          </div>
-          <span class="ml-auto text-[9px] text-slate-600 italic">Clic en una fila para ver detalles</span>
-        </div>
+      <!-- Tabla de logs -->
+      <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800/60 mt-2">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800/60">
+              <th class="py-2.5 px-3 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest w-[140px]">Fecha / Hora</th>
+              <th class="py-2.5 px-3 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest w-[120px]">Código</th>
+              <th class="py-2.5 px-3 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Mensaje</th>
+              <th class="py-2.5 px-3 text-[9px] font-bold text-slate-455 dark:text-slate-500 uppercase tracking-widest w-[80px]"></th>
+            </tr>
+          </thead>
+          <tbody id="logs-table-body">
+            <tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">Cargando registros...</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-        <!-- Tabla de logs -->
-        <div class="overflow-x-auto rounded-xl border border-slate-800/60 mt-2">
-          <table class="w-full text-left">
-            <thead>
-              <tr class="bg-slate-900/60 border-b border-slate-800/60">
-                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest w-[140px]">Fecha / Hora</th>
-                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest w-[120px]">Código</th>
-                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Mensaje</th>
-                <th class="py-2.5 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest w-[80px]"></th>
-              </tr>
-            </thead>
-            <tbody id="logs-table-body">
-              <tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs">Cargando registros...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      `,
-        "rounded-2xl p-6 shadow-sm",
-      )}
+      <!-- Paginación -->
+      <div id="logs-pagination-container" class="mt-4"></div>
     </div>
   `;
 }
@@ -2244,29 +2268,29 @@ function renderReportes(container) {
     const msg = hasAnyFilter
       ? "No hay registros que coincidan con los filtros aplicados."
       : 'Por favor, ingrese un Sujeto Pasivo (o seleccione "Todos") u otros filtros para generar el reporte.';
-    rowsHtml = `<tr><td colspan="7" class="px-6 py-8 text-center text-xs text-slate-300">${msg}</td></tr>`;
+    rowsHtml = `<tr><td colspan="7" class="px-6 py-8 text-center text-xs text-slate-500 dark:text-slate-300 font-semibold">${msg}</td></tr>`;
   } else {
     paginatedItems.forEach((item) => {
       rowsHtml += `
-        <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[56px]">
-          <td class="pl-6 pr-2 text-xs font-semibold text-slate-300 text-left w-12">${item.index}</td>
-          <td class="px-2 text-xs font-semibold text-slate-100 text-left w-36">${escapeHtml(item.folio)}</td>
-          <td class="px-2 text-xs text-slate-200 text-left" title="${escapeHtmlAttr(item.cargoCompleto)}">
-            <div class="font-medium text-slate-100 truncate max-w-xs">${escapeHtml(item.cargoCompleto)}</div>
+        <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800 transition-colors h-[56px]">
+          <td class="pl-6 pr-2 text-xs font-semibold text-slate-500 dark:text-slate-400 text-left w-12">${item.index}</td>
+          <td class="px-2 text-xs font-semibold text-slate-700 dark:text-slate-100 text-left w-36">${escapeHtml(item.folio)}</td>
+          <td class="px-2 text-xs text-slate-600 dark:text-slate-200 text-left" title="${escapeHtmlAttr(item.cargoCompleto)}">
+            <div class="font-medium text-slate-850 dark:text-slate-100 truncate max-w-xs">${escapeHtml(item.cargoCompleto)}</div>
           </td>
           <td class="px-2 text-xs text-left w-32">
-            <div class="font-medium text-slate-200">${item.fechaIngreso}</div>
-            ${item.fechaLimiteRespuesta ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Legal Límite de Respuesta">${item.fechaLimiteRespuesta}</div>` : ""}
+            <div class="font-medium text-slate-700 dark:text-slate-200">${item.fechaIngreso}</div>
+            ${item.fechaLimiteRespuesta ? `<div class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5" title="Plazo Legal Límite de Respuesta">${item.fechaLimiteRespuesta}</div>` : ""}
           </td>
           <td class="px-2 text-xs text-left w-32">
-            <div class="font-medium text-slate-200">${item.fechaAgendada}</div>
-            ${item.fechaLimitePublicacion ? `<div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Límite de Publicación">${item.fechaLimitePublicacion}</div>` : ""}
+            <div class="font-medium text-slate-700 dark:text-slate-200">${item.fechaAgendada}</div>
+            ${item.fechaLimitePublicacion ? `<div class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5" title="Plazo Límite de Publicación">${item.fechaLimitePublicacion}</div>` : ""}
           </td>
           <td class="px-2 text-xs text-left w-44">
             ${
               item.badgeText === "Pendiente de publicación"
-                ? `<span class="px-2 py-1 rounded text-[10px] font-semibold ${item.badgeClass} inline-block text-center leading-tight">Pendiente de<br>publicación</span>`
-                : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold ${item.badgeClass} whitespace-nowrap">${escapeHtml(item.badgeText)}</span>`
+                ? `<span class="px-2 py-1 rounded text-[10px] font-bold ${item.badgeClass} inline-block text-center leading-tight">Pendiente de<br>publicación</span>`
+                : `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${item.badgeClass} whitespace-nowrap">${escapeHtml(item.badgeText)}</span>`
             }
           </td>
           <td class="pl-2 pr-6 text-xs text-left w-28">
@@ -2368,18 +2392,18 @@ function renderReportes(container) {
   container.innerHTML = `
     <div class="space-y-4" id="reportes-view-container">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-white tracking-tight">Reportes</h2>
+        <h2 class="text-2xl font-bold text-heading tracking-tight">Reportes</h2>
       </div>
 
       <!-- PANEL FILTROS AVANZADOS -->
       ${renderGlassCard(
         `
-        <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 flex items-center gap-2">
             <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
             Filtros
           </h3>
-          <button id="btn-reportes-clear" class="text-[10px] text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+          <button id="btn-reportes-clear" class="text-[10px] text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center gap-1 bg-transparent border-none cursor-pointer">
             <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
           </button>
         </div>
@@ -2425,7 +2449,7 @@ function renderReportes(container) {
 
         <!-- FILTRO ESTADOS MULTIPLE -->
         <div class="space-y-2">
-          <label class="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">Estados de Solicitud (Selección Múltiple)</label>
+          <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Estados de Solicitud (Selección Múltiple)</label>
           <div class="flex flex-wrap gap-2.5">
             ${[
               "Ingresada",
@@ -2439,7 +2463,7 @@ function renderReportes(container) {
               .map((est) => {
                 const checked = reportesFilters.estados.includes(est);
                 return `
-                <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/60 bg-slate-900/40 text-xs font-semibold cursor-pointer select-none transition-all hover:bg-slate-800/80 ${checked ? "border-brand-500 bg-blue-500/10 text-blue-400 shadow-sm shadow-brand-500/20" : "text-slate-300"}">
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-100/40 dark:bg-slate-900/40 text-xs font-semibold cursor-pointer select-none transition-all hover:bg-slate-200/80 dark:hover:bg-slate-800/80 ${checked ? "border-brand-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm shadow-brand-500/20" : "text-slate-500 dark:text-slate-300"}">
                   <input type="checkbox" class="hidden report-estado-checkbox" data-estado="${est}" ${checked ? "checked" : ""}>
                   <span>${est}</span>
                 </label>
@@ -2453,27 +2477,27 @@ function renderReportes(container) {
       )}
 
       <!-- TABLA DE REPORTES -->
-      <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
-        <div class="p-4 border-b border-slate-800/80 flex justify-between items-center">
-          <div class="text-xs text-slate-300" id="reportes-counter">${totalItems} registros coincidentes encontrados</div>
+      <div class="rounded-2xl overflow-hidden mt-4 border border-slate-200 dark:border-slate-800/60 glass-card">
+        <div class="p-4 border-b border-slate-200 dark:border-slate-800/80 flex justify-between items-center">
+          <div class="text-xs text-slate-650 dark:text-slate-300 font-semibold" id="reportes-counter">${totalItems} registros coincidentes encontrados</div>
           <div id="reportes-export-btn-container" class="flex items-center gap-2.5">
             <div class="flex items-center gap-2 mr-1">
-              <label class="flex items-center gap-1 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
-                <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-700 bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" checked>
+              <label class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-300 font-bold cursor-pointer select-none">
+                <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" checked>
                 <span>Solo vigentes</span>
               </label>
-              <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-semibold flex items-center gap-1 transition-all shadow-sm">
+              <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm">
                 <i data-lucide="files" class="h-3 w-3"></i>
                 Generación Masiva
               </button>
             </div>
             
-            <div class="h-4 w-[1px] bg-slate-700/60 mx-1"></div>
+            <div class="h-4 w-[1px] bg-slate-200 dark:bg-slate-700/60 mx-1"></div>
 
             ${
               totalItems > 0
                 ? `
-              <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+              <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
                 <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
                 Exportar PDF
               </button>
@@ -2486,17 +2510,17 @@ function renderReportes(container) {
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse table-fixed" id="table-reportes">
             <thead>
-              <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+              <tr class="bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800/60 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-widest">
                 <th class="pl-6 pr-2 py-3 w-12 text-left">#</th>
                 <th class="px-2 py-3 w-36 text-left">Folio</th>
                 <th class="px-2 py-3 text-left">Sujeto Pasivo y Cargo</th>
                 <th class="px-2 py-3 w-36 text-left">
                   <div>Fecha Ingreso</div>
-                  <div class="text-[9px] font-normal text-slate-500 mt-0.5 normal-case tracking-normal">Plazo Respuesta</div>
+                  <div class="text-[9px] font-medium text-slate-450 dark:text-slate-500 mt-0.5 normal-case tracking-normal">Plazo Respuesta</div>
                 </th>
                 <th class="px-2 py-3 w-36 text-left">
                   <div>Fecha Agenda</div>
-                  <div class="text-[9px] font-normal text-slate-500 mt-0.5 normal-case tracking-normal">Plazo Publicación</div>
+                  <div class="text-[9px] font-medium text-slate-450 dark:text-slate-500 mt-0.5 normal-case tracking-normal">Plazo Publicación</div>
                 </th>
                 <th class="px-2 py-3 w-44 text-left">Estado</th>
                 <th class="pl-2 pr-6 py-3 w-28 text-left">Plazo / Retraso</th>

@@ -16,15 +16,17 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-const logFilePath = path.join(logDir, 'error.log');
+const logFilePath = path.join(logDir, 'app.log');
+const errorLogFilePath = path.join(logDir, 'error.log');
 
 /**
- * Registra una línea estructurada de error en el archivo error.log.
- * @param {string} code - Código de error (ej: ERR-AUTH-202)
- * @param {string} message - Mensaje amigable o título del error
- * @param {string} details - Detalles técnicos o stack trace
+ * Registra una línea estructurada de log en la bitácora general y, opcionalmente, en la de errores.
+ * @param {string} code - Código de log (ej: AUTH-SUC-101, ERR-DB-500)
+ * @param {string} message - Mensaje descriptivo
+ * @param {string} details - Detalles técnicos o contextuales
+ * @param {string} severity - Nivel de severidad ('info', 'warn', 'error')
  */
-function logError(code, message, details = '') {
+function logEvent(code, message, details = '', severity = 'info') {
   try {
     const now = new Date();
     const d = String(now.getDate()).padStart(2, '0');
@@ -38,10 +40,26 @@ function logError(code, message, details = '') {
     const formattedDetails = String(details).replace(/\r?\n/g, ' \\ ');
     const logEntry = `[${timestamp}] [${code}] ${message} | Detalle: ${formattedDetails}\n`;
     
+    // 1. Escribir siempre en la bitácora general (app.log)
     fs.appendFileSync(logFilePath, logEntry, 'utf8');
+
+    // 2. Si es error/advertencia o código empieza con ERR-, escribir en error.log
+    if (severity === 'error' || severity === 'warn' || (code && code.startsWith('ERR-'))) {
+      fs.appendFileSync(errorLogFilePath, logEntry, 'utf8');
+    }
   } catch (err) {
     console.error('Error escribiendo en bitácora de logs:', err.message);
   }
 }
 
-module.exports = { logError, logFilePath };
+/**
+ * Registra un error en las bitácoras.
+ * @param {string} code - Código de error (ej: ERR-AUTH-202)
+ * @param {string} message - Mensaje amigable o título del error
+ * @param {string} details - Detalles técnicos o stack trace
+ */
+function logError(code, message, details = '') {
+  logEvent(code, message, details, 'error');
+}
+
+module.exports = { logError, logEvent, logFilePath };

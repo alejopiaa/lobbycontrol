@@ -48,6 +48,8 @@ app.whenReady().then(async () => {
                 console.log(`[SSO Sync] Sincronización de lobby en arranque terminada. ¿Cambios?: ${lobbyUpdated}`);
               } catch (syncErr) {
                 console.error("[SSO Sync] Error al sincronizar en arranque:", syncErr.message);
+                const { logError } = require("../config/logger");
+                logError("ERR-SYNC-301", "Sincronización automática en arranque falló", syncErr.message);
               }
             }, 5000);
           } else {
@@ -149,12 +151,17 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
           asistido_rut: user.asistido_rut || ""
         };
 
+        const { logEvent } = require("../config/logger");
+        logEvent("AUTH-SUC-101", "Inicio de sesión exitoso", `Usuario: ${user.nombre} | Rol: ${user.rol} | Correo: ${user.correo}`);
+
         // Sincronizar la base de datos de lobby de forma síncrona antes de finalizar el login
         try {
           console.log("[SSO IPC] Sincronizando base de datos de lobby...");
           await checkAndSyncDatabase(database, cookieHeader, "lobby");
         } catch (e) {
           console.error("[SSO IPC] Sincronización de lobby post-login falló:", e.message);
+          const { logError } = require("../config/logger");
+          logError("ERR-SYNC-302", "Sincronización de lobby post-login falló", e.message);
         }
 
         return {
@@ -163,6 +170,8 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
         };
       } else {
         console.warn(`[SSO IPC] Acceso denegado: ${email} no autorizado.`);
+        const { logEvent } = require("../config/logger");
+        logEvent("ERR-AUTH-202", "Acceso denegado: Usuario no registrado", `Correo intentado: ${email}`, "warn");
         
         await clearAllSsoData().catch(() => {});
         currentUserSession = null;
@@ -179,6 +188,8 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
       }
     } catch (err) {
       console.warn("[SSO IPC] Error o cancelación:", err.message);
+      const { logError } = require("../config/logger");
+      logError("ERR-AUTH-203", "Fallo en flujo interactivo SSO", err.message);
       // Limpiar temporales si existen en caso de error de red durante la descarga
       const database = require("../config/database");
       const dbDir = database.usersDb.getUserDataDir();
@@ -199,9 +210,12 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
   }
 
   if (url === "/api/auth/logout" && method === "POST") {
+    const userEmail = currentUserSession ? currentUserSession.correo : "Desconocido";
     currentUserSession = null;
     latestSharepointCookie = null;
     await clearAllSsoData();
+    const { logEvent } = require("../config/logger");
+    logEvent("AUTH-OUT-102", "Cierre de sesión", `Correo: ${userEmail}`);
     return {
       status: 200,
       data: { message: "Sesión cerrada correctamente." }
@@ -298,6 +312,8 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath }) => {
           fs.writeFileSync(filePath, pdfBuffer);
           resolve({ success: true });
         } catch (err) {
+          const { logError } = require("../config/logger");
+          logError("ERR-REP-502", "Fallo al generar reporte PDF", `Archivo: ${path.basename(filePath)} | Error: ${err.message}`);
           resolve({ success: false, error: err.message });
         } finally {
           win.destroy();
@@ -306,9 +322,13 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath }) => {
 
       win.webContents.on("did-fail-load", (e, errorCode, errorDescription) => {
         win.destroy();
+        const { logError } = require("../config/logger");
+        logError("ERR-REP-502", "Fallo al generar reporte PDF (Carga fallida)", `Archivo: ${path.basename(filePath)} | Error: ${errorDescription}`);
         resolve({ success: false, error: errorDescription });
       });
     } catch (err) {
+      const { logError } = require("../config/logger");
+      logError("ERR-REP-502", "Fallo al iniciar generación de reporte PDF", `Archivo: ${path.basename(filePath)} | Error: ${err.message}`);
       resolve({ success: false, error: err.message });
     }
   });

@@ -160,15 +160,18 @@ const db = {
   closeConnection: () => {
     return new Promise((resolve, reject) => {
       if (!activeDb) return resolve();
-      activeDb.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión de lobby.db:', err.message);
-          reject(err);
-        } else {
-          console.log('Conexión de lobby.db cerrada exitosamente.');
-          activeDb = null;
-          resolve();
-        }
+      activeDb.run("PRAGMA wal_checkpoint(TRUNCATE)", (pragmaErr) => {
+        if (pragmaErr) console.warn("Advertencia en checkpoint de cierre de lobby.db:", pragmaErr.message);
+        activeDb.close((err) => {
+          if (err) {
+            console.error('Error al cerrar la conexión de lobby.db:', err.message);
+            reject(err);
+          } else {
+            console.log('Conexión de lobby.db cerrada exitosamente.');
+            activeDb = null;
+            resolve();
+          }
+        });
       });
     });
   },
@@ -191,31 +194,42 @@ const db = {
     });
   },
   recalculateAndSignDatabase: () => {
-    try {
-      const crypto = require('crypto');
-      const localVersionPath = path.join(dbDir, 'version_lobby.json');
-      if (fs.existsSync(dbPath)) {
-        const dbBuffer = fs.readFileSync(dbPath);
-        const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
-          .update(dbBuffer)
-          .digest('hex');
-        
-        let versionData = { last_import_timestamp: 'Nunca' };
-        if (fs.existsSync(localVersionPath)) {
-          try {
-            versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
-          } catch (e) {}
-        }
-        
-        versionData.db_size = dbBuffer.length;
-        versionData.db_signature = calculatedSignature;
-        
-        fs.writeFileSync(localVersionPath, JSON.stringify(versionData, null, 2));
-        console.log('✓ [Sign Database] Firma digital local de base de datos recalculada y guardada.');
+    return new Promise((resolve) => {
+      if (!activeDb) {
+        console.warn('Advertencia: Intento de firmar lobby.db sin conexión activa.');
+        return resolve();
       }
-    } catch (err) {
-      console.error('Error al recalcular firma local de la base de datos:', err.message);
-    }
+      activeDb.run("PRAGMA wal_checkpoint(TRUNCATE)", (pragmaErr) => {
+        if (pragmaErr) console.error('Error en checkpoint antes de firmar lobby.db:', pragmaErr.message);
+        
+        try {
+          const crypto = require('crypto');
+          const localVersionPath = path.join(dbDir, 'version_lobby.json');
+          if (fs.existsSync(dbPath)) {
+            const dbBuffer = fs.readFileSync(dbPath);
+            const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
+              .update(dbBuffer)
+              .digest('hex');
+            
+            let versionData = { last_import_timestamp: 'Nunca' };
+            if (fs.existsSync(localVersionPath)) {
+              try {
+                versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+              } catch (e) {}
+            }
+            
+            versionData.db_size = dbBuffer.length;
+            versionData.db_signature = calculatedSignature;
+            
+            fs.writeFileSync(localVersionPath, JSON.stringify(versionData, null, 2));
+            console.log('✓ [Sign Database] Firma digital local de lobby.db recalculada y guardada.');
+          }
+        } catch (err) {
+          console.error('Error al recalcular firma local de lobby.db:', err.message);
+        }
+        resolve();
+      });
+    });
   }
 };
 
@@ -247,15 +261,18 @@ const usersDb = {
   closeConnection: () => {
     return new Promise((resolve, reject) => {
       if (!activeUsersDb) return resolve();
-      activeUsersDb.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión de usuarios.db:', err.message);
-          reject(err);
-        } else {
-          console.log('Conexión de usuarios.db cerrada exitosamente.');
-          activeUsersDb = null;
-          resolve();
-        }
+      activeUsersDb.run("PRAGMA wal_checkpoint(TRUNCATE)", (pragmaErr) => {
+        if (pragmaErr) console.warn("Advertencia en checkpoint de cierre de usuarios.db:", pragmaErr.message);
+        activeUsersDb.close((err) => {
+          if (err) {
+            console.error('Error al cerrar la conexión de usuarios.db:', err.message);
+            reject(err);
+          } else {
+            console.log('Conexión de usuarios.db cerrada exitosamente.');
+            activeUsersDb = null;
+            resolve();
+          }
+        });
       });
     });
   },
@@ -274,6 +291,44 @@ const usersDb = {
             resolve();
           });
         }
+      });
+    });
+  },
+  recalculateAndSignDatabase: () => {
+    return new Promise((resolve) => {
+      if (!activeUsersDb) {
+        console.warn('Advertencia: Intento de firmar usuarios.db sin conexión activa.');
+        return resolve();
+      }
+      activeUsersDb.run("PRAGMA wal_checkpoint(TRUNCATE)", (pragmaErr) => {
+        if (pragmaErr) console.error('Error en checkpoint antes de firmar usuarios.db:', pragmaErr.message);
+        
+        try {
+          const crypto = require('crypto');
+          const localVersionPath = path.join(dbDir, 'version_users.json');
+          if (fs.existsSync(usersDbPath)) {
+            const dbBuffer = fs.readFileSync(usersDbPath);
+            const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
+              .update(dbBuffer)
+              .digest('hex');
+            
+            let versionData = { last_import_timestamp: 'Nunca' };
+            if (fs.existsSync(localVersionPath)) {
+              try {
+                versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+              } catch (e) {}
+            }
+            
+            versionData.db_size = dbBuffer.length;
+            versionData.db_signature = calculatedSignature;
+            
+            fs.writeFileSync(localVersionPath, JSON.stringify(versionData, null, 2));
+            console.log('✓ [Sign Database] Firma digital local de usuarios.db recalculada y guardada.');
+          }
+        } catch (err) {
+          console.error('Error al recalcular firma local de usuarios.db:', err.message);
+        }
+        resolve();
       });
     });
   }
@@ -307,15 +362,18 @@ const localDb = {
   closeConnection: () => {
     return new Promise((resolve, reject) => {
       if (!activeLocalDb) return resolve();
-      activeLocalDb.close((err) => {
-        if (err) {
-          console.error('Error al cerrar la conexión de local.db:', err.message);
-          reject(err);
-        } else {
-          console.log('Conexión de local.db cerrada exitosamente.');
-          activeLocalDb = null;
-          resolve();
-        }
+      activeLocalDb.run("PRAGMA wal_checkpoint(TRUNCATE)", (pragmaErr) => {
+        if (pragmaErr) console.warn("Advertencia en checkpoint de cierre de local.db:", pragmaErr.message);
+        activeLocalDb.close((err) => {
+          if (err) {
+            console.error('Error al cerrar la conexión de local.db:', err.message);
+            reject(err);
+          } else {
+            console.log('Conexión de local.db cerrada exitosamente.');
+            activeLocalDb = null;
+            resolve();
+          }
+        });
       });
     });
   },

@@ -228,6 +228,13 @@ async function fetchAndUpdateDbTimestamp() {
       if (data.dbLastUpdate) {
         updateCapsuleStatus('synced', data.dbLastUpdate);
       }
+      if (data.usersLastUpdate) {
+        dataStore.usersLastUpdate = data.usersLastUpdate;
+        const usersLastSyncEl = document.getElementById('users-last-sync-time');
+        if (usersLastSyncEl) {
+          usersLastSyncEl.textContent = data.usersLastUpdate;
+        }
+      }
     }
   } catch (err) {
     console.error('Error al obtener fecha de última actualización:', err);

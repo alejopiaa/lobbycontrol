@@ -115,6 +115,14 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
     let localDbSignature = '';
     if (fs.existsSync(localDbPath)) {
       try {
+        // Forzar checkpoint de WAL antes de leer el archivo físico para asegurar datos frescos
+        await new Promise((resolve) => {
+          db.run("PRAGMA wal_checkpoint(TRUNCATE)", (err) => {
+            if (err) console.warn(`Advertencia al forzar checkpoint de WAL para firma en checkAndSyncDatabase:`, err.message);
+            resolve();
+          });
+        });
+
         const crypto = require('crypto');
         const dbBuffer = fs.readFileSync(localDbPath);
         localDbSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
@@ -209,6 +217,19 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
       console.log(`Reemplazando base de datos local ${remoteDbName} SQLite...`);
       await db.closeConnection();
       
+      // Breve pausa para asegurar la liberación del lock del archivo por el OS
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Eliminar archivos WAL y SHM asociados para evitar corrupción
+      const localWalPath = `${localDbPath}-wal`;
+      const localShmPath = `${localDbPath}-shm`;
+      if (fs.existsSync(localWalPath)) {
+        try { fs.unlinkSync(localWalPath); } catch (e) { console.warn(`Advertencia al eliminar WAL viejo: ${e.message}`); }
+      }
+      if (fs.existsSync(localShmPath)) {
+        try { fs.unlinkSync(localShmPath); } catch (e) { console.warn(`Advertencia al eliminar SHM viejo: ${e.message}`); }
+      }
+
       fs.copyFileSync(tempDbPath, localDbPath);
       fs.copyFileSync(tempVersionPath, localVersionPath);
       
@@ -307,6 +328,15 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
   if (!fs.existsSync(localDbPath)) {
     throw new Error(`No se encontró la base de datos local ${remoteDbName} para subir.`);
   }
+
+  // Forzar checkpoint de WAL para escribir los cambios del archivo -wal al principal en disco
+  await new Promise((resolve) => {
+    db.run("PRAGMA wal_checkpoint(TRUNCATE)", (err) => {
+      if (err) console.warn(`Advertencia al forzar checkpoint de WAL en uploadDatabaseToSharePoint para ${remoteDbName}:`, err.message);
+      resolve();
+    });
+  });
+
   console.log(`[Upload Sync] Comprimiendo base de datos ${remoteDbName}...`);
   const dbBuffer = fs.readFileSync(localDbPath);
   const compressedDb = zlib.gzipSync(dbBuffer);
@@ -335,10 +365,30 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
 
   const versionStr = JSON.stringify(versionData, null, 2);
 
+  // Helper local para realizar fetch con timeout
+  const fetchWithTimeout = async (url, options, timeoutMs = 30000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await net.fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return res;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error(`Tiempo de espera agotado al subir a SharePoint (timeout ${timeoutMs / 1000}s).`);
+      }
+      throw err;
+    }
+  };
+
   // 3. Obtener el Request Digest de SharePoint
   console.log('[Upload Sync] Solicitando Request Digest a SharePoint...');
   const digestUrl = `${cleanSiteUrl}/_api/contextinfo`;
-  const digestRes = await net.fetch(digestUrl, {
+  const digestRes = await fetchWithTimeout(digestUrl, {
     method: 'POST',
     headers: {
       'Cookie': cookieHeader,
@@ -360,7 +410,7 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
   // 4. Subir archivo de versión a SharePoint
   console.log(`[Upload Sync] Subiendo ${remoteVersionName}...`);
   const versionUploadUrl = `${cleanSiteUrl}/_api/web/GetFolderByServerRelativeUrl('${cleanFolderPath}')/Files/Add(url='${remoteVersionName}',overwrite=true)`;
-  const versionRes = await net.fetch(versionUploadUrl, {
+  const versionRes = await fetchWithTimeout(versionUploadUrl, {
     method: 'POST',
     headers: {
       'Cookie': cookieHeader,
@@ -378,7 +428,7 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
   // 5. Subir base de datos comprimida a SharePoint
   console.log(`[Upload Sync] Subiendo ${remoteDbName}...`);
   const dbUploadUrl = `${cleanSiteUrl}/_api/web/GetFolderByServerRelativeUrl('${cleanFolderPath}')/Files/Add(url='${remoteDbName}',overwrite=true)`;
-  const dbRes = await net.fetch(dbUploadUrl, {
+  const dbRes = await fetchWithTimeout(dbUploadUrl, {
     method: 'POST',
     headers: {
       'Cookie': cookieHeader,

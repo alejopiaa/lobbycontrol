@@ -2625,7 +2625,8 @@ async function renderLogin(container) {
 // =========================================================================
 
 let inspectorState = {
-  tables: [],
+  tables: {},
+  selectedDb: "lobby_control.db",
   selectedTable: "solicitudes_sh",
   page: 1,
   limit: 10,
@@ -2637,17 +2638,26 @@ let inspectorState = {
 };
 
 async function initDatabaseInspector() {
-  if (inspectorState.tables.length === 0) {
+  const hasTables = inspectorState.tables && Object.keys(inspectorState.tables).length > 0;
+  if (!hasTables) {
     try {
       const res = await fetch("/api/admin/inspector/tables");
       if (res.ok) {
         inspectorState.tables = await res.json();
-        if (inspectorState.tables.length > 0) {
-          inspectorState.selectedTable = inspectorState.tables.includes(
-            "solicitudes_sh",
-          )
-            ? "solicitudes_sh"
-            : inspectorState.tables[0];
+        
+        // Buscar si solicitudes_sh existe en lobby_control.db
+        if (inspectorState.tables["lobby_control.db"] && inspectorState.tables["lobby_control.db"].includes("solicitudes_sh")) {
+          inspectorState.selectedDb = "lobby_control.db";
+          inspectorState.selectedTable = "solicitudes_sh";
+        } else {
+          const dbs = Object.keys(inspectorState.tables);
+          if (dbs.length > 0) {
+            inspectorState.selectedDb = dbs[0];
+            const tablesList = inspectorState.tables[dbs[0]] || [];
+            if (tablesList.length > 0) {
+              inspectorState.selectedTable = tablesList[0];
+            }
+          }
         }
       }
     } catch (e) {
@@ -2689,7 +2699,8 @@ async function fetchInspectorData() {
 
 function renderDatabaseInspectorHtml() {
   // Disparar la inicialización en diferido
-  if (inspectorState.tables.length === 0) {
+  const hasTables = inspectorState.tables && Object.keys(inspectorState.tables).length > 0;
+  if (!hasTables) {
     setTimeout(initDatabaseInspector, 0);
   }
 
@@ -2720,13 +2731,18 @@ function renderDatabaseInspectorContent() {
     `;
   }
 
-  // Menú de selección de tablas
-  const tableOptions = inspectorState.tables
-    .map(
-      (t) =>
-        `<option value="${t}" ${inspectorState.selectedTable === t ? "selected" : ""}>${t}</option>`,
-    )
-    .join("");
+  // Selector de Bases de Datos
+  let dbOptions = "";
+  for (const dbName in inspectorState.tables) {
+    dbOptions += `<option value="${dbName}" ${inspectorState.selectedDb === dbName ? "selected" : ""}>${dbName}</option>`;
+  }
+
+  // Selector de Tablas (solo para la base de datos seleccionada)
+  let tableOptions = "";
+  const currentTables = inspectorState.tables[inspectorState.selectedDb] || [];
+  currentTables.forEach((t) => {
+    tableOptions += `<option value="${t}" ${inspectorState.selectedTable === t ? "selected" : ""}>${t}</option>`;
+  });
 
   // Columnas y cabeceras
   let headersHtml = "";
@@ -2810,9 +2826,17 @@ function renderDatabaseInspectorContent() {
       <div class="flex flex-col sm:flex-row gap-3 items-center w-full md:w-auto">
         <div class="flex items-center gap-2 shrink-0">
           <i data-lucide="database" class="h-4 w-4 text-brand-400"></i>
+          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Base de Datos:</span>
+        </div>
+        <select onchange="onInspectorDbChange(this.value)" class="w-full sm:w-44 px-3 py-2 rounded-xl text-xs glass-input focus:outline-none font-semibold text-slate-200">
+          ${dbOptions}
+        </select>
+
+        <div class="flex items-center gap-2 shrink-0 sm:ml-2">
+          <i data-lucide="table" class="h-4 w-4 text-brand-400"></i>
           <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Tabla:</span>
         </div>
-        <select onchange="onInspectorTableChange(this.value)" class="w-full sm:w-56 px-3 py-2 rounded-xl text-xs glass-input focus:outline-none font-semibold text-slate-200">
+        <select onchange="onInspectorTableChange(this.value)" class="w-full sm:w-44 px-3 py-2 rounded-xl text-xs glass-input focus:outline-none font-semibold text-slate-200">
           ${tableOptions}
         </select>
       </div>
@@ -2842,6 +2866,15 @@ function renderDatabaseInspectorContent() {
       ${paginationControlsHtml}
     </div>
   `;
+}
+
+function onInspectorDbChange(dbName) {
+  inspectorState.selectedDb = dbName;
+  const tablesList = inspectorState.tables[dbName] || [];
+  inspectorState.selectedTable = tablesList.length > 0 ? tablesList[0] : "";
+  inspectorState.page = 1;
+  inspectorState.search = "";
+  fetchInspectorData();
 }
 
 function onInspectorTableChange(table) {

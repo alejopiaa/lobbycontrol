@@ -1,12 +1,13 @@
 {
   "name": "lobbycontrol",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Sistema local para la gestión y control de audiencias de la Ley de Lobby",
   "main": "main.js",
   "scripts": {
     "import-lobby": "node scripts/import_lobby.js",
     "check-db": "node scripts/check_db.js",
     "inspect-db": "node scripts/inspect.js",
+    "sync-prod-db": "node scripts/sync_prod_to_dev.js",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --dir",
     "electron:installer": "electron-builder",

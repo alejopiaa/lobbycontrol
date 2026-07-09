@@ -4,241 +4,198 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
+## [2.6.1] - 2026-07-09
+
+### Cambiado
+- **Rediseño del Encabezado**: Se mejoró el encabezado principal para integrar de forma más limpia la identidad y logotipo de la aplicación.
+- **Selector del Inspector de Base de Datos**: Se rediseñó el inspector de administración dividiéndolo en dos selectores independientes (uno para la base de datos y otro para sus tablas), facilitando la navegación.
+- **Flujo de Reemplazo de Base de Datos**: Se optimizó la secuencia de intercambio de archivos para evitar bloqueos del sistema operativo (Windows).
+- **Última Actualización de Usuarios**: Se independizó el registro de la fecha de última actualización para la base de datos de usuarios.
+
+### Corregido
+- **Sincronización de Datos en Disco**: Se corrigió un desfase de datos forzando la escritura en disco antes de firmar y comprimir la base de datos para su subida.
+- **Prevención de Concurrencia**: Se bloqueó la ejecución de sincronizaciones manuales simultáneas.
+- **Limpieza de Archivos Temporales**: Se implementó la eliminación de archivos de transacciones residuales al reemplazar bases de datos para prevenir posible corrupción de datos.
+- **Timeout en Subidas**: Se configuró un tiempo máximo de espera de 30 segundos en las subidas de red para evitar bloqueos indefinidos por problemas de conexión.
+- **Registro de Logs**: Se añadieron eventos de auditoría detallados en el log del sistema para la sincronización de usuarios.
+- **Limpieza Visual**: Se eliminó una etiqueta de última actualización duplicada en la interfaz.
+
+---
+
 ## [2.6.0] - 2026-07-08
 
 ### Añadido
-- **Filtros de Logs Segmentados**:
-  - Nueva barra interactiva de botones segmentados con indicadores de color para clasificar rápidamente los logs del sistema (Crítico, Advertencia, Autenticación, Info).
-  - Paginación en la Bitácora de Logs que distribuye los eventos en páginas de 15 registros para una navegación más cómoda.
+- **Filtros de Logs Segmentados**: Nueva barra interactiva con indicadores de color para clasificar rápidamente los logs del sistema por nivel de severidad y paginación de eventos en el panel de administración.
 
 ### Cambiado
-- **Mejoras Visuales y de Contraste**:
-  - Suavizado de bordes y líneas divisorias en la tabla de logs para integrarse de forma fluida con el tema activo.
-  - Ajustes de contraste en la sección de Reportes para asegurar la legibilidad del título, tablas y campos en el modo claro.
-  - Rediseño de los selectores de estado en Reportes, que ahora se presentan como botones claros (light-first) por defecto y se resaltan en azul al ser seleccionados.
+- **Mejoras Visuales y de Contraste**: Suavizado de bordes y líneas divisorias en la bitácora de logs, mejoras en la legibilidad del módulo de reportes, y rediseño de selectores de estado.
 
 ### Eliminado
-- **Leyenda de Logs Redundante**:
-  - Remoción de la leyenda explicativa de severidad. Se integró la indicación *"Clic en una fila para ver detalles"* directamente en el encabezado.
+- **Leyenda de Logs Redundante**: Se retiró la leyenda explicativa de severidad para integrar la indicación de navegación directamente en la cabecera.
 
 ### Corregido
-- **Navegación e Interacción de Logs**:
-  - Corrección del modal de detalle de logs para que muestre la información correcta al hacer clic sobre una fila filtrada o paginada.
-  - Corrección al alternar los filtros de severidad que causaba que el botón de selección "Todos" se mantuviera marcado visualmente.
+- **Navegación e Interacción de Logs**: Se corrigió el despliegue de detalles de logs al interactuar con registros filtrados o paginados, y se resolvió un problema visual al alternar filtros.
 
 ---
 
 ## [2.5.0] - 2026-07-07
 
 ### Añadido
-- **Auditor de Cambios de Sincronización (Excel/SharePoint Diff)**:
-  - Comparador campo por campo en script `import_lobby.js` para registrar exactamente diferencias de filas agregadas, modificadas y eliminadas en la base de datos local.
-  - Almacenamiento de deltas detallados en formato JSON dentro de la columna `detalles` de `historial_sincronizaciones`.
-  - Nuevo modal interactivo de auditoría de sincronizaciones que clasifica y muestra cambios en tres pestañas: Agregados (verde), Modificados (ámbar con comparación tachado/verde de valores viejo y nuevo) y Eliminados (rojo).
-  - Botón interactivo de "Ver detalle" (ojo) en cada registro de la bitácora de sincronizaciones en Administración.
-- **Escudo de Integridad de Datos**:
-  - Endpoint IPC `GET /api/admin/db-health` extendido para validar en tiempo real la firma de la base de datos `lobby.db` usando HMAC-SHA256 y la clave secreta corporativa contra `version_lobby.json`.
-  - Visualización del badge de estado "Firma Digital (HMAC)" en la tarjeta de Salud del Sistema (Administración) que detecta si el archivo se encuentra Válido o Alterado.
-- **Segmentación de Alertas**:
-  - Filtro por tipo de alertas (Pills interactivos: Todos, Solicitudes, Publicaciones, Agenda) en el Centro de Alertas para facilitar la clasificación de plazos legales y eventos de hoy.
+- **Auditor de Cambios de Sincronización**: Comparador detallado que registra diferencias de filas agregadas, modificadas y eliminadas en la base de datos local, junto con un nuevo modal interactivo de auditoría con pestañas por categoría.
+- **Escudo de Integridad de Datos**: Sistema de validación en tiempo real de la firma de la base de datos para detectar alteraciones, mostrando un indicador de salud del sistema.
+- **Segmentación de Alertas**: Filtro por tipo de alertas en el Centro de Alertas para agilizar la clasificación de plazos legales.
 
 ### Cambiado
-- **Feedback de Sincronización**:
-  - Reemplazo de las antiguas alertas toast por la apertura automática del nuevo modal de auditoría interactivo al completar una sincronización.
-- **Optimización y Estandarización de CSS** (`public/css/style.css`):
-  - Centralización de variables del calendario (`--cal-*`) dentro del bloque global `:root` y en el selector `.dark` para evitar duplicidad y mejorar soporte del tema oscuro.
-  - Consolidación y unificación de selectores repetidos para colores de fondo, tarjetas y bordes de la interfaz.
-  - Integración de prefijo `-webkit-backdrop-filter` en clases con efectos de glassmorphism (`.glass-card`, `.suggestions-dropdown`, etc.) para asegurar compatibilidad total en plataformas Windows y macOS con motores Chromium/WebKit.
-- **Navegación en Administración**:
-  - Reordenamiento de las pestañas en el panel administrativo: Control de Auditoría (abierto por defecto al entrar), Sincronización, Gestión de Usuarios, Base de Datos y Bitácora de Logs.
+- **Feedback de Sincronización**: Apertura automática del modal de auditoría interactivo al completar una sincronización, reemplazando las notificaciones flotantes previas.
+- **Optimización y Estandarización de Estilos**: Centralización de variables visuales de calendario para mejorar el soporte del tema oscuro, consolidación de selectores repetidos y compatibilidad de efectos translúcidos en diversos motores de renderizado.
+- **Navegación en Administración**: Reordenamiento de las pestañas del panel administrativo, dejando el control de auditoría abierto por defecto.
 
 ### Corregido
-- **Resolución de Errores de Carga**:
-  - Restauración del bloque `catch` roto en la función `refreshAdminLogs()` en `public/js/app.js`, asegurando la correcta inicialización de Lucide al cargar la bitácora de logs.
+- **Resolución de Errores de Carga**: Se corrigió un error que interrumpía la inicialización de iconos al cargar la bitácora de logs.
 
 ---
 
 ## [2.4.0] - 2026-07-03
 
 ### Añadido
-- **Módulo de Agenda (Calendario)**:
-  - Nueva sección "Agenda" en el menú de navegación principal con soporte para vistas de Mes, Semana y Día.
-  - Implementación de grilla mensual interactiva con indicadores de audiencias y celdas de relleno del mes previo/siguiente.
-  - Vista semanal estructurada por columnas de días y vista diaria detallada con tarjetas de reuniones extendidas.
-  - Código de colores visuales para distinguir de forma rápida entre audiencias pasadas (Realizadas - Muted/Gris) y futuras/hoy (No Realizadas - Verde/Resaltado).
-  - Modal interactivo de detalle de audiencia agendada con visualización de folio, materia, especificación, autoridades y lobbistas.
-  - Validación dinámica de publicación (`✓ Publicada` o `✗ No Publicada`) cruzando los folios de solicitudes en tiempo real con las publicaciones del portal de transparencia.
-  - Lógica integrada de plazos para audiencias no publicadas (`Dentro de plazo / DDP` o `Fuera de plazo / FDP` con días de atraso).
-  - Soporte de consulta eficiente por rango de fechas (`fecha_agendada_desde` y `fecha_agendada_hasta`) en el canal IPC `/api/solicitudes`.
-- **Alertas de Reuniones Agendadas Hoy**:
-  - Nuevo tipo de alerta preventiva `agenda` (etiqueta verde "Agenda") que se activa automáticamente para reuniones del día actual.
-  - Notificaciones de color azul (info) en el Centro de Alertas y en la campanita de navegación.
-  - Acción "Ir al registro" en la alerta que desplaza y enfoca automáticamente el calendario en la fecha del evento.
+- **Módulo de Agenda**: Nueva sección de calendario con soporte para vistas mensual, semanal y diaria, con código de colores para audiencias pasadas y futuras.
+- **Detalle de Audiencias**: Modal informativo con datos completos de audiencias, cruzando folios en tiempo real para validar plazos legales y estado de publicación.
+- **Alertas de Reuniones del Día**: Notificaciones预防 preventivas en el panel y en el centro de alertas para las reuniones agendadas en la fecha actual.
 
 ---
 
 ## [2.3.0] - 2026-07-03
 
 ### Añadido
-- **Empaquetado e Instalador Interactivo (NSIS)**:
-  - Soporte para instalador asistido interactivo (`oneClick: false`) que guía al usuario paso a paso (Welcome, Choose Folder, Progress, Finish) en lugar de una instalación silenciosa.
-  - Inicio automático de la aplicación desmarcado por defecto (`runAfterFinish: false`) en la pantalla final del instalador para respetar la elección del usuario.
-  - Integración de ícono corporativo personalizado `public/lobby.ico` en el instalador y accesos directos de Windows.
-  - Comando `"electron:installer"` en `package.json` para generar el instalador distribuible.
+- **Instalador Interactivo**: Soporte para un instalador asistido paso a paso para Windows, respetando la decisión del usuario de iniciar o no la aplicación al finalizar.
+- **Identidad Corporativa**: Incorporación de icono personalizado en el instalador y accesos directos.
 
 ### Eliminado
-- **Código Muerto y Deuda Técnica**:
-  - Eliminación definitiva del archivo de middleware criptográfico huérfano `src/middleware/auth.js`.
-  - Remoción del controlador y de la ruta obsoleta de login local `/api/auth/login` en `src/ipc/router.js`.
-  - Eliminación de la función obsoleta `login()` en `public/js/app.js` y del formulario HTML de login local (`#local-form-container`) en `public/js/views.js`.
-  - Remoción de campos de contraseña locales en modales de creación/edición de usuarios y de perfil propio en `public/js/app.js`.
-  - Eliminación de las funciones de soporte para contraseñas (`togglePasswordVisibility` y `generateSecurePassword`) en `public/js/helpers.js`.
+- **Deuda Técnica y Funciones Obsoletas**: Remoción definitiva del soporte para contraseñas locales y de formularios/rutas del antiguo login local, consolidando la aplicación exclusivamente en torno a Single Sign-On (SSO).
 
 ### Corregido
-- **Representación Visual en Dashboard**:
-  - Implementación del helper `formatPct` para evitar mostrar `0%` en categorías que contienen elementos reales pero de peso porcentual muy bajo (ej. 8 registros de 12.848), mostrándolas ahora correctamente como `<0.1%`.
+- **Representación Visual en Dashboard**: Ajuste en el cálculo de porcentajes para evitar mostrar valores nulos en categorías de bajo peso pero con datos reales.
 
 ---
 
 ## [2.2.2] - 2026-07-02
 
 ### Añadido
-- **Arquitectura de Sincronización y Bases de Datos Separadas**:
-  - División física de la base de datos en tres archivos SQLite independientes en `data/`:
-    1. `lobby.db`: Contiene los datos principales de audiencias de la Ley de Lobby.
-    2. `usuarios.db`: Lista blanca de usuarios autorizados.
-    3. `local.db`: Datos locales y configuraciones de cada terminal de instalación (incluyendo el estado de alertas visuales de la máquina).
-  - Enrutador centralizado de canales IPC en `src/ipc/router.js` para redireccionar las operaciones SQLite correspondientes de forma aislada.
-  - Implementación del nuevo módulo de logs unificado `src/config/logger.js`.
-  - Nueva plantilla HTML para la impresión local de reportes en `public/print-template.html`.
+- **Arquitectura de Bases de Datos Separadas**: Separación del almacenamiento en archivos independientes para datos de lobby, usuarios autorizados y configuración local.
+- **Módulo de Logs Unificado**: Centralización del registro de eventos del sistema.
+- **Plantilla de Impresión**: Nueva plantilla para impresión local de reportes.
 
 ### Cambiado
-- **Seguridad de Autenticación**:
-  - Mapeo de la base de datos `usuarios.db` para que actúe exclusivamente como lista de autorización de SSO.
-  - Implementación de la subida inmediata (Write-Through) síncrona en cambios locales de usuarios a SharePoint, previniendo la pérdida de datos locales durante la sincronización remota.
+- **Seguridad de Autenticación**: Mapeo de la base de datos de usuarios exclusiva para autorización SSO y subida síncrona inmediata de cambios de usuarios a la plataforma en la nube para prevenir pérdida de datos.
 
 ### Corregido
-- **Manejo de Bloqueo de Archivos en Windows (EBUSY)**:
-  - Rediseño de la conexión temporal en el login manual SSO: cierra la base de datos de usuarios (`usersDb.closeConnection()`) utilizando promesas con `await` para garantizar la liberación de descriptores de archivos antes de renombrar/eliminar archivos bajo Windows, evitando excepciones de recursos ocupados en el sistema operativo.
-  - Autodestrucción segura del archivo temporal `usuarios_temp.db` mediante `fs.unlinkSync()` si el login SSO falla o es denegado (error 403), evitando conservar datos residuales sin lanzar errores EBUSY en consola.
+- **Manejo de Bloqueo de Archivos en Windows**: Rediseño del proceso de inicio de sesión para liberar de manera segura los archivos y evitar bloqueos en el sistema operativo.
 
 ### Eliminado
-- **Contraseñas Locales**:
-  - Eliminación absoluta de la lógica de contraseñas locales (eliminando hashes, hashing local y endpoints de verificación).
-- **Historial de Reportes**:
-  - Remoción completa del almacenamiento del historial de reportes y de la tabla `reportes_generados` en la base de datos de lobby. La generación de PDFs se procesa en caliente en el cliente.
-- **Servidor Express Local**:
-  - Eliminación definitiva del archivo `server.js` (antiguo servidor Express para HTTP), consolidando la comunicación nativa local 100% por IPC de Electron.
+- **Contraseñas Locales**: Eliminación de toda la lógica heredada de contraseñas locales.
+- **Historial de Reportes**: Eliminación del almacenamiento histórico de reportes para procesar la generación de documentos en caliente del lado del cliente.
+- **Servidor HTTP Local**: Remoción definitiva del servidor web local para consolidar la comunicación interna a través de los canales de comunicación de la plataforma de escritorio.
 
 ---
 
 ## [2.2.1] - 2026-06-26
 
 ### Seguridad
-
-- Reversión de la lógica de autoregistro automático de usuarios SSO para mitigar una vulnerabilidad crítica de elevación de privilegios no autorizada.
+- **Control de Autoregistro**: Reversión de la lógica de registro automático para mitigar riesgos de elevación de privilegios no autorizados.
 
 ---
 
 ## [2.2.0] - 2026-06-26
 
 ### Añadido
-
-- Funcionalidad para autoregistrar automáticamente al primer usuario autenticado vía Single Sign-On (SSO) como Administrador del sistema si la base de datos se encuentra vacía.
+- **Asignación de Administrador Inicial**: Registro automático del primer usuario autenticado como administrador del sistema si la base de datos está vacía.
 
 ---
 
 ## [2.1.1] - 2026-06-26
 
 ### Corregido
-
-- Bucle de redirección infinita de login de SharePoint Maipú para usuarios de departamentos que utilizan el sub-sitio de SECMU.
-- Detección de entorno de producción en la base de datos sqlite para evitar la creación de archivos locales en directorios protegidos dentro de la carpeta del ejecutable.
-- Ruta de base de datos en entorno de desarrollo (`DEV`) para evitar usar `AppData` si la variable de entorno `USER_DATA_DIR` está definida.
-- Configuración de empaquetado en `package.json` agregando `preload.js` faltante y corrigiendo la inclusión de scripts esenciales.
+- **Redirección de Inicio de Sesión**: Solución a un bucle infinito en el inicio de sesión para usuarios de departamentos específicos en la plataforma en la nube.
+- **Rutas de Datos en Producción y Desarrollo**: Ajuste para evitar la creación de archivos de base de datos en directorios protegidos del sistema en producción y configuración de carpetas locales en desarrollo.
+- **Empaquetado**: Corrección en los archivos cargados durante el empaquetado para incluir todos los scripts necesarios.
 
 ---
 
 ## [2.1.0] - 2026-06-26
 
 ### Añadido
-
-- Integración de URLs corporativas de SharePoint de la Municipalidad de Maipú como fallbacks predeterminados en el código para asegurar portabilidad completa.
-- Mecanismo para alternar la base de datos SQLite a la carpeta local en desarrollo y a `AppData` solo cuando la aplicación está empaquetada en producción.
-- Actualización de la documentación del sistema en `README.md`.
+- **Soporte de Conexiones de Respaldo**: URLs corporativas integradas en el código para asegurar la portabilidad de las conexiones a la nube.
+- **Configuración de Almacenamiento**: Lógica dinámica para ubicar los archivos de datos según el entorno (producción o desarrollo).
+- **Documentación del Sistema**: Actualización completa del manual de la aplicación.
 
 ### Cambiado
-
-- Cambio de nombre del repositorio y aplicación de "LobbyTracker" a **"LobbyControl"** en `package.json` e identidades del sistema.
-- Limpieza general del repositorio eliminando código obsoletos y archivos basura detectados en auditoría.
+- **Identidad de la Aplicación**: Cambio de nombre comercial del sistema e identidades visuales asociadas.
+- **Limpieza del Repositorio**: Remoción de archivos temporales y código obsoleto.
 
 ---
 
 ## [2.0.0] - 2026-06-26
 
 ### Añadido
-
-- **Nueva Arquitectura Desktop**: Migración completa de una aplicación basada en servidor HTTP local a una arquitectura nativa de Electron.
-- Implementación de comunicación segura mediante enrutador IPC (Inter-Process Communication).
-- Configuración de protocolo seguro y privado `app://` para la carga de recursos de la aplicación, eliminando puertos locales expuestos.
-- Creación de `preload.js` y puente seguro (`contextBridge`) para exponer APIs específicas de forma controlada al frontend.
+- **Migración a Aplicación de Escritorio**: Transición de la aplicación web local a una arquitectura nativa de escritorio (Electron).
+- **Seguridad Interna**: Comunicación privada entre componentes sin abrir puertos de red expuestos, y puente seguro para exponer APIs controladas al cliente.
 
 ---
 
 ## [1.4.0] - 2026-06-26
 
 ### Añadido
-- Motor de Sincronización de Datos (`src/config/db-sync.js`): implementación de sincronización bidireccional y control de versiones offline/online mediante `data/version.json`.
+- **Motor de Sincronización**: Lógica de sincronización bidireccional y control de versiones para soporte offline/online.
 
 ---
 
 ## [1.3.0] - 2026-06-26
 
 ### Añadido
-- Módulo de Autenticación con SharePoint (`src/config/sharepoint-auth.js`): integración de credenciales y conexión contra la plataforma SharePoint de la Municipalidad de Maipú.
+- **Conexión a SharePoint**: Integración de credenciales y autenticación directa con la plataforma en la nube municipal.
 
 ---
 
 ## [1.2.0] - 2026-06-26
 
 ### Añadido
-- Actualización mayor en el importador `scripts/import_lobby.js` para soportar volúmenes masivos de datos y optimizar el almacenamiento en SQLite.
+- **Optimización de Importación**: Mejoras en el importador de datos para procesar volúmenes masivos de registros.
 
 ---
 
 ## [1.1.0] - 2026-06-26
 
 ### Añadido
-- Rediseño del Frontend y Vistas Offline: modificación de `app.js`, `views.js` y `helpers.js` para soportar alertas de conexión, reintentos de red e interfaces avanzadas de búsqueda local de audiencias.
+- **Soporte Sin Conexión**: Rediseño del cliente para incorporar alertas de red, reintentos de conexión y búsqueda local de audiencias en modo offline.
 
 ---
 
 ## [1.0.3] - 2026-06-25
 
 ### Corregido
-- Errores de carga y filtros corruptos en las vistas de búsqueda offline.
-- Fallos de renderizado en tablas con registros extensos en la vista del dashboard.
+- **Búsqueda Offline**: Solución a fallas de filtros en las vistas de búsqueda local.
+- **Visualización del Dashboard**: Corrección en tablas con registros muy extensos para evitar problemas de diseño.
 
 ---
 
 ## [1.0.2] - 2026-06-24
 
 ### Corregido
-- Procesamiento y desbordamiento de formatos de fecha inconsistentes de la Ley de Lobby (`src/utils/date-utils.js`).
-- Corrección de inserciones duplicadas en SQLite en el importador original.
+- **Formateo de Fechas**: Normalización de formatos de fecha inconsistentes de la Ley de Lobby.
+- **Duplicación de Datos**: Corrección de inserciones duplicadas durante el proceso de importación.
 
 ---
 
 ## [1.0.1] - 2026-06-23
 
 ### Corregido
-- Limpieza de datos en blanco y celdas nulas en la lectura de planillas Excel.
-- Ajustes de dependencias menores de npm para el soporte de archivos de Office.
+- **Importación de Planillas**: Limpieza de registros vacíos y celdas nulas en la importación desde archivos Excel.
+- **Compatibilidad**: Ajuste de dependencias para el soporte de archivos de hojas de cálculo.
 
 ---
 
 ## [1.0.0] - 2026-06-22
 
 ### Añadido
-- Primer commit del MVP de LobbyTracker para la gestión local de audiencias bajo la Ley de Lobby.
-- Base de datos SQLite inicial y scripts de importación y verificación de datos.
+- **Lanzamiento Inicial**: Versión inicial de la plataforma de gestión local de audiencias bajo la Ley de Lobby.
+- **Almacenamiento y Carga**: Estructuras de datos iniciales y scripts para importación y validación de datos.

@@ -129,9 +129,26 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
         // Cerrar conexión principal de usuarios.db para liberar lock de destino en Windows
         await database.usersDb.closeConnection();
 
-        // Reemplazar archivos
-        fs.renameSync(tempDbPath, officialDbPath);
-        fs.renameSync(tempVersionPath, officialVersionPath);
+        // Breve pausa para asegurar la liberación de bloqueos por el OS en Windows
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Eliminar archivos WAL y SHM asociados para evitar conflictos
+        const officialWalPath = `${officialDbPath}-wal`;
+        const officialShmPath = `${officialDbPath}-shm`;
+        if (fs.existsSync(officialWalPath)) {
+          try { fs.unlinkSync(officialWalPath); } catch (e) { console.warn(`Advertencia al eliminar WAL viejo de usuarios.db:`, e.message); }
+        }
+        if (fs.existsSync(officialShmPath)) {
+          try { fs.unlinkSync(officialShmPath); } catch (e) { console.warn(`Advertencia al eliminar SHM viejo de usuarios.db:`, e.message); }
+        }
+
+        // Reemplazar archivos usando copia y desvinculación para mayor estabilidad ante bloqueos de Windows
+        fs.copyFileSync(tempDbPath, officialDbPath);
+        fs.copyFileSync(tempVersionPath, officialVersionPath);
+
+        // Eliminar archivos temporales
+        if (fs.existsSync(tempDbPath)) { try { fs.unlinkSync(tempDbPath); } catch (e) {} }
+        if (fs.existsSync(tempVersionPath)) { try { fs.unlinkSync(tempVersionPath); } catch (e) {} }
 
         // Reabrir conexión principal
         await database.usersDb.openConnection();

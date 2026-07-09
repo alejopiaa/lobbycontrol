@@ -9,6 +9,9 @@ const dateUtils = require("../utils/date-utils");
 // Semáforo de control para importaciones concurrentes
 let isImporting = false;
 
+// Semáforo de control para sincronizaciones concurrentes con SharePoint
+let isSyncing = false;
+
 // Cache de folios publicados con TTL de 60 segundos
 let _publishedFoliosCache = null;
 let _publishedFoliosCacheTime = 0;
@@ -1022,10 +1025,11 @@ async function handle(req, setSharepointCookie) {
   if (method === 'GET' && pathName === '/api/db-last-update') {
     return new Promise((resolve) => {
       db.get("SELECT valor FROM configuracion WHERE clave = 'last_import_timestamp'", [], (err, row) => {
-        if (err || !row || !row.valor) {
-          return resolve({ status: 200, data: { dbLastUpdate: 'No se registran importaciones' } });
-        }
-        resolve({ status: 200, data: { dbLastUpdate: row.valor } });
+        const dbLastUpdate = (err || !row || !row.valor) ? 'No se registran importaciones' : row.valor;
+        localDb.get("SELECT valor FROM configuracion_local WHERE clave = 'users_last_update'", [], (err2, row2) => {
+          const usersLastUpdate = (err2 || !row2 || !row2.valor) ? 'Nunca' : row2.valor;
+          resolve({ status: 200, data: { dbLastUpdate, usersLastUpdate } });
+        });
       });
     });
   }
@@ -1147,7 +1151,11 @@ async function handle(req, setSharepointCookie) {
     if (!req.sharepointCookie) {
       return { status: 400, data: { error: 'No hay una sesión activa. Por favor, inicie sesión para poder sincronizar.' } };
     }
+    if (isSyncing) {
+      return { status: 409, data: { error: 'Ya hay una operación de sincronización en curso. Por favor, espere a que finalice.' } };
+    }
 
+    isSyncing = true;
     const { checkAndSyncDatabase } = require('../config/db-sync');
     return new Promise((resolve) => {
       checkAndSyncDatabase(db, req.sharepointCookie)
@@ -1178,6 +1186,9 @@ async function handle(req, setSharepointCookie) {
           const { logError } = require('../config/logger');
           logError("ERR-SYNC-302", "Sincronización manual falló", `Error: ${err.message} | Por: ${user.correo}`);
           resolve({ status: 500, data: { error: `Error al sincronizar: ${err.message}` } });
+        })
+        .finally(() => {
+          isSyncing = false;
         });
     });
   }
@@ -1187,11 +1198,17 @@ async function handle(req, setSharepointCookie) {
     if (!req.sharepointCookie) {
       return { status: 400, data: { error: 'No hay una sesión activa. Por favor, inicie sesión para poder sincronizar.' } };
     }
+    if (isSyncing) {
+      return { status: 409, data: { error: 'Ya hay una operación de sincronización en curso. Por favor, espere a que finalice.' } };
+    }
 
+    isSyncing = true;
     const { uploadDatabaseToSharePoint } = require('../config/db-sync');
     return new Promise((resolve) => {
       uploadDatabaseToSharePoint(usersDb, req.sharepointCookie, 'usuarios')
         .then(() => {
+          const { logEvent } = require('../config/logger');
+          logEvent("INFO-SYNC-204", "Sincronización de usuarios a SharePoint exitosa", `Por: ${user.correo}`);
           resolve({
             status: 200,
             data: {
@@ -1202,7 +1219,12 @@ async function handle(req, setSharepointCookie) {
         })
         .catch((err) => {
           console.error('Error al subir base de datos:', err);
+          const { logError } = require('../config/logger');
+          logError("ERR-SYNC-303", "Sincronización de usuarios a SharePoint falló", `Error: ${err.message} | Por: ${user.correo}`);
           resolve({ status: 500, data: { error: `Error al sincronizar usuarios: ${err.message}` } });
+        })
+        .finally(() => {
+          isSyncing = false;
         });
     });
   }
@@ -1382,9 +1404,9 @@ async function handle(req, setSharepointCookie) {
     `;
     const usuario = user.nombre || user.correo;
     return new Promise((resolve) => {
-      db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, usuario], function(err) {
+      db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, usuario], async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
-        db.recalculateAndSignDatabase();
+        await db.recalculateAndSignDatabase();
         resolve({ status: 201, data: { id: this.lastID, message: 'Registro de auditoría guardado exitosamente.' } });
       });
     });
@@ -1404,10 +1426,10 @@ async function handle(req, setSharepointCookie) {
       WHERE id = ?
     `;
     return new Promise((resolve) => {
-      db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, estado || null, id], function(err) {
+      db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, estado || null, id], async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Registro no encontrado.' } });
-        db.recalculateAndSignDatabase();
+        await db.recalculateAndSignDatabase();
         resolve({ status: 200, data: { message: 'Registro de auditoría actualizado exitosamente.' } });
       });
     });
@@ -1417,10 +1439,10 @@ async function handle(req, setSharepointCookie) {
   if (method === 'DELETE' && auditMatch) {
     const id = auditMatch[1];
     return new Promise((resolve) => {
-      db.run('DELETE FROM auditoria_semanal WHERE id = ?', id, function(err) {
+      db.run('DELETE FROM auditoria_semanal WHERE id = ?', id, async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Registro no encontrado.' } });
-        db.recalculateAndSignDatabase();
+        await db.recalculateAndSignDatabase();
         resolve({ status: 200, data: { message: 'Registro de auditoría eliminado exitosamente.' } });
       });
     });
@@ -1441,11 +1463,11 @@ async function handle(req, setSharepointCookie) {
           localDb.all(queryTables, [], (err, localRows) => {
             if (err) return resolve({ status: 500, data: { error: err.message } });
             
-            const tables = [
-              ...lobbyRows.map(r => r.name),
-              ...usersRows.map(r => r.name),
-              ...localRows.map(r => r.name)
-            ].sort();
+            const tables = {
+              'lobby_control.db': lobbyRows.map(r => r.name).sort(),
+              'usuarios.db': usersRows.map(r => r.name).sort(),
+              'local.db': localRows.map(r => r.name).sort()
+            };
             resolve({ status: 200, data: tables });
           });
         });

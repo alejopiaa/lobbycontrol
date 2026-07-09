@@ -48,9 +48,14 @@
 
   <!-- HEADER / TOP NAV -->
   <header class="h-28 shrink-0 bg-slate-900 border-b border-slate-800 flex items-center px-6 z-40 hidden header-premium">
-    <!-- COLUMNA IZQUIERDA: LOGO -->
-    <div class="flex-1 flex items-center justify-start">
+    <!-- COLUMNA IZQUIERDA: LOGO + CO-BRANDING -->
+    <div class="flex-1 flex items-center justify-start gap-4">
       <img src="/logo_secum.png" alt="Secretaría Municipal Maipú" class="h-20 w-auto object-contain header-logo">
+      <div class="h-10 w-[1px] bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+      <div class="flex flex-col justify-center leading-none">
+        <span class="text-sm font-extrabold text-slate-800 dark:text-slate-100 tracking-wider">LobbyControl</span>
+        <span class="text-[9px] font-semibold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wide">Ley de Lobby N° 20.730</span>
+      </div>
     </div>
 
     <!-- COLUMNA CENTRAL: NAVEGACIÓN SUPERIOR (CENTRADA MATEMÁTICAMENTE) -->
@@ -157,6 +162,7 @@
     </main>
 
   </div>
+
 
   <!-- MODALES COMPARTIDOS (SE CARGAN/ABREN CON JS) -->
   <div id="modal-container" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">

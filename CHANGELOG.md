@@ -4,6 +4,44 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
+## [2.7.0] - 2026-07-10
+
+### Añadido
+- **Simulador de Perfiles (Impersonación)**: Nueva herramienta para administradores que permite simular de manera 100% real la sesión de otro usuario (por ejemplo, de un Sujeto Pasivo). Cuenta con aislamiento seguro de sesión concurrente y validación rigurosa de rol en el backend (lógica de `effectiveUser`).
+- **Banner Flotante de Simulación**: Barra superior de advertencia en color amarillo ámbar que indica cuándo está activo el simulador, mostrando el nombre y rol del perfil simulado con un botón directo para finalizar la simulación de inmediato.
+- **Modal de Detalle de Sujeto Pasivo**: Se añadió soporte en la tabla del módulo de Sujetos Pasivos para abrir un modal informativo completo al interactuar con las filas, mostrando RUT, cargo, tipo, zona, vigencia de gestión, decretos de respaldo jurídico y un enlace directo a su perfil público del Portal Ley de Lobby.
+- **Campo `asistente_tecnico` en SPH**: Integración de la columna `asistente_tecnico` en la base de datos y su visualización en el modal de detalles de Sujetos Pasivos.
+- **Migración de Esquema Dinámica**: Comprobación automática del esquema en el arranque de la app y en el script de importación para inyectar mediante `ALTER TABLE` la columna `asistente_tecnico` si la base de datos local es sobrescrita por sincronizaciones de SharePoint.
+
+### Cambiado
+- **Rediseño y Simplificación del Menú de Navegación**: Se redujo el menú central a 4 opciones operativas principales: Dashboard, Solicitudes, Audiencias y Agenda.
+- **Agenda Promovida**: Se removió el botón flotante circular de agenda y se promovió a pestaña principal en el menú central de operaciones.
+- **Engranaje de Configuración**: Se integró un botón de engranaje en la esquina superior derecha del encabezado (visible solo para Administradores y Auditores) para acceder de forma unificada a las herramientas y vistas de control.
+- **Fusión de Módulos**: Los módulos de *Reportes* y *Sujetos Pasivos* ahora forman parte de la vista de configuración como pestañas integradas. El rol de *Auditor* cuenta con una vista simplificada que solo le permite consultar estas dos pestañas.
+- **Delegación de Eventos en Tabla**: Se implementó el patrón de delegación de eventos adjunto al elemento contenedor `#table-sujetos` para la apertura eficiente del modal de detalles de sujetos pasivos, optimizando el uso de memoria RAM y el recolector de basura (garbage collector).
+- **Sobreescrituras CSS sin `!important`**: Se adaptaron las sobreescrituras de colores oscuros de Tailwind en `style.css` usando selectores basados en especificidad (`html .clase`) en lugar de directivas `!important`, para un mejor soporte de Light-First.
+- **Simplificación de Sincronización**: Se removieron las referencias locales de archivo Excel de origen del panel visual de la pestaña de Sincronización.
+
+### Corregido
+- **Alineación del Avatar de Usuario**: Se corrigió el desalineamiento del texto del avatar en la cabecera restaurando las clases de flexbox.
+- **Menú de Agenda**: Se resolvió un bug en `app.js` que comprimía visualmente el botón de Agenda en la cabecera.
+- **Typo en Importación de PH**: Se corrigió el error de mapeo `"generoSuejtoActivo"` a `"generoSujetoActivo"` en el script de importación.
+
+---
+
+## [2.6.2] - 2026-07-09
+
+### Añadido
+- **Reintento de Sincronización Manual**: Se incorporó un botón de "Reintentar conexión" en la tarjeta de hover de la cápsula de estado flotante que aparece exclusivamente cuando hay fallos de sincronización con SharePoint, permitiendo reintentar la conexión de forma inmediata y manual.
+- **Detalle de Error en Tarjeta**: En caso de fallas de red o autenticación, la tarjeta de hover del estado flotante ahora reemplaza el título de última actualización por "Detalle del Error" en color rojo y despliega el mensaje descriptivo del fallo.
+- **Restricción de Búsqueda para Sujetos Pasivos**: En los módulos de Dashboard, Solicitudes y Audiencias, si el usuario tiene el rol de *Sujeto Pasivo*, su campo de búsqueda por nombre se pre-completa y se bloquea de forma interactiva (se deshabilita), liberando automáticamente el filtro de Cargo para facilitar su interacción.
+
+### Cambiado
+- **Estructura de Altura Estable en Modal de Agenda**: Se rediseñó el modal de detalles de la agenda de audiencias para tener una altura estable en pantallas grandes, manteniendo cabecera y pie de página fijos en el viewport y habilitando un scroll independiente de alto máximo limitado para el texto de la *Especificación de la materia*.
+- **Navegación del Hover de Conexión**: Se resolvió el bug del "espacio vacío" en la cápsula de estado flotante al remover el margen inferior e incorporar un padding inferior transparente en el contenedor, permitiendo al usuario desplazar el puntero hacia la tarjeta de hover sin que esta desaparezca.
+
+---
+
 ## [2.6.1] - 2026-07-09
 
 ### Cambiado

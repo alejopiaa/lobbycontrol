@@ -231,22 +231,25 @@ const getBusinessDaysDiff = dateUtils.getBusinessDaysDiff;
 const getLastBusinessDayOfMonth = dateUtils.getLastBusinessDayOfMonth;
 
 function normalizeEstado(estadoString) {
-  if (!estadoString) return "Pendiente";
-  const clean = estadoString.trim().toLowerCase();
+  if (estadoString === undefined || estadoString === null) return "Pendiente";
+  const clean = String(estadoString).trim().toLowerCase();
+  if (clean === "") return "Pendiente";
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
 function getCargoClean(cargoString) {
-  if (!cargoString) return "No definido";
-  const parts = cargoString.split(" - ");
+  if (cargoString === undefined || cargoString === null) return "No definido";
+  const str = String(cargoString).trim();
+  if (str === "") return "No definido";
+  const parts = str.split(" - ");
   if (parts.length > 1) {
     return parts.slice(0, -1).join(" - ").trim();
   }
-  return cargoString.trim();
+  return str;
 }
 
 function precalculateSolicitudFields(row) {
-  const cargo = row["Cargo"] || "";
+  const cargo = row["cargoSujetoPasivo"] || "";
   const cargo_limpio = getCargoClean(cargo);
 
   let codigo_licitacion = null;
@@ -255,7 +258,7 @@ function precalculateSolicitudFields(row) {
     codigo_licitacion = licitacionMatch[1].trim();
   }
 
-  const fecha_ingreso = row["Fecha ingreso"];
+  const fecha_ingreso = row["fechaIngreso"];
   const deadlineDate = getDeadlineDate(fecha_ingreso);
   let fecha_limite_sh = "";
   if (deadlineDate) {
@@ -265,7 +268,7 @@ function precalculateSolicitudFields(row) {
     fecha_limite_sh = `${y}-${m}-${d}`;
   }
 
-  const fecha_respuesta = row["Fecha respuesta"];
+  const fecha_respuesta = row["fechaRespuesta"];
   let dias_habiles_respuesta = null;
   const hasRespuesta =
     fecha_respuesta &&
@@ -292,7 +295,7 @@ function precalculateSolicitudFields(row) {
     } catch (e) {}
   }
 
-  const estado = row["Estado"] || "Pendiente";
+  const estado = row["estado"] || "Pendiente";
   const estadoClean = normalizeEstado(estado);
   let estado_cumplimiento_sh = "PENDIENTE_EN_PLAZO";
 
@@ -322,7 +325,7 @@ function precalculateSolicitudFields(row) {
     }
   }
 
-  const fecha_agendada = row["Fecha agendada"];
+  const fecha_agendada = row["fechaAgenda"];
   let fecha_limite_publicacion = null;
   if (estadoClean === "Aceptada" && fecha_agendada) {
     try {
@@ -549,7 +552,7 @@ function syncSolicitudes(rows, callback) {
                       type: "delete",
                       id: r.id_lobby,
                       folio: r.folio_lobby || `ID: ${r.id_lobby}`,
-                      pasivo: r.sujeto_pasivo || ""
+                      pasivo: r.sujeto_pasivo || "",
                     });
                   });
                 }
@@ -565,7 +568,7 @@ function syncSolicitudes(rows, callback) {
                     performCommit(this ? this.changes : 0);
                   },
                 );
-              }
+              },
             );
           } else {
             performCommit(0);
@@ -577,41 +580,39 @@ function syncSolicitudes(rows, callback) {
         rows,
         200,
         (row, done) => {
-          const idLobby = row["Id"] || null;
+          const idLobby = row["id"] || null;
           if (idLobby === null) return done();
           seenIds.add(idLobby);
 
-          const parsedFechaIngreso = parseExcelDate(row["Fecha ingreso"]);
-          const parsedFechaRespuesta = parseExcelDate(row["Fecha respuesta"]);
-          let parsedFechaAgendada = parseExcelDate(row["Fecha agendada"]);
+          const parsedFechaIngreso = parseExcelDate(row["fechaIngreso"]);
+          const parsedFechaRespuesta = parseExcelDate(row["fechaRespuesta"]);
+          let parsedFechaAgendada = parseExcelDate(row["fechaAgenda"]);
           if (parsedFechaAgendada && parsedFechaAgendada.length === 10) {
             parsedFechaAgendada += " 00:00";
           }
 
           const precalc = precalculateSolicitudFields({
             ...row,
-            "Fecha ingreso": parsedFechaIngreso,
-            "Fecha respuesta": parsedFechaRespuesta,
-            "Fecha agendada": parsedFechaAgendada,
+            fechaIngreso: parsedFechaIngreso,
+            fechaRespuesta: parsedFechaRespuesta,
+            fechaAgenda: parsedFechaAgendada,
           });
 
           const valuesForHash = [
             idLobby,
-            row["Folio"] || "",
+            row["folio"] || "",
             parsedFechaIngreso,
             parsedFechaRespuesta,
             parsedFechaAgendada,
-            row["Sujeto pasivo"] || "",
-            row["Cargo"] || "",
-            row["Sujeto pasivo id"] || null,
-            row["Sujeto activo"] || "",
-            row["Rut"] || "",
-            row["Genero"] || "",
-            row["Representado"] || "",
-            row["Materia"] || "",
-            row["Especificación materia"] ||
-              row["Especificacion materia"] ||
-              "",
+            row["sujetoPasivo"] || "",
+            row["cargoSujetoPasivo"] || "",
+            row["idSujetoPasivo"] || null,
+            row["sujetoActivo"] || "",
+            row["runSujetoActivo"] || "",
+            row["generoSujetoActivo"] || "",
+            row["representado"] || "",
+            row["materia"] || "",
+            row["especificacionMateria"] || "",
             precalc.estado,
             precalc.cargo_limpio,
             precalc.codigo_licitacion,
@@ -635,9 +636,9 @@ function syncSolicitudes(rows, callback) {
                 allStats.sh.details.push({
                   type: "insert",
                   id: idLobby,
-                  folio: row["Folio"] || `ID: ${idLobby}`,
-                  pasivo: row["Sujeto pasivo"] || "",
-                  activo: row["Sujeto activo"] || ""
+                  folio: row["folio"] || `ID: ${idLobby}`,
+                  pasivo: row["sujetoPasivo"] || "",
+                  activo: row["sujetoActivo"] || "",
                 });
               }
               pendingOps--;
@@ -646,21 +647,19 @@ function syncSolicitudes(rows, callback) {
             insertsCount++;
           } else if (existingMap[idLobby] !== currentHash) {
             const updateValues = [
-              row["Folio"] || "",
+              row["folio"] || "",
               parsedFechaIngreso,
               parsedFechaRespuesta,
               parsedFechaAgendada,
-              row["Sujeto pasivo"] || "",
-              row["Cargo"] || "",
-              row["Sujeto pasivo id"] || null,
-              row["Sujeto activo"] || "",
-              row["Rut"] || "",
-              row["Genero"] || "",
-              row["Representado"] || "",
-              row["Materia"] || "",
-              row["Especificación materia"] ||
-                row["Especificacion materia"] ||
-                "",
+              row["sujetoPasivo"] || "",
+              row["cargoSujetoPasivo"] || "",
+              row["idSujetoPasivo"] || null,
+              row["sujetoActivo"] || "",
+              row["runSujetoActivo"] || "",
+              row["generoSujetoActivo"] || "",
+              row["representado"] || "",
+              row["materia"] || "",
+              row["especificacionMateria"] || "",
               precalc.estado,
               precalc.cargo_limpio,
               precalc.codigo_licitacion,
@@ -680,25 +679,47 @@ function syncSolicitudes(rows, callback) {
                   const changes = {};
                   const compareField = (dbField, newValue, label) => {
                     let oldValue = oldRow[dbField];
-                    if (oldValue === null || oldValue === undefined) oldValue = "";
-                    if (newValue === null || newValue === undefined) newValue = "";
+                    if (oldValue === null || oldValue === undefined)
+                      oldValue = "";
+                    if (newValue === null || newValue === undefined)
+                      newValue = "";
                     if (String(oldValue).trim() !== String(newValue).trim()) {
-                      changes[label] = { old: String(oldValue).trim(), new: String(newValue).trim() };
+                      changes[label] = {
+                        old: String(oldValue).trim(),
+                        new: String(newValue).trim(),
+                      };
                     }
                   };
                   compareField("estado", precalc.estado, "Estado");
-                  compareField("fecha_agendada", parsedFechaAgendada, "Fecha Audiencia");
-                  compareField("sujeto_pasivo", row["Sujeto pasivo"] || "", "Sujeto Pasivo");
-                  compareField("sujeto_activo", row["Sujeto activo"] || "", "Solicitante");
-                  compareField("representado", row["Representado"] || "", "Representado");
-                  compareField("materia", row["Materia"] || "", "Materia");
+                  compareField(
+                    "fecha_agendada",
+                    parsedFechaAgendada,
+                    "Fecha Audiencia",
+                  );
+                  compareField(
+                    "sujeto_pasivo",
+                    row["sujetoPasivo"] || "",
+                    "Sujeto Pasivo",
+                  );
+                  compareField(
+                    "sujeto_activo",
+                    row["sujetoActivo"] || "",
+                    "Solicitante",
+                  );
+                  compareField(
+                    "representado",
+                    row["representado"] || "",
+                    "Representado",
+                  );
+                  compareField("materia", row["materia"] || "", "Materia");
 
                   if (Object.keys(changes).length > 0) {
                     allStats.sh.details.push({
                       type: "update",
                       id: idLobby,
-                      folio: row["Folio"] || oldRow.folio_lobby || `ID: ${idLobby}`,
-                      changes: changes
+                      folio:
+                        row["folio"] || oldRow.folio_lobby || `ID: ${idLobby}`,
+                      changes: changes,
                     });
                   }
                 }
@@ -711,7 +732,7 @@ function syncSolicitudes(rows, callback) {
                   pendingOps--;
                   done();
                 });
-              }
+              },
             );
             updatesCount++;
           } else {
@@ -818,7 +839,7 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
                       type: "delete",
                       id: r.id_lobby,
                       folio: r.folio_lobby || `ID: ${r.id_lobby}`,
-                      pasivo: r.sujeto_pasivo || ""
+                      pasivo: r.sujeto_pasivo || "",
                     });
                   });
                 }
@@ -834,7 +855,7 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
                     performCommit(this ? this.changes : 0);
                   },
                 );
-              }
+              },
             );
           } else {
             performCommit(0);
@@ -846,16 +867,19 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
         rows,
         200,
         (row, done) => {
-          const idLobby = row["Id"] || null;
+          const idLobby = row["id"] || null;
           if (idLobby === null) return done();
           seenIds.add(idLobby);
 
-          const parsedFechaInicio = parseExcelDate(row["Fecha inicio"]);
+          const parsedFechaInicio = parseExcelDate(row["fechaInicio"]);
           const parsedFechaPublicacion = parseExcelDate(
-            row["Fecha publicación"],
+            row["fechaPublicacion"],
           );
 
-          let cumplimientoVal = row["Cumplimiento"] || "En plazo";
+          let cumplimientoVal =
+            row["cumplimiento"] !== undefined && row["cumplimiento"] !== null
+              ? String(row["cumplimiento"])
+              : "En plazo";
           if (parsedFechaInicio && parsedFechaPublicacion) {
             const delay = getPublishedDelay(
               parsedFechaInicio,
@@ -871,30 +895,28 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
             }
           }
 
-          const folio = row["Folio"] || "";
+          const folio = row["folio"] || "";
           const idSolicitudLobby = solicitudAceptadaMap[folio] || null;
 
           const valuesForHash = [
             idLobby,
             folio,
-            normalizeEstado(row["Estado"] || "Publicada"),
-            row["Forma"] || "",
-            row["Materia"] || "",
-            row["Especificación materia tratada"] ||
-              row["Especificacion materia tratada"] ||
-              "",
-            row["Lugar"] || "",
-            row["Comuna"] || "",
-            row["Sujeto pasivo"] || "",
-            row["Cargo"] || "",
-            row["Sujeto activo"] || "",
-            row["Rut"] || "",
-            row["Genero"] || "",
-            row["Tipo"] || "",
-            row["Representado"] || "",
+            normalizeEstado(row["estado"] || "Publicada"),
+            row["forma"] || "",
+            row["materia"] || "",
+            row["especificacionMateria"] || "",
+            row["lugar"] || "",
+            row["comuna"] || "",
+            row["sujetoPasivo"] || "",
+            row["cargoSujetoPasivo"] || "",
+            row["sujetoActivo"] || "",
+            row["runSujetoActivo"] || "",
+            row["generoSujetoActivo"] || "",
+            row["tipoSujetoActivo"] || "",
+            row["representado"] || "",
             parsedFechaInicio,
-            parseExcelDate(row["Fecha término"]),
-            row["Duración"] || "",
+            parseExcelDate(row["fechaTermino"]),
+            row["duracion"] || "",
             parsedFechaPublicacion,
             cumplimientoVal,
             idSolicitudLobby,
@@ -915,8 +937,8 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
                   type: "insert",
                   id: idLobby,
                   folio: folio || `ID: ${idLobby}`,
-                  pasivo: row["Sujeto pasivo"] || "",
-                  activo: row["Sujeto activo"] || ""
+                  pasivo: row["sujetoPasivo"] || "",
+                  activo: row["sujetoActivo"] || "",
                 });
               }
               pendingOps--;
@@ -926,24 +948,22 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
           } else if (existingMap[idLobby] !== currentHash) {
             const updateValues = [
               folio,
-              normalizeEstado(row["Estado"] || "Publicada"),
-              row["Forma"] || "",
-              row["Materia"] || "",
-              row["Especificación materia tratada"] ||
-                row["Especificacion materia tratada"] ||
-                "",
-              row["Lugar"] || "",
-              row["Comuna"] || "",
-              row["Sujeto pasivo"] || "",
-              row["Cargo"] || "",
-              row["Sujeto activo"] || "",
-              row["Rut"] || "",
-              row["Genero"] || "",
-              row["Tipo"] || "",
-              row["Representado"] || "",
+              normalizeEstado(row["estado"] || "Publicada"),
+              row["forma"] || "",
+              row["materia"] || "",
+              row["especificacionMateria"] || "",
+              row["lugar"] || "",
+              row["comuna"] || "",
+              row["sujetoPasivo"] || "",
+              row["cargoSujetoPasivo"] || "",
+              row["sujetoActivo"] || "",
+              row["runSujetoActivo"] || "",
+              row["generoSujetoActivo"] || "",
+              row["tipoSujetoActivo"] || "",
+              row["representado"] || "",
               parsedFechaInicio,
-              parseExcelDate(row["Fecha término"]),
-              row["Duración"] || "",
+              parseExcelDate(row["fechaTermino"]),
+              row["duracion"] || "",
               parsedFechaPublicacion,
               cumplimientoVal,
               idSolicitudLobby,
@@ -959,25 +979,50 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
                   const changes = {};
                   const compareField = (dbField, newValue, label) => {
                     let oldValue = oldRow[dbField];
-                    if (oldValue === null || oldValue === undefined) oldValue = "";
-                    if (newValue === null || newValue === undefined) newValue = "";
+                    if (oldValue === null || oldValue === undefined)
+                      oldValue = "";
+                    if (newValue === null || newValue === undefined)
+                      newValue = "";
                     if (String(oldValue).trim() !== String(newValue).trim()) {
-                      changes[label] = { old: String(oldValue).trim(), new: String(newValue).trim() };
+                      changes[label] = {
+                        old: String(oldValue).trim(),
+                        new: String(newValue).trim(),
+                      };
                     }
                   };
-                  compareField("estado", normalizeEstado(row["Estado"] || "Publicada"), "Estado");
-                  compareField("fecha_inicio", parsedFechaInicio, "Fecha inicio");
-                  compareField("sujeto_pasivo", row["Sujeto pasivo"] || "", "Sujeto Pasivo");
-                  compareField("sujeto_activo", row["Sujeto activo"] || "", "Solicitante");
-                  compareField("representado", row["Representado"] || "", "Representado");
-                  compareField("materia", row["Materia"] || "", "Materia");
+                  compareField(
+                    "estado",
+                    normalizeEstado(row["estado"] || "Publicada"),
+                    "Estado",
+                  );
+                  compareField(
+                    "fecha_inicio",
+                    parsedFechaInicio,
+                    "Fecha inicio",
+                  );
+                  compareField(
+                    "sujeto_pasivo",
+                    row["sujetoPasivo"] || "",
+                    "Sujeto Pasivo",
+                  );
+                  compareField(
+                    "sujeto_activo",
+                    row["sujetoActivo"] || "",
+                    "Solicitante",
+                  );
+                  compareField(
+                    "representado",
+                    row["representado"] || "",
+                    "Representado",
+                  );
+                  compareField("materia", row["materia"] || "", "Materia");
 
                   if (Object.keys(changes).length > 0) {
                     allStats.ph.details.push({
                       type: "update",
                       id: idLobby,
                       folio: folio || oldRow.folio_lobby || `ID: ${idLobby}`,
-                      changes: changes
+                      changes: changes,
                     });
                   }
                 }
@@ -990,7 +1035,7 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
                   pendingOps--;
                   done();
                 });
-              }
+              },
             );
             updatesCount++;
           } else {
@@ -1032,14 +1077,14 @@ function syncSujetosPasivos(rows, callback) {
       const insertStmt = db.prepare(`
       INSERT INTO sujetos_pasivos_sph (
         id_sujeto_lobby, nombre, rut, cargo, tipo, zona,
-        fecha_incorporacion, fecha_termino, respaldo_juridico, row_hash
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        fecha_incorporacion, fecha_termino, respaldo_juridico, asistente_tecnico, row_hash
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
       const updateStmt = db.prepare(`
       UPDATE sujetos_pasivos_sph SET
         nombre = ?, rut = ?, cargo = ?, tipo = ?, zona = ?,
-        fecha_incorporacion = ?, fecha_termino = ?, respaldo_juridico = ?, row_hash = ?
+        fecha_incorporacion = ?, fecha_termino = ?, respaldo_juridico = ?, asistente_tecnico = ?, row_hash = ?
       WHERE id_sujeto_lobby = ?
     `);
 
@@ -1096,7 +1141,7 @@ function syncSujetosPasivos(rows, callback) {
                       type: "delete",
                       id: r.id_sujeto_lobby,
                       nombre: r.nombre || `ID: ${r.id_sujeto_lobby}`,
-                      cargo: r.cargo || ""
+                      cargo: r.cargo || "",
                     });
                   });
                 }
@@ -1112,7 +1157,7 @@ function syncSujetosPasivos(rows, callback) {
                     performCommit(this ? this.changes : 0);
                   },
                 );
-              }
+              },
             );
           } else {
             performCommit(0);
@@ -1124,20 +1169,21 @@ function syncSujetosPasivos(rows, callback) {
         rows,
         200,
         (row, done) => {
-          const idSujeto = row["ID"] || null;
+          const idSujeto = row["id"] || null;
           if (idSujeto === null) return done();
           seenIds.add(idSujeto);
 
           const valuesForHash = [
             idSujeto,
-            row["Nombre"] || "",
-            row["Rut"] || "",
-            row["Cargo o función"] || "",
-            row["Tipo"] || "",
-            row["Zona"] || "",
-            parseExcelDate(row["Fecha incorporación"]),
-            parseExcelDate(row["Fecha término"]),
-            row["Respaldo juridico"] || "",
+            row["nombre"] || "",
+            row["run"] || "",
+            row["cargo"] || "",
+            row["tipo"] || "",
+            row["zona"] || "",
+            parseExcelDate(row["fechaInicio"]),
+            parseExcelDate(row["fechaTermino"]),
+            row["respaldoJuridico"] || "",
+            row["asistenteTecnico"] || "",
           ];
 
           const currentHash = calculateHashFromValues(valuesForHash);
@@ -1154,8 +1200,8 @@ function syncSujetosPasivos(rows, callback) {
                 allStats.sph.details.push({
                   type: "insert",
                   id: idSujeto,
-                  nombre: row["Nombre"] || `ID: ${idSujeto}`,
-                  cargo: row["Cargo o función"] || ""
+                  nombre: row["nombre"] || `ID: ${idSujeto}`,
+                  cargo: row["cargo"] || "",
                 });
               }
               pendingOps--;
@@ -1164,14 +1210,15 @@ function syncSujetosPasivos(rows, callback) {
             insertsCount++;
           } else if (existingMap[idSujeto] !== currentHash) {
             const updateValues = [
-              row["Nombre"] || "",
-              row["Rut"] || "",
-              row["Cargo o función"] || "",
-              row["Tipo"] || "",
-              row["Zona"] || "",
-              parseExcelDate(row["Fecha incorporación"]),
-              parseExcelDate(row["Fecha término"]),
-              row["Respaldo juridico"] || "",
+              row["nombre"] || "",
+              row["run"] || "",
+              row["cargo"] || "",
+              row["tipo"] || "",
+              row["zona"] || "",
+              parseExcelDate(row["fechaInicio"]),
+              parseExcelDate(row["fechaTermino"]),
+              row["respaldoJuridico"] || "",
+              row["asistenteTecnico"] || "",
               currentHash,
               idSujeto,
             ];
@@ -1184,21 +1231,27 @@ function syncSujetosPasivos(rows, callback) {
                   const changes = {};
                   const compareField = (dbField, newValue, label) => {
                     let oldValue = oldRow[dbField];
-                    if (oldValue === null || oldValue === undefined) oldValue = "";
-                    if (newValue === null || newValue === undefined) newValue = "";
+                    if (oldValue === null || oldValue === undefined)
+                      oldValue = "";
+                    if (newValue === null || newValue === undefined)
+                      newValue = "";
                     if (String(oldValue).trim() !== String(newValue).trim()) {
-                      changes[label] = { old: String(oldValue).trim(), new: String(newValue).trim() };
+                      changes[label] = {
+                        old: String(oldValue).trim(),
+                        new: String(newValue).trim(),
+                      };
                     }
                   };
-                  compareField("nombre", row["Nombre"] || "", "Nombre");
-                  compareField("cargo", row["Cargo o función"] || "", "Cargo");
+                  compareField("nombre", row["nombre"] || "", "Nombre");
+                  compareField("cargo", row["cargo"] || "", "Cargo");
 
                   if (Object.keys(changes).length > 0) {
                     allStats.sph.details.push({
                       type: "update",
                       id: idSujeto,
-                      nombre: row["Nombre"] || oldRow.nombre || `ID: ${idSujeto}`,
-                      changes: changes
+                      nombre:
+                        row["nombre"] || oldRow.nombre || `ID: ${idSujeto}`,
+                      changes: changes,
                     });
                   }
                 }
@@ -1211,7 +1264,7 @@ function syncSujetosPasivos(rows, callback) {
                   pendingOps--;
                   done();
                 });
-              }
+              },
             );
             updatesCount++;
           } else {
@@ -1270,52 +1323,87 @@ db.serialize(() => {
   db.run("PRAGMA busy_timeout = 30000");
   db.run("PRAGMA synchronous = OFF");
 
+  // Validar y migrar esquema de la base de datos si es necesario (ej: si fue sobrescrita por sincronización desde SharePoint)
+  db.all("PRAGMA table_info(sujetos_pasivos_sph)", [], (err, rows) => {
+    if (!err && rows && rows.length > 0) {
+      const hasAsistente = rows.some(r => r.name === 'asistente_tecnico');
+      if (!hasAsistente) {
+        db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN asistente_tecnico TEXT", (alterErr) => {
+          if (alterErr) {
+            console.error("Error al añadir columna asistente_tecnico a sujetos_pasivos_sph:", alterErr.message);
+          } else {
+            console.log("✓ Columna asistente_tecnico añadida dinámicamente a sujetos_pasivos_sph.");
+          }
+        });
+      }
+    }
+  });
+
   const solicitudAceptadaMap = {};
 
   if (workbook.SheetNames.includes("SH")) {
     const sheet = workbook.Sheets["SH"];
     const rows = XLSX.utils.sheet_to_json(sheet);
-    console.log(
-      `\nProcesando ${rows.length} registros para la tabla "solicitudes_sh"...`,
-    );
 
-    rows.forEach((row) => {
-      if (normalizeEstado(row["Estado"]) === "Aceptada") {
-        const folio = row["Folio"] || "";
-        const id = row["Id"] || null;
-        if (folio && id) {
-          if (
-            !solicitudAceptadaMap[folio] ||
-            id > solicitudAceptadaMap[folio]
-          ) {
-            solicitudAceptadaMap[folio] = id;
-          }
-        }
-      }
-    });
-    console.log(
-      `  → Mapa de solicitudes Aceptadas construido: ${Object.keys(solicitudAceptadaMap).length} folios únicos.`,
-    );
-
-    console.time("Tiempo: Sincronización SH");
-    syncSolicitudes(rows, (err, stats) => {
-      console.timeEnd("Tiempo: Sincronización SH");
-      if (err) {
-        console.error("Error al sincronizar solicitudes_sh:", err.message);
-        db.close();
-        process.exit(1);
-      }
-      if (stats) {
-        allStats.sh = {
-          ...allStats.sh,
-          inserts: stats.insertsCount,
-          updates: stats.updatesCount,
-          skipped: stats.skippedCount,
-          deletes: stats.deletesCount,
-        };
-      }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      console.warn(
+        '⚠ Advertencia: La hoja "SH" no contiene registros válidos.',
+      );
       processPH();
-    });
+    } else {
+      const headers = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || [];
+      const required = ["id", "folio", "estado"];
+      const missing = required.filter((col) => !headers.includes(col));
+
+      if (missing.length > 0) {
+        console.warn(
+          `⚠️ Omitiendo sincronización SH: La hoja no contiene la estructura esperada. Faltan columnas: ${missing.join(", ")}.`,
+        );
+        processPH();
+      } else {
+        console.log(
+          `\nProcesando ${rows.length} registros para la tabla "solicitudes_sh"...`,
+        );
+
+        rows.forEach((row) => {
+          if (normalizeEstado(row["estado"]) === "Aceptada") {
+            const folio = row["folio"] || "";
+            const id = row["id"] || null;
+            if (folio && id) {
+              if (
+                !solicitudAceptadaMap[folio] ||
+                id > solicitudAceptadaMap[folio]
+              ) {
+                solicitudAceptadaMap[folio] = id;
+              }
+            }
+          }
+        });
+        console.log(
+          `  → Mapa de solicitudes Aceptadas construido: ${Object.keys(solicitudAceptadaMap).length} folios únicos.`,
+        );
+
+        console.time("Tiempo: Sincronización SH");
+        syncSolicitudes(rows, (err, stats) => {
+          console.timeEnd("Tiempo: Sincronización SH");
+          if (err) {
+            console.error("Error al sincronizar solicitudes_sh:", err.message);
+            db.close();
+            process.exit(1);
+          }
+          if (stats) {
+            allStats.sh = {
+              ...allStats.sh,
+              inserts: stats.insertsCount,
+              updates: stats.updatesCount,
+              skipped: stats.skippedCount,
+              deletes: stats.deletesCount,
+            };
+          }
+          processPH();
+        });
+      }
+    }
   } else {
     console.log('⚠ No se encontró la hoja "SH" en el Excel.');
     processPH();
@@ -1325,29 +1413,48 @@ db.serialize(() => {
     if (workbook.SheetNames.includes("PH")) {
       const sheet = workbook.Sheets["PH"];
       const rows = XLSX.utils.sheet_to_json(sheet);
-      console.log(
-        `\nProcesando ${rows.length} registros para la tabla "publicadas_ph"...`,
-      );
 
-      console.time("Tiempo: Sincronización PH");
-      syncPublicadas(rows, solicitudAceptadaMap, (err, stats) => {
-        console.timeEnd("Tiempo: Sincronización PH");
-        if (err) {
-          console.error("Error al sincronizar publicadas_ph:", err.message);
-          db.close();
-          process.exit(1);
-        }
-        if (stats) {
-          allStats.ph = {
-            ...allStats.ph,
-            inserts: stats.insertsCount,
-            updates: stats.updatesCount,
-            skipped: stats.skippedCount,
-            deletes: stats.deletesCount,
-          };
-        }
+      if (!Array.isArray(rows) || rows.length === 0) {
+        console.warn(
+          '⚠ Advertencia: La hoja "PH" no contiene registros válidos.',
+        );
         processSPH();
-      });
+      } else {
+        const headers = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || [];
+        const required = ["id", "folio", "estado"];
+        const missing = required.filter((col) => !headers.includes(col));
+
+        if (missing.length > 0) {
+          console.warn(
+            `⚠️ Omitiendo sincronización PH: La hoja no contiene la estructura esperada. Faltan columnas: ${missing.join(", ")}.`,
+          );
+          processSPH();
+        } else {
+          console.log(
+            `\nProcesando ${rows.length} registros para la tabla "publicadas_ph"...`,
+          );
+
+          console.time("Tiempo: Sincronización PH");
+          syncPublicadas(rows, solicitudAceptadaMap, (err, stats) => {
+            console.timeEnd("Tiempo: Sincronización PH");
+            if (err) {
+              console.error("Error al sincronizar publicadas_ph:", err.message);
+              db.close();
+              process.exit(1);
+            }
+            if (stats) {
+              allStats.ph = {
+                ...allStats.ph,
+                inserts: stats.insertsCount,
+                updates: stats.updatesCount,
+                skipped: stats.skippedCount,
+                deletes: stats.deletesCount,
+              };
+            }
+            processSPH();
+          });
+        }
+      }
     } else {
       console.log('⚠ No se encontró la hoja "PH" en el Excel.');
       processSPH();
@@ -1358,32 +1465,51 @@ db.serialize(() => {
     if (workbook.SheetNames.includes("SPH")) {
       const sheet = workbook.Sheets["SPH"];
       const rows = XLSX.utils.sheet_to_json(sheet);
-      console.log(
-        `\nProcesando ${rows.length} registros para la tabla "sujetos_pasivos_sph"...`,
-      );
 
-      console.time("Tiempo: Sincronización SPH");
-      syncSujetosPasivos(rows, (err, stats) => {
-        console.timeEnd("Tiempo: Sincronización SPH");
-        if (err) {
-          console.error(
-            "Error al sincronizar sujetos_pasivos_sph:",
-            err.message,
-          );
-          db.close();
-          process.exit(1);
-        }
-        if (stats) {
-          allStats.sph = {
-            ...allStats.sph,
-            inserts: stats.insertsCount,
-            updates: stats.updatesCount,
-            skipped: stats.skippedCount,
-            deletes: stats.deletesCount,
-          };
-        }
+      if (!Array.isArray(rows) || rows.length === 0) {
+        console.warn(
+          '⚠ Advertencia: La hoja "SPH" no contiene registros válidos.',
+        );
         finalizeImport();
-      });
+      } else {
+        const headers = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || [];
+        const required = ["id", "nombre", "run"];
+        const missing = required.filter((col) => !headers.includes(col));
+
+        if (missing.length > 0) {
+          console.warn(
+            `⚠️ Omitiendo sincronización SPH: La hoja no contiene la estructura esperada. Faltan columnas: ${missing.join(", ")}.`,
+          );
+          finalizeImport();
+        } else {
+          console.log(
+            `\nProcesando ${rows.length} registros para la tabla "sujetos_pasivos_sph"...`,
+          );
+
+          console.time("Tiempo: Sincronización SPH");
+          syncSujetosPasivos(rows, (err, stats) => {
+            console.timeEnd("Tiempo: Sincronización SPH");
+            if (err) {
+              console.error(
+                "Error al sincronizar sujetos_pasivos_sph:",
+                err.message,
+              );
+              db.close();
+              process.exit(1);
+            }
+            if (stats) {
+              allStats.sph = {
+                ...allStats.sph,
+                inserts: stats.insertsCount,
+                updates: stats.updatesCount,
+                skipped: stats.skippedCount,
+                deletes: stats.deletesCount,
+              };
+            }
+            finalizeImport();
+          });
+        }
+      }
     } else {
       console.log('⚠ No se encontró la hoja "SPH" en el Excel.');
       finalizeImport();

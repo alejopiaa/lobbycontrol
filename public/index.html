@@ -47,43 +47,35 @@
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
 
   <!-- HEADER / TOP NAV -->
-  <header class="h-28 shrink-0 bg-slate-900 border-b border-slate-800 flex items-center px-6 z-40 hidden header-premium">
+  <header class="h-28 shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center px-6 z-40 hidden header-premium">
     <!-- COLUMNA IZQUIERDA: LOGO + CO-BRANDING -->
     <div class="flex-1 flex items-center justify-start gap-4">
       <img src="/logo_secum.png" alt="Secretaría Municipal Maipú" class="h-20 w-auto object-contain header-logo">
       <div class="h-10 w-[1px] bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
       <div class="flex flex-col justify-center leading-none">
-        <span class="text-sm font-extrabold text-slate-800 dark:text-slate-100 tracking-wider">LobbyControl</span>
+        <span class="text-sm font-extrabold text-slate-850 dark:text-slate-100 tracking-wider">LobbyControl</span>
         <span class="text-[9px] font-semibold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wide">Ley de Lobby N° 20.730</span>
       </div>
     </div>
 
     <!-- COLUMNA CENTRAL: NAVEGACIÓN SUPERIOR (CENTRADA MATEMÁTICAMENTE) -->
     <div class="flex-none flex justify-center">
-      <nav class="hidden md:flex items-center gap-1 bg-slate-950/40 p-1 rounded-full border border-slate-800/80 header-nav-capsule">
-        <button onclick="switchView('dashboard')" id="nav-dashboard" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
+      <nav class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-950/40 p-1 rounded-full border border-slate-200 dark:border-slate-800/80 header-nav-capsule">
+        <button onclick="switchView('dashboard')" id="nav-dashboard" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-slate-600 hover:text-slate-900 dark:text-slate-350 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
           <i data-lucide="layout-dashboard" class="h-3.5 w-3.5"></i>
           <span>Dashboard</span>
         </button>
-        <button onclick="switchView('solicitudes')" id="nav-solicitudes" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
+        <button onclick="switchView('solicitudes')" id="nav-solicitudes" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-slate-600 hover:text-slate-900 dark:text-slate-350 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
           <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
           <span>Solicitudes</span>
         </button>
-        <button onclick="switchView('publicadas')" id="nav-publicadas" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
+        <button onclick="switchView('publicadas')" id="nav-publicadas" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-slate-600 hover:text-slate-900 dark:text-slate-350 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
           <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
           <span>Audiencias</span>
         </button>
-        <button onclick="switchView('sujetos_pasivos')" id="nav-sujetos_pasivos" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
-          <i data-lucide="users" class="h-3.5 w-3.5"></i>
-          <span>Sujetos Pasivos</span>
-        </button>
-        <button onclick="switchView('reportes')" id="nav-reportes" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
-          <i data-lucide="bar-chart-2" class="h-3.5 w-3.5"></i>
-          <span>Reportes</span>
-        </button>
-        <button onclick="switchView('administracion')" id="nav-administracion" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800">
-          <i data-lucide="settings" class="h-3.5 w-3.5"></i>
-          <span>Administración</span>
+        <button onclick="switchView('agenda')" id="nav-agenda" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-slate-600 hover:text-slate-900 dark:text-slate-350 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800">
+          <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
+          <span>Agenda</span>
         </button>
       </nav>
     </div>
@@ -102,13 +94,13 @@
       <!-- Widget de Alertas (Semáforo) -->
       <div id="alerts-widget-container" class="relative"></div>
 
-      <!-- Botón de Agenda (pequeño) -->
-      <button id="nav-agenda" onclick="switchView('agenda')" class="h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Agenda de Audiencias">
-        <i data-lucide="calendar" class="h-4 w-4"></i>
+      <!-- Botón de Configuración (Engranaje) -->
+      <button id="nav-settings" onclick="switchView('administracion')" class="h-8 w-8 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-200 hidden" title="Configuración y Administración">
+        <i data-lucide="settings" class="h-4 w-4"></i>
       </button>
 
       <!-- Botón de Modo Claro/Oscuro -->
-      <button id="theme-toggle" onclick="toggleTheme()" class="h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Cambiar de Modo">
+      <button id="theme-toggle" onclick="toggleTheme()" class="h-8 w-8 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-100 dark:bg-slate-950/40 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-200" title="Cambiar de Modo">
         <i data-lucide="sun" class="h-4 w-4"></i>
       </button>
 
@@ -117,13 +109,13 @@
         <!-- Contenedor clickeable del perfil -->
         <div onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 cursor-pointer group select-none">
           <div class="text-right hidden sm:block">
-            <p id="header-user-rol" class="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Cargando...</p>
-            <p id="header-user-nombre" class="text-[10px] text-slate-400 group-hover:text-slate-300 transition-colors">...</p>
+            <p id="header-user-rol" class="text-xs font-semibold text-slate-700 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-white transition-colors">Cargando...</p>
+            <p id="header-user-nombre" class="text-[10px] text-slate-500 group-hover:text-slate-650 dark:text-slate-400 dark:group-hover:text-slate-300 transition-colors">...</p>
           </div>
-          <div id="header-user-initials" class="h-8 w-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-semibold text-xs group-hover:border-brand-500 transition-all duration-150" title="Perfil de usuario">
+          <div id="header-user-initials" class="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-xs flex items-center justify-center group-hover:border-brand-500 transition-all duration-150" title="Perfil de usuario">
             --
           </div>
-          <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-200 transition-colors"></i>
+          <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors"></i>
         </div>
 
         <!-- Dropdown flotante del perfil -->
@@ -150,11 +142,24 @@
     </div>
   </header>
 
+  <!-- BANNER DE SIMULACIÓN DE PERFIL -->
+  <div id="impersonation-banner" class="hidden shrink-0 bg-amber-500/10 border-b border-amber-500/25 px-6 py-2 flex items-center justify-between text-amber-200 text-xs font-semibold backdrop-blur-md z-30">
+    <div class="flex items-center gap-2">
+      <div class="h-5 w-5 rounded bg-amber-500/20 text-amber-500 flex items-center justify-center">
+        <i data-lucide="shield-alert" class="h-3.5 w-3.5"></i>
+      </div>
+      <span>⚠️ Modo Simulación activo: Viendo la aplicación como el usuario <strong id="simulated-user-name" class="text-white">...</strong> (<span id="simulated-user-role" class="italic">...</span>)</span>
+    </div>
+    <button onclick="stopImpersonation()" class="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer shadow hover:shadow-amber-500/20 border-0">
+      Detener Simulación
+    </button>
+  </div>
+
   <!-- CUERPO PRINCIPAL (SIDEBAR + MAIN CONTENT) -->
   <div class="flex flex-1 overflow-hidden">
     
     <!-- CONTENEDOR PRINCIPAL RESPONSIVO -->
-    <main class="flex-1 overflow-y-auto bg-slate-950 p-8 relative">
+    <main class="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-8 relative">
       <div id="top-loading-bar" class="absolute top-0 left-0 h-[3px] bg-brand-500 transition-all duration-200 w-0 opacity-0 z-50"></div>
       <div class="max-w-7xl mx-auto space-y-6" id="main-content">
         <!-- Las vistas se cargarán aquí de forma dinámica -->
@@ -172,20 +177,28 @@
   <!-- CÁPSULA DE ESTADO FLOTANTE -->
   <div id="system-status-capsule" class="fixed bottom-5 left-5 z-40 select-none group hidden">
     <!-- Pánel Detallado (Hover Card) -->
-    <div id="system-status-hover-card" class="absolute bottom-full left-0 mb-2.5 w-64 p-3 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl backdrop-blur-md transition-all duration-200 transform translate-y-2 opacity-0 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto">
-      <div class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Detalles de Conexión</div>
-      <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-        <div class="flex justify-between">
-          <span>Base de Datos:</span>
-          <span class="font-semibold text-slate-900 dark:text-slate-200">Local</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Servicio Red:</span>
-          <span id="capsule-net-status" class="font-semibold text-emerald-600 dark:text-emerald-400">Conectado</span>
-        </div>
-        <div class="flex flex-col pt-1 border-t border-slate-100 dark:border-slate-800 mt-1">
-          <span class="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">Última Sincronización</span>
-          <span id="capsule-last-update" class="font-mono font-bold text-[10px] text-slate-800 dark:text-slate-300 mt-0.5">Cargando...</span>
+    <div id="system-status-hover-card" class="absolute bottom-full left-0 pb-2.5 w-64 transition-all duration-200 transform translate-y-2 opacity-0 pointer-events-none group-hover:translate-y-0 group-hover:opacity-100 group-hover:pointer-events-auto">
+      <div class="p-3 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl backdrop-blur-md">
+        <div class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Detalles de Conexión</div>
+        <div class="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
+          <div class="flex justify-between">
+            <span>Base de Datos:</span>
+            <span class="font-semibold text-slate-900 dark:text-slate-200">Local</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Servicio Red:</span>
+            <span id="capsule-net-status" class="font-semibold text-emerald-600 dark:text-emerald-400">Conectado</span>
+          </div>
+          <div class="flex flex-col pt-1 border-t border-slate-100 dark:border-slate-800 mt-1">
+            <span class="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">Última Sincronización</span>
+            <span id="capsule-last-update" class="font-mono font-bold text-[10px] text-slate-800 dark:text-slate-300 mt-0.5">Cargando...</span>
+          </div>
+          <div id="capsule-sync-container" class="pt-2 border-t border-slate-100 dark:border-slate-800 mt-1.5 hidden">
+            <button id="btn-capsule-sync" onclick="runCapsuleSync(true)" class="w-full py-1.5 px-3 rounded-xl text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/50 dark:border-slate-700/50 cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-150">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
+              <span>Reintentar conexión</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

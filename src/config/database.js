@@ -534,6 +534,7 @@ db.serialize(() => {
       fecha_incorporacion TEXT,
       fecha_termino TEXT,
       respaldo_juridico TEXT,
+      asistente_tecnico TEXT,
       row_hash TEXT
     )
   `, (err) => {
@@ -545,6 +546,10 @@ db.serialize(() => {
           const hasRowHash = rows.some(r => r.name === 'row_hash');
           if (!hasRowHash) {
             db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN row_hash TEXT");
+          }
+          const hasAsistente = rows.some(r => r.name === 'asistente_tecnico');
+          if (!hasAsistente) {
+            db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN asistente_tecnico TEXT");
           }
         }
       });

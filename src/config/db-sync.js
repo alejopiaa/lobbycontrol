@@ -20,6 +20,27 @@ function decompressFileAsync(src, dest) {
   });
 }
 
+function copyFileWithRetry(src, dest, retries = 5, delay = 500) {
+  return new Promise((resolve, reject) => {
+    let attempt = 0;
+    function tryCopy() {
+      attempt++;
+      try {
+        fs.copyFileSync(src, dest);
+        resolve();
+      } catch (err) {
+        if (err.code === 'EBUSY' && attempt < retries) {
+          console.warn(`Archivo bloqueado (${dest}). Reintentando copia en ${delay}ms... (Intento ${attempt}/${retries})`);
+          setTimeout(tryCopy, delay);
+        } else {
+          reject(err);
+        }
+      }
+    }
+    tryCopy();
+  });
+}
+
 /**
  * Descarga un archivo de forma segura enviando las cookies de SharePoint y manejando redirecciones.
  * @param {String} url 
@@ -218,7 +239,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
       await db.closeConnection();
       
       // Breve pausa para asegurar la liberación del lock del archivo por el OS
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Eliminar archivos WAL y SHM asociados para evitar corrupción
       const localWalPath = `${localDbPath}-wal`;
@@ -230,12 +251,22 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         try { fs.unlinkSync(localShmPath); } catch (e) { console.warn(`Advertencia al eliminar SHM viejo: ${e.message}`); }
       }
 
-      fs.copyFileSync(tempDbPath, localDbPath);
-      fs.copyFileSync(tempVersionPath, localVersionPath);
+      try {
+        await copyFileWithRetry(tempDbPath, localDbPath);
+        await copyFileWithRetry(tempVersionPath, localVersionPath);
+      } catch (copyErr) {
+        console.error(`Error crítico al copiar base de datos temporal: ${copyErr.message}. Restaurando conexión original...`);
+        try {
+          await db.openConnection();
+        } catch (openErr) {
+          console.error(`Error al intentar restaurar conexión original: ${openErr.message}`);
+        }
+        throw copyErr;
+      }
       
       // Limpiar temporales
-      fs.unlinkSync(tempDbPath);
-      fs.unlinkSync(tempVersionPath);
+      try { fs.unlinkSync(tempDbPath); } catch (e) {}
+      try { fs.unlinkSync(tempVersionPath); } catch (e) {}
 
       await db.openConnection();
       

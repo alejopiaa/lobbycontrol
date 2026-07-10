@@ -50,13 +50,13 @@ function renderSearchInput(options) {
   if (disabled) {
     inputClass += 'glass-input-disabled cursor-not-allowed text-slate-400';
   } else {
-    inputClass += 'text-slate-200 placeholder-slate-400';
+    inputClass += 'text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500';
   }
 
   let iconHtml = '';
   if (icon) {
     iconHtml = `
-      <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-300">
+      <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-300">
         <i data-lucide="${icon}" class="h-3.5 w-3.5"></i>
       </span>
     `;
@@ -65,7 +65,7 @@ function renderSearchInput(options) {
   let suggestionsHtml = '';
   if (hasSuggestions) {
     suggestionsHtml = `
-      <div id="suggestions-${fieldName}" class="suggestions-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-slate-700/60 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+      <div id="suggestions-${fieldName}" class="suggestions-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
         <!-- Las sugerencias se inyectarán en tiempo de ejecución -->
       </div>
     `;
@@ -98,7 +98,7 @@ function renderSearchInput(options) {
 
   return `
     <div class="space-y-1 relative w-full" id="container-filter-${fieldName}">
-      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
+      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
       <div class="relative w-full flex items-center">
         ${iconHtml}
         <input type="text" 
@@ -148,7 +148,7 @@ function renderDateInput(options) {
 
   return `
     <div class="space-y-1 w-full">
-      ${label ? `<label for="${id}-display" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
+      ${label ? `<label for="${id}-display" class="block text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
       <div class="relative w-full flex items-center">
         <input type="text"
                id="${id}-display"
@@ -161,7 +161,7 @@ function renderDateInput(options) {
                value="${escapeHtmlAttr(displayValue)}"
                oninput="handleDateDisplayInput(this)"
                onkeydown="handleDateDisplayKeydown(event, this)"
-               class="w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400 tracking-widest">
+               class="w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 tracking-widest">
         <button type="button"
                 onclick="toggleDateNativePicker('${id}')"
                 class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-400 transition-colors p-0.5">
@@ -215,7 +215,7 @@ function renderSelectInput(options) {
     const activeClass = isSelected ? 'bg-brand-600/20 font-semibold text-brand-600 dark:text-brand-400' : '';
     return `
       <div onclick="selectCustomOption(event, '${id}', '${escapeHtmlAttr(opt.value)}', '${escapeHtmlAttr(opt.text)}')"
-           class="custom-select-item px-3 py-2 text-xs text-slate-200 hover:bg-brand-600 hover:text-white cursor-pointer transition-colors truncate ${activeClass}">
+           class="custom-select-item px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-600 hover:text-white cursor-pointer transition-colors truncate ${activeClass}">
         ${opt.text}
       </div>
     `;
@@ -223,7 +223,7 @@ function renderSelectInput(options) {
 
   return `
     <div class="space-y-1 w-full relative">
-      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
+      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
       <div class="relative w-full font-sans">
         <!-- Select nativo oculto para compatibilidad de eventos y lectura de estado -->
         <select id="${id}" 
@@ -237,16 +237,16 @@ function renderSelectInput(options) {
         <button type="button" 
                 id="custom-select-trigger-${id}"
                 onclick="toggleCustomSelectDropdown(event, '${id}')"
-                class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-slate-200 text-left relative flex items-center justify-between cursor-pointer hover:border-slate-500 transition-all duration-200">
+                class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-slate-800 dark:text-slate-200 text-left relative flex items-center justify-between cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200">
           <span class="truncate">${selectedOptionText}</span>
-          <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-300">
+          <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-300">
             <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
           </span>
         </button>
         
         <!-- Contenedor desplegable customizado (igual que los dropdowns de autocompletado) -->
         <div id="custom-select-dropdown-${id}" 
-             class="custom-select-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-slate-700/60 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+             class="custom-select-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
           ${customOptionsHtml}
         </div>
       </div>

@@ -123,6 +123,14 @@ async function handle(req, setSharepointCookie) {
   const method = req.method.toUpperCase();
   const body = req.body || {};
   const user = req.user; // currentUserSession
+  
+  function getEffectiveUser(u) {
+    if (u && u.rol === 'Administrador' && u.simulatedUser) {
+      return u.simulatedUser;
+    }
+    return u;
+  }
+  const effectiveUser = getEffectiveUser(user);
 
   // Validaciones globales de rutas
   const isPublicRoute = (
@@ -148,7 +156,35 @@ async function handle(req, setSharepointCookie) {
 
   // GET /api/auth/me
   if (method === 'GET' && pathName === '/api/auth/me') {
-    return { status: 200, data: user || null };
+    if (!user) return { status: 200, data: null };
+    
+    const activeUser = effectiveUser;
+    const dataToReturn = {
+      id: activeUser.id,
+      correo: activeUser.correo,
+      nombre: activeUser.nombre,
+      rol: activeUser.rol,
+      rut: activeUser.rut || "",
+      asistido_rut: activeUser.asistido_rut || "",
+      isSimulated: !!user.simulatedUser,
+      realUserNombre: user.nombre,
+      realUserRol: user.rol
+    };
+
+    if (activeUser.rol === 'Sujeto Pasivo' || activeUser.rol === 'Asistente técnico') {
+      const targetRut = activeUser.rol === 'Sujeto Pasivo' ? activeUser.rut : activeUser.asistido_rut;
+      return new Promise((resolve) => {
+        db.get('SELECT nombre FROM sujetos_pasivos_sph WHERE rut = ? LIMIT 1', [targetRut], (err, row) => {
+          if (!err && row && row.nombre) {
+            dataToReturn.sujeto_pasivo_nombre = row.nombre;
+          } else {
+            dataToReturn.sujeto_pasivo_nombre = activeUser.nombre;
+          }
+          resolve({ status: 200, data: dataToReturn });
+        });
+      });
+    }
+    return { status: 200, data: dataToReturn };
   }
 
   // POST /api/log
@@ -356,8 +392,8 @@ async function handle(req, setSharepointCookie) {
   // GET /api/stats
   if (method === 'GET' && pathName === '/api/stats') {
     const stats = {};
-    if (user.rol === 'Sujeto Pasivo' || user.rol === 'Asistente técnico') {
-      const targetRut = user.rol === 'Sujeto Pasivo' ? user.rut : user.asistido_rut;
+    if (effectiveUser.rol === 'Sujeto Pasivo' || effectiveUser.rol === 'Asistente técnico') {
+      const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       stats.usuarios = 1;
       stats.sujetos_pasivos = 1;
       
@@ -562,8 +598,8 @@ async function handle(req, setSharepointCookie) {
     let whereClauses = [];
     let params = [];
 
-    if (user.rol === 'Sujeto Pasivo' || user.rol === 'Asistente técnico') {
-      const targetRut = user.rol === 'Sujeto Pasivo' ? user.rut : user.asistido_rut;
+    if (effectiveUser.rol === 'Sujeto Pasivo' || effectiveUser.rol === 'Asistente técnico') {
+      const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       whereClauses.push(`(sujeto_pasivo_id IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_sph WHERE rut = ?) OR LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?))`);
       params.push(targetRut, targetRut);
     }
@@ -721,8 +757,8 @@ async function handle(req, setSharepointCookie) {
     let userWhereClauses = [];
     let userParams = [];
 
-    if (user.rol === 'Sujeto Pasivo' || user.rol === 'Asistente técnico') {
-      const targetRut = user.rol === 'Sujeto Pasivo' ? user.rut : user.asistido_rut;
+    if (effectiveUser.rol === 'Sujeto Pasivo' || effectiveUser.rol === 'Asistente técnico') {
+      const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       userWhereClauses.push(`(sujeto_pasivo_id IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_sph WHERE rut = ?) OR LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?))`);
       userParams.push(targetRut, targetRut);
     }
@@ -890,8 +926,8 @@ async function handle(req, setSharepointCookie) {
     let whereClauses = [];
     let params = [];
 
-    if (user.rol === 'Sujeto Pasivo' || user.rol === 'Asistente técnico') {
-      const targetRut = user.rol === 'Sujeto Pasivo' ? user.rut : user.asistido_rut;
+    if (effectiveUser.rol === 'Sujeto Pasivo' || effectiveUser.rol === 'Asistente técnico') {
+      const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       whereClauses.push(`LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?)`);
       params.push(targetRut);
     }
@@ -979,7 +1015,7 @@ async function handle(req, setSharepointCookie) {
 
   // GET /api/sujetos_pasivos
   if (method === 'GET' && pathName === '/api/sujetos_pasivos') {
-    if (user.rol === 'Sujeto Pasivo' || user.rol === 'Asistente técnico') {
+    if (effectiveUser.rol === 'Sujeto Pasivo' || effectiveUser.rol === 'Asistente técnico') {
       return { status: 403, data: { error: 'Acceso denegado. No autorizado para consultar sujetos pasivos.' } };
     }
     return new Promise((resolve) => {
@@ -1243,18 +1279,11 @@ async function handle(req, setSharepointCookie) {
   if (method === 'GET' && pathName === '/api/admin/db-health') {
     const dbDir = db.getUserDataDir();
     const dbFile = db.getDbPath();
-    const excelFile = path.join(dbDir, 'lobby_data.xlsx');
 
     let dbSize = 'No encontrado';
     try {
       const stats = fs.statSync(dbFile);
       dbSize = formatBytes(stats.size);
-    } catch (e) {}
-
-    let excelSize = 'No encontrado';
-    try {
-      const stats = fs.statSync(excelFile);
-      excelSize = formatBytes(stats.size);
     } catch (e) {}
 
     let signatureStatus = 'No disponible';
@@ -1284,7 +1313,7 @@ async function handle(req, setSharepointCookie) {
         const integrity = (err || !row) ? 'Error al verificar' : row.integrity_check;
         resolve({
           status: 200,
-          data: { dbSize, excelSize, excelPath: excelFile, integrity, signatureStatus }
+          data: { dbSize, integrity, signatureStatus }
         });
       });
     });
@@ -1308,6 +1337,62 @@ async function handle(req, setSharepointCookie) {
       logError("ERR-SYS-403", "Fallo al crear respaldo manual", `Destino: ${targetPath} | Error: ${e.message} | Por: ${user.correo}`);
       return { status: 500, data: { error: 'No se pudo copiar el archivo de base de datos para respaldo: ' + e.message } };
     }
+  }
+
+  // POST /api/admin/impersonate
+  if (method === 'POST' && pathName === '/api/admin/impersonate') {
+    const { userId } = body;
+    if (!userId) return { status: 400, data: { error: 'Se requiere el parámetro userId para iniciar la simulación.' } };
+    
+    return new Promise((resolve) => {
+      usersDb.get('SELECT * FROM usuarios WHERE id = ?', [userId], (err, dbUser) => {
+        if (err) return resolve({ status: 500, data: { error: 'Error de base de datos: ' + err.message } });
+        if (!dbUser) return resolve({ status: 404, data: { error: 'Usuario no encontrado en el sistema.' } });
+        
+        // Cargar el nombre oficial del sujeto pasivo si tiene RUT
+        if (dbUser.rol === 'Sujeto Pasivo' || dbUser.rol === 'Asistente técnico') {
+          const targetRut = dbUser.rol === 'Sujeto Pasivo' ? dbUser.rut : dbUser.asistido_rut;
+          db.get('SELECT nombre FROM sujetos_pasivos_sph WHERE rut = ? LIMIT 1', [targetRut], (errSp, rowSp) => {
+            user.simulatedUser = {
+              id: dbUser.id,
+              correo: dbUser.correo,
+              nombre: dbUser.nombre,
+              rol: dbUser.rol,
+              rut: dbUser.rut || "",
+              asistido_rut: dbUser.asistido_rut || "",
+              sujeto_pasivo_nombre: (!errSp && rowSp && rowSp.nombre) ? rowSp.nombre : dbUser.nombre
+            };
+            const { logEvent } = require('../config/logger');
+            logEvent("AUTH-SIM-103", "Simulación de perfil iniciada", `Administrador: ${user.correo} simulando a: ${dbUser.correo}`);
+            resolve({ status: 200, data: { success: true } });
+          });
+        } else {
+          user.simulatedUser = {
+            id: dbUser.id,
+            correo: dbUser.correo,
+            nombre: dbUser.nombre,
+            rol: dbUser.rol,
+            rut: dbUser.rut || "",
+            asistido_rut: dbUser.asistido_rut || "",
+            sujeto_pasivo_nombre: dbUser.nombre
+          };
+          const { logEvent } = require('../config/logger');
+          logEvent("AUTH-SIM-103", "Simulación de perfil iniciada", `Administrador: ${user.correo} simulando a: ${dbUser.correo}`);
+          resolve({ status: 200, data: { success: true } });
+        }
+      });
+    });
+  }
+
+  // POST /api/admin/impersonate/stop
+  if (method === 'POST' && pathName === '/api/admin/impersonate/stop') {
+    if (user && user.simulatedUser) {
+      const simulatedEmail = user.simulatedUser.correo;
+      user.simulatedUser = null;
+      const { logEvent } = require('../config/logger');
+      logEvent("AUTH-SIM-104", "Simulación de perfil finalizada", `Administrador: ${user.correo} detuvo simulación de: ${simulatedEmail}`);
+    }
+    return { status: 200, data: { success: true } };
   }
 
   // GET /api/admin/logs

@@ -1253,16 +1253,33 @@ function renderSujetosPasivos(container) {
     rowsHtml = `<tr><td colspan="6" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de sujetos pasivos.</td></tr>`;
   } else {
     paginatedItems.forEach((item) => {
+      const isVigente = !item.fecha_termino;
+      const statusBadge = isVigente
+        ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status-enplazo">Vigente</span>`
+        : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status-vencido">No Vigente</span>`;
+
       rowsHtml += `
         <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
-          <td class="pl-6 pr-2 text-xs font-semibold text-slate-200"><div class="w-full truncate" title="${escapeHtmlAttr(item.nombre)}">${escapeHtml(item.nombre)}</div></td>
-          <td class="px-2 text-xs text-slate-300 font-mono"><div class="w-full truncate">${escapeHtml(item.rut || "No definido")}</div></td>
-          <td class="px-2 text-xs text-slate-300 font-medium"><div class="w-full truncate" title="${escapeHtmlAttr(getCargoClean(item.cargo))}">${escapeHtml(getCargoClean(item.cargo))}</div></td>
-          <td class="px-2 text-xs text-slate-300"><div class="w-full truncate">${escapeHtml(item.tipo || "Autoridad")}</div></td>
-          <td class="px-2 text-xs text-slate-300"><div class="w-full truncate">${escapeHtml(item.zona || "Metropolitana")}</div></td>
-          <td class="pl-2 pr-6 text-xs text-slate-300">
-            <div class="text-xs text-slate-300 w-full truncate">${formatDate(item.fecha_incorporacion)}</div>
-            ${item.fecha_termino ? `<div class="text-[10px] text-rose-300 w-full truncate">Término: ${formatDate(item.fecha_termino)}</div>` : '<div class="text-[10px] text-emerald-300 font-medium w-full truncate">Vigente</div>'}
+          <td class="pl-6 pr-2 text-xs font-semibold text-slate-200">
+            <div class="w-full truncate" title="${escapeHtmlAttr(item.nombre)}">${escapeHtml(item.nombre)}</div>
+          </td>
+          <td class="px-2 text-xs text-slate-300 font-mono">
+            <div class="w-full truncate">${escapeHtml(item.rut || "No definido")}</div>
+          </td>
+          <td class="px-2 text-xs text-slate-300 font-medium">
+            <div class="w-full truncate" title="${escapeHtmlAttr(getCargoClean(item.cargo))}">${escapeHtml(getCargoClean(item.cargo))}</div>
+          </td>
+          <td class="px-2 text-xs text-slate-300">
+            <div class="font-semibold text-slate-200" title="Fecha Inicio">${formatDate(item.fecha_incorporacion)}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5" title="Fecha Término">${item.fecha_termino ? formatDate(item.fecha_termino) : 'Presente'}</div>
+          </td>
+          <td class="px-2 text-xs">
+            ${statusBadge}
+          </td>
+          <td class="pl-2 pr-6 text-left whitespace-nowrap">
+            <button onclick="showSujetoDetailsModal(${item.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-900/40 whitespace-nowrap cursor-pointer">
+              Ver Detalle
+            </button>
           </td>
         </tr>
       `;
@@ -1314,11 +1331,11 @@ function renderSujetosPasivos(container) {
           <thead>
             <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
               <th class="pl-6 pr-2 py-3 w-56 text-left">Nombre Completo</th>
-              <th class="px-2 py-3 w-28 text-left">RUT</th>
+              <th class="px-2 py-3 w-32 text-left">RUT / RUN</th>
               <th class="px-2 py-3 w-64 text-left">Cargo Municipal</th>
-              <th class="px-2 py-3 w-28 text-left">Tipo</th>
-              <th class="px-2 py-3 w-28 text-left">Zona</th>
-              <th class="pl-2 pr-6 py-3 w-40 text-left">Fechas de Gestión</th>
+              <th class="px-2 py-3 w-48 text-left">Fechas de Vigencia</th>
+              <th class="px-2 py-3 w-28 text-left">Estado</th>
+              <th class="pl-2 pr-6 py-3 w-32 text-left">Acción</th>
             </tr>
           </thead>
           <tbody>
@@ -1333,12 +1350,179 @@ function renderSujetosPasivos(container) {
   `;
 }
 
+// RENDER: MODAL DE DETALLES DEL SUJETO PASIVO
+function showSujetoDetailsModal(sujetoId) {
+  try {
+    const list = dataStore.sujetos_pasivos || [];
+    const item = list.find((s) => s.id == sujetoId);
+    if (!item) {
+      alert("No se encontró el registro del Sujeto Pasivo.");
+      return;
+    }
+
+    const modal = document.getElementById("modal-container");
+    if (!modal) return;
+
+    modal.classList.remove("hidden");
+
+    // Buscar asesores técnicos asociados
+    const users = dataStore.usuarios || [];
+    const asesores = users.filter((u) => u.rol === "Asistente técnico" && u.asistido_rut === item.rut);
+    
+    let asesoresHtml = "";
+    if (asesores.length === 0) {
+      asesoresHtml = `
+        <p class="text-xs text-slate-400 dark:text-slate-550 italic mt-1.5 p-3 rounded-xl border border-slate-200/40 dark:border-slate-800/40 bg-slate-50/30 dark:bg-slate-900/10">
+          No registra asesores técnicos.
+        </p>
+      `;
+    } else {
+      asesoresHtml = `
+        <div class="grid grid-cols-1 gap-2 mt-1.5">
+          ${asesores.map((a) => {
+            const names = (a.nombre || "").trim().split(/\s+/);
+            let initials = "AT";
+            if (names.length >= 2) {
+              initials = (names[0][0] + names[names.length - 1][0]).toUpperCase();
+            } else if (names.length === 1 && names[0]) {
+              initials = names[0].substring(0, 2).toUpperCase();
+            }
+            return `
+              <div class="flex items-center gap-2.5 bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200/50 dark:border-slate-900/50 p-2.5 rounded-xl hover:border-slate-350 dark:hover:border-slate-800 transition-colors">
+                <div class="h-7 w-7 rounded-full bg-brand-500/10 text-brand-500 dark:text-brand-400 flex items-center justify-center text-[10.5px] font-bold shrink-0 border border-brand-500/20">
+                  ${initials}
+                </div>
+                <div class="truncate leading-none">
+                  <p class="font-bold text-slate-800 dark:text-slate-200 text-[11px]">${escapeHtml(a.nombre)}</p>
+                  <p class="text-slate-400 dark:text-slate-500 text-[9.5px] mt-0.5">${escapeHtml(a.correo)}</p>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] font-sans text-left">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
+              <i data-lucide="user" class="h-4.5 w-4.5"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Sujeto Pasivo</h3>
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">ID Portal Lobby: <span class="font-mono text-brand-400 font-bold">${item.id_sujeto_lobby || "Sin ID"}</span></span>
+            </div>
+          </div>
+          <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer bg-transparent">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <!-- Info Grid -->
+        <div class="space-y-4 text-xs">
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Nombre Completo</span>
+            <p class="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">${escapeHtml(item.nombre)}</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">RUT</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold font-mono mt-0.5">${escapeHtml(item.rut || "No definido")}</p>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Tipo de Sujeto Pasivo</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold mt-0.5">${escapeHtml(item.tipo || "Autoridad")}</p>
+            </div>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Cargo</span>
+            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.cargo || "Sin cargo registrado")}</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Vigencia</span>
+              <p class="mt-1">
+                ${item.fecha_termino 
+                  ? `<span class="px-2.5 py-0.5 text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-md font-semibold">No Vigente</span>` 
+                  : `<span class="px-2.5 py-0.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-semibold">Vigente</span>`
+                }
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha de Inicio</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold font-mono mt-0.5">${formatDate(item.fecha_incorporacion)}</p>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha de Término</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold font-mono mt-0.5">${item.fecha_termino ? formatDate(item.fecha_termino) : "—"}</p>
+            </div>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+          
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Respaldo Jurídico (Decreto)</span>
+            <p class="text-xs text-slate-700 dark:text-slate-350 mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.respaldo_juridico || "No registra respaldo jurídico")}</p>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Asistente Técnico Registrado (Excel SPH)</span>
+            <p class="text-xs text-slate-700 dark:text-slate-350 mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.asistente_tecnico || "No registra asistente técnico en SPH")}</p>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Asesores Técnicos</span>
+            ${asesoresHtml}
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    `;
+
+    lucide.createIcons();
+  } catch (err) {
+    console.error("Error al abrir modal del sujeto pasivo:", err);
+  }
+}
+window.showSujetoDetailsModal = showSujetoDetailsModal;
 function changeAdminTab(tabName) {
   activeAdminTab = tabName;
   const container = document.getElementById("main-content");
-  if (container) {
-    renderUsuarios(container);
+  if (!container) return;
+
+  // Si se cambia a Reportes y no hay datos cargados, los buscamos primero
+  if (tabName === "reportes" && (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0)) {
+    if (typeof fetchReportesData === "function") {
+      fetchReportesData().then(() => {
+        if (typeof fetchVigentesNombres === "function") fetchVigentesNombres();
+        renderUsuarios(container);
+      });
+      return;
+    }
   }
+
+  renderUsuarios(container);
 }
 
 function renderHistoryList() {
@@ -1545,13 +1729,76 @@ function filterUsuarios() {
   lucide.createIcons();
 }
 
+// Helper: Genera el HTML de los botones de pestañas de Administración
+function _buildAdminTabsNavHtml(activeTab) {
+  const tabClass = (name) => `border-b-2 py-3.5 px-1 text-xs font-bold transition-all flex items-center gap-2 focus:outline-none shrink-0 ${
+    activeTab === name
+      ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+      : 'border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700'
+  }`;
+  
+  const rol = (window.currentUser && window.currentUser.rol) || '';
+  if (rol === 'Auditor') {
+    return `
+      <button onclick="changeAdminTab('sujetos')" class="${tabClass('sujetos')}"><i data-lucide="shield-check" class="h-4 w-4"></i> Sujetos Pasivos</button>
+      <button onclick="changeAdminTab('reportes')" class="${tabClass('reportes')}"><i data-lucide="bar-chart-2" class="h-4 w-4"></i> Reportes</button>
+    `;
+  }
+  
+  return `
+    <button onclick="changeAdminTab('auditoria')" class="${tabClass('auditoria')}"><i data-lucide="clipboard-check" class="h-4 w-4"></i> Control de Auditoría</button>
+    <button onclick="changeAdminTab('sincronizacion')" class="${tabClass('sincronizacion')}"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Sincronización</button>
+    <button onclick="changeAdminTab('sujetos')" class="${tabClass('sujetos')}"><i data-lucide="shield-check" class="h-4 w-4"></i> Sujetos Pasivos</button>
+    <button onclick="changeAdminTab('reportes')" class="${tabClass('reportes')}"><i data-lucide="bar-chart-2" class="h-4 w-4"></i> Reportes</button>
+    <button onclick="changeAdminTab('usuarios')" class="${tabClass('usuarios')}"><i data-lucide="users" class="h-4 w-4"></i> Gestión de Usuarios</button>
+    <button onclick="changeAdminTab('database')" class="${tabClass('database')}"><i data-lucide="database" class="h-4 w-4"></i> Base de Datos</button>
+    <button onclick="changeAdminTab('logs')" class="${tabClass('logs')}"><i data-lucide="file-text" class="h-4 w-4"></i> Bitácora de Logs</button>
+  `;
+}
+
 // RENDER: VISTA CONTROL USUARIOS
 function renderUsuarios(container) {
-  if (typeof activeAdminTab === "undefined") {
-    activeAdminTab = "auditoria";
+  const rol = (window.currentUser && window.currentUser.rol) || '';
+  if (typeof activeAdminTab === "undefined" || (rol === 'Auditor' && activeAdminTab === 'auditoria')) {
+    activeAdminTab = rol === 'Auditor' ? 'sujetos' : 'auditoria';
   }
 
+  // Bloques de contenido para sujetos y reportes se delegan a sus funciones de render
+  // pero dentro del shell completo de la vista de Administración (encabezado + tabs)
   let contentHtml = "";
+
+  if (activeAdminTab === "sujetos") {
+    // Renderizar sujetos pasivos como contenido de la pestaña (la función completa su propio HTML)
+    renderSujetosPasivos(container);
+    // Prepend la cabecera y nav de administración
+    const adminShell = document.createElement('div');
+    adminShell.innerHTML = `
+      <div class="space-y-1">
+        <h2 class="text-2xl font-bold text-heading tracking-tight">Administración</h2>
+      </div>
+      <div class="border-b border-slate-200 dark:border-slate-800 mt-6 mb-0">
+        <nav class="-mb-px flex space-x-8 overflow-x-auto whitespace-nowrap scrollbar-none">${_buildAdminTabsNavHtml(activeAdminTab)}</nav>
+      </div>
+    `;
+    container.insertBefore(adminShell, container.firstChild);
+    if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+    return;
+  }
+  if (activeAdminTab === "reportes") {
+    renderReportes(container);
+    const adminShell = document.createElement('div');
+    adminShell.innerHTML = `
+      <div class="space-y-1">
+        <h2 class="text-2xl font-bold text-heading tracking-tight">Administración</h2>
+      </div>
+      <div class="border-b border-slate-200 dark:border-slate-800 mt-6 mb-0">
+        <nav class="-mb-px flex space-x-8 overflow-x-auto whitespace-nowrap scrollbar-none">${_buildAdminTabsNavHtml(activeAdminTab)}</nav>
+      </div>
+    `;
+    container.insertBefore(adminShell, container.firstChild);
+    if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+    return;
+  }
 
   if (activeAdminTab === "usuarios") {
     const items = dataStore.usuarios || [];
@@ -1675,17 +1922,9 @@ function renderUsuarios(container) {
               <p class="text-xs text-slate-300 leading-relaxed">
                 Seleccione el archivo de datos Excel ('.xlsx') y luego haga clic en "Procesar e Importar Excel" para actualizar los datos locales y subirlos a SharePoint. O haga clic en "Sincronizar desde SharePoint" para descargar cualquier versión más reciente de la nube.
               </p>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 gap-4">
                 <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
-                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Archivo de Origen</span>
-                  <span class="text-xs font-mono text-heading font-semibold break-all">lobby_data.xlsx</span>
-                </div>
-                <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
-                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Ruta en Servidor (%APPDATA%)</span>
-                  <span class="text-[10px] font-mono text-heading font-semibold break-all" title="${dataStore.dbHealth?.excelPath || "-"}">${dataStore.dbHealth?.excelPath || "-"}</span>
-                </div>
-                <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
-                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Última Sincronización</span>
+                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Última Sincronización de Base de Datos</span>
                   <span class="text-xs font-mono text-heading font-semibold break-all">${lastSyncStr}</span>
                 </div>
               </div>
@@ -2107,28 +2346,9 @@ function renderUsuarios(container) {
       <h2 class="text-2xl font-bold text-heading tracking-tight">Administración</h2>
     </div>
 
-    <div class="border-b border-slate-800 mt-6">
+    <div class="border-b border-slate-200 dark:border-slate-800 mt-6 mb-0">
       <nav class="-mb-px flex space-x-8 overflow-x-auto whitespace-nowrap scrollbar-none" aria-label="Tabs">
-        <button onclick="changeAdminTab('auditoria')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "auditoria" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
-          <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-          Control de Auditoría
-        </button>
-        <button onclick="changeAdminTab('sincronizacion')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "sincronizacion" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
-          <i data-lucide="refresh-cw" class="h-4 w-4"></i>
-          Sincronización
-        </button>
-        <button onclick="changeAdminTab('usuarios')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "usuarios" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
-          <i data-lucide="users" class="h-4 w-4"></i>
-          Gestión de Usuarios
-        </button>
-        <button onclick="changeAdminTab('database')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "database" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
-          <i data-lucide="database" class="h-4 w-4"></i>
-          Base de Datos
-        </button>
-        <button onclick="changeAdminTab('logs')" class="border-b-2 py-3.5 px-1 text-xs font-bold transition-all ${activeAdminTab === "logs" ? "border-brand-500 text-brand-600 dark:text-brand-400" : "border-transparent text-body-muted hover:text-heading hover:border-slate-300 dark:hover:border-slate-700"} flex items-center gap-2 focus:outline-none shrink-0">
-          <i data-lucide="file-text" class="h-4 w-4"></i>
-          Bitácora de Logs
-        </button>
+        ${_buildAdminTabsNavHtml(activeAdminTab)}
       </nav>
     </div>
 

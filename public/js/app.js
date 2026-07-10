@@ -282,7 +282,7 @@ function updateHeaderUserSection() {
   // Ocultar/mostrar opciones del menú según rol
   const rol = currentUser.rol || '';
   const navSujetos = document.getElementById('nav-sujetos_pasivos');
-  const navAdministracion = document.getElementById('nav-administracion');
+  const navAdministracion = document.getElementById('nav-settings') || document.getElementById('nav-administracion');
   const navReportes = document.getElementById('nav-reportes');
 
   if (navSujetos) {
@@ -296,7 +296,8 @@ function updateHeaderUserSection() {
   }
 
   if (navAdministracion) {
-    if (rol === 'Auditor' || rol === 'Sujeto Pasivo' || rol === 'Asistente técnico') {
+    // El Auditor y Administrador tienen acceso a la vista de administración/configuración
+    if (rol === 'Sujeto Pasivo' || rol === 'Asistente técnico') {
       navAdministracion.style.display = 'none';
       navAdministracion.classList.add('hidden');
     } else {
@@ -865,8 +866,8 @@ async function switchView(viewName) {
     updateHeaderUserSection();
   }
   
-  // Actualizar estilos de la Navegación Superior
-  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'sujetos_pasivos', 'reportes', 'administracion'];
+  // Actualizar estilos de la Navegación Superior (píldoras del menú central)
+  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'agenda'];
   navButtons.forEach(btn => {
     const el = document.getElementById(`nav-${btn}`);
     if (el) {
@@ -878,13 +879,13 @@ async function switchView(viewName) {
     }
   });
 
-  // Estilo del botón pequeño de Agenda
-  const agendaEl = document.getElementById('nav-agenda');
-  if (agendaEl) {
-    if (viewName === 'agenda') {
-      agendaEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-brand-500 bg-brand-500/10 text-brand-400 transition-all duration-200";
+  // Estilo del botón de Configuración (Settings engranaje a la derecha)
+  const settingsEl = document.getElementById('nav-settings');
+  if (settingsEl) {
+    if (viewName === 'administracion') {
+      settingsEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-brand-500 bg-brand-500/10 text-brand-500 dark:text-brand-400 transition-all duration-200";
     } else {
-      agendaEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200";
+      settingsEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-100 dark:bg-slate-950/40 text-slate-650 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-200";
     }
   }
 
@@ -3474,11 +3475,13 @@ function handleExcelFileSelected(event) {
   const label = document.getElementById('excel-file-label');
   const details = document.getElementById('excel-file-details');
   const btn = document.getElementById('btn-import-sync');
+  const clearBtn = document.getElementById('btn-clear-excel');
 
   if (!file) {
     selectedExcelFileBase64 = null;
     if (label) label.textContent = 'Haz clic para buscar o arrastra aquí tu archivo Excel';
-    if (details) details.textContent = 'Solo formato .xlsx (Ley de Lobby)';
+    if (details) details.textContent = 'Solo formato .xlsx';
+    if (clearBtn) clearBtn.classList.add('hidden');
     if (btn) {
       btn.disabled = true;
       btn.className = 'flex-1 py-3 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
@@ -3487,6 +3490,8 @@ function handleExcelFileSelected(event) {
     }
     return;
   }
+
+  if (clearBtn) clearBtn.classList.remove('hidden');
 
   // Validar extensión
   if (!file.name.endsWith('.xlsx')) {
@@ -3528,6 +3533,16 @@ function handleExcelFileSelected(event) {
   
   reader.readAsDataURL(file);
 }
+
+// Limpiar la selección de archivo Excel
+function clearExcelFileSelection() {
+  const input = document.getElementById('import-excel-file');
+  if (input) {
+    input.value = '';
+    handleExcelFileSelected({ target: input });
+  }
+}
+window.clearExcelFileSelection = clearExcelFileSelection;
 // ============================================================================
 // FUNCIONES DE CONTROL DE AUDITORÍA SEMANAL
 // ============================================================================

@@ -264,59 +264,76 @@ header {
   background-color: var(--bg-header) !important;
   border-color: var(--border-ui) !important;
 }
-main {
-  background-color: var(--bg-main) !important;
+
+/* Sobreescrituras de Clases Oscuras de Tailwind para Light-First sin !important */
+html .bg-slate-950 {
+  background-color: var(--bg-main);
 }
-.bg-slate-950 {
-  background-color: var(--bg-main) !important;
+html .bg-slate-900 {
+  background-color: var(--bg-header);
 }
-.bg-slate-900 {
-  background-color: var(--bg-header) !important;
+html .bg-slate-900\/60, 
+html .bg-slate-900\/50, 
+html .bg-slate-950\/40 {
+  background-color: var(--bg-card);
 }
-.bg-slate-900\/60, .bg-slate-900\/50, .bg-slate-950\/40 {
-  background-color: var(--bg-card) !important;
+html .bg-slate-900\/10, 
+html .bg-slate-800, 
+html .bg-slate-700 {
+  background-color: var(--border-ui);
 }
-.bg-slate-900\/10, .bg-slate-800, .bg-slate-700 {
-  background-color: var(--border-ui) !important;
-}
-.bg-slate-800\/30 {
-  background-color: var(--border-ui) !important;
+html .bg-slate-800\/30 {
+  background-color: var(--border-ui);
   opacity: 0.8;
 }
-.text-slate-100 {
-  color: var(--text-primary) !important;
+html .text-slate-100 {
+  color: var(--text-primary);
 }
-.text-slate-200, .text-slate-300 {
-  color: var(--text-secondary) !important;
+html .text-slate-200, 
+html .text-slate-300 {
+  color: var(--text-secondary);
 }
-.text-slate-400, .text-slate-500 {
-  color: var(--text-tertiary) !important;
+html .text-slate-400, 
+html .text-slate-500 {
+  color: var(--text-tertiary);
 }
-h1.text-white, h2.text-white, h3.text-white, h4.text-white,
-div.text-white, span.text-white, p.text-white,
-button.bg-slate-700.text-white {
-  color: var(--text-primary) !important;
+html h1.text-white, 
+html h2.text-white, 
+html h3.text-white, 
+html h4.text-white,
+html div.text-white, 
+html span.text-white, 
+html p.text-white,
+html button.bg-slate-700.text-white {
+  color: var(--text-primary);
 }
-.border-slate-800, .border-slate-700, .border-slate-900,
-.border-slate-800\/80, .border-slate-800\/60, .border-slate-700\/40, .border-slate-700\/60, .border-slate-600\/60 {
-  border-color: var(--border-ui) !important;
+html .border-slate-800, 
+html .border-slate-700, 
+html .border-slate-900,
+html .border-slate-800\/80, 
+html .border-slate-800\/60, 
+html .border-slate-700\/40, 
+html .border-slate-700\/60, 
+html .border-slate-600\/60 {
+  border-color: var(--border-ui);
 }
-.hover\:bg-slate-800:hover {
-  background-color: var(--border-ui) !important;
+html .hover\:bg-slate-800:hover {
+  background-color: var(--border-ui);
 }
-.hover\:bg-slate-900\/40:hover {
-  background-color: var(--border-ui) !important;
+html .hover\:bg-slate-900\/40:hover {
+  background-color: var(--border-ui);
   opacity: 0.95;
 }
-.hover\:text-white:hover {
-  color: var(--text-primary) !important;
+html .hover\:text-white:hover {
+  color: var(--text-primary);
 }
 
 /* Evitar que elementos específicos de texto en botones o enlaces pierdan su color blanco */
-a.text-white, button.text-white, .btn-primary {
-  color: #ffffff !important;
+html a.text-white, 
+html button.text-white, 
+html .btn-primary {
+  color: #ffffff;
 }
-
 /* Estandarización de Componentes de UI */
 .btn-primary {
   background-color: var(--brand-color) !important;
@@ -578,14 +595,14 @@ html.dark .sidebar-nav-inactive:hover {
 }
 
 /* Botones de Acción Circulares */
-#nav-agenda, #theme-toggle {
+#theme-toggle {
   border-radius: 9999px !important;
   background-color: var(--bg-main) !important;
   border: 1px solid var(--border-ui) !important;
   color: var(--text-secondary) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
-#nav-agenda:hover, #theme-toggle:hover {
+#theme-toggle:hover {
   background-color: var(--border-ui) !important;
   color: var(--text-primary) !important;
   transform: translateY(-1px);
@@ -1284,14 +1301,14 @@ html.dark .card-alert-info {
 /* Secondary typography hierarchy inside chips (cargos, descriptions, headers) */
 .cal-event-past p,
 .cal-event-past span:not(.font-bold),
-.cal-event-past .text-[8px],
+.cal-event-past .text-\[8px\],
 .cal-event-past [style*="color: var(--text-tertiary)"] {
   opacity: 0.75 !important;
 }
 
 .cal-event-future p,
 .cal-event-future span:not(.font-bold),
-.cal-event-future .text-[8px],
+.cal-event-future .text-\[8px\],
 .cal-event-future [style*="color: var(--text-tertiary)"] {
   opacity: 0.75 !important;
 }

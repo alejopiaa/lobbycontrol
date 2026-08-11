@@ -671,69 +671,15 @@ function syncSolicitudes(rows, callback) {
               idLobby,
             ];
             pendingOps++;
-            db.get(
-              "SELECT folio_lobby, estado, fecha_agendada, sujeto_pasivo, sujeto_activo, representado, materia FROM solicitudes_sh WHERE id_lobby = ?",
-              [idLobby],
-              (err, oldRow) => {
-                if (!err && oldRow) {
-                  const changes = {};
-                  const compareField = (dbField, newValue, label) => {
-                    let oldValue = oldRow[dbField];
-                    if (oldValue === null || oldValue === undefined)
-                      oldValue = "";
-                    if (newValue === null || newValue === undefined)
-                      newValue = "";
-                    if (String(oldValue).trim() !== String(newValue).trim()) {
-                      changes[label] = {
-                        old: String(oldValue).trim(),
-                        new: String(newValue).trim(),
-                      };
-                    }
-                  };
-                  compareField("estado", precalc.estado, "Estado");
-                  compareField(
-                    "fecha_agendada",
-                    parsedFechaAgendada,
-                    "Fecha Audiencia",
-                  );
-                  compareField(
-                    "sujeto_pasivo",
-                    row["sujetoPasivo"] || "",
-                    "Sujeto Pasivo",
-                  );
-                  compareField(
-                    "sujeto_activo",
-                    row["sujetoActivo"] || "",
-                    "Solicitante",
-                  );
-                  compareField(
-                    "representado",
-                    row["representado"] || "",
-                    "Representado",
-                  );
-                  compareField("materia", row["materia"] || "", "Materia");
-
-                  if (Object.keys(changes).length > 0) {
-                    allStats.sh.details.push({
-                      type: "update",
-                      id: idLobby,
-                      folio:
-                        row["folio"] || oldRow.folio_lobby || `ID: ${idLobby}`,
-                      changes: changes,
-                    });
-                  }
-                }
-                updateStmt.run(updateValues, (err) => {
-                  if (err)
-                    console.error(
-                      `Error al actualizar SH ID ${idLobby}:`,
-                      err.message,
-                    );
-                  pendingOps--;
-                  done();
-                });
-              },
-            );
+            updateStmt.run(updateValues, (err) => {
+              if (err)
+                console.error(
+                  `Error al actualizar SH ID ${idLobby}:`,
+                  err.message,
+                );
+              pendingOps--;
+              done();
+            });
             updatesCount++;
           } else {
             skippedCount++;
@@ -971,72 +917,15 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
               idLobby,
             ];
             pendingOps++;
-            db.get(
-              "SELECT folio_lobby, estado, fecha_inicio, sujeto_pasivo, sujeto_activo, representado, materia FROM publicadas_ph WHERE id_lobby = ?",
-              [idLobby],
-              (err, oldRow) => {
-                if (!err && oldRow) {
-                  const changes = {};
-                  const compareField = (dbField, newValue, label) => {
-                    let oldValue = oldRow[dbField];
-                    if (oldValue === null || oldValue === undefined)
-                      oldValue = "";
-                    if (newValue === null || newValue === undefined)
-                      newValue = "";
-                    if (String(oldValue).trim() !== String(newValue).trim()) {
-                      changes[label] = {
-                        old: String(oldValue).trim(),
-                        new: String(newValue).trim(),
-                      };
-                    }
-                  };
-                  compareField(
-                    "estado",
-                    normalizeEstado(row["estado"] || "Publicada"),
-                    "Estado",
-                  );
-                  compareField(
-                    "fecha_inicio",
-                    parsedFechaInicio,
-                    "Fecha inicio",
-                  );
-                  compareField(
-                    "sujeto_pasivo",
-                    row["sujetoPasivo"] || "",
-                    "Sujeto Pasivo",
-                  );
-                  compareField(
-                    "sujeto_activo",
-                    row["sujetoActivo"] || "",
-                    "Solicitante",
-                  );
-                  compareField(
-                    "representado",
-                    row["representado"] || "",
-                    "Representado",
-                  );
-                  compareField("materia", row["materia"] || "", "Materia");
-
-                  if (Object.keys(changes).length > 0) {
-                    allStats.ph.details.push({
-                      type: "update",
-                      id: idLobby,
-                      folio: folio || oldRow.folio_lobby || `ID: ${idLobby}`,
-                      changes: changes,
-                    });
-                  }
-                }
-                updateStmt.run(updateValues, (err) => {
-                  if (err)
-                    console.error(
-                      `Error al actualizar PH ID ${idLobby}:`,
-                      err.message,
-                    );
-                  pendingOps--;
-                  done();
-                });
-              },
-            );
+            updateStmt.run(updateValues, (err) => {
+              if (err)
+                console.error(
+                  `Error al actualizar PH ID ${idLobby}:`,
+                  err.message,
+                );
+              pendingOps--;
+              done();
+            });
             updatesCount++;
           } else {
             skippedCount++;
@@ -1223,49 +1112,15 @@ function syncSujetosPasivos(rows, callback) {
               idSujeto,
             ];
             pendingOps++;
-            db.get(
-              "SELECT nombre, cargo FROM sujetos_pasivos_sph WHERE id_sujeto_lobby = ?",
-              [idSujeto],
-              (err, oldRow) => {
-                if (!err && oldRow) {
-                  const changes = {};
-                  const compareField = (dbField, newValue, label) => {
-                    let oldValue = oldRow[dbField];
-                    if (oldValue === null || oldValue === undefined)
-                      oldValue = "";
-                    if (newValue === null || newValue === undefined)
-                      newValue = "";
-                    if (String(oldValue).trim() !== String(newValue).trim()) {
-                      changes[label] = {
-                        old: String(oldValue).trim(),
-                        new: String(newValue).trim(),
-                      };
-                    }
-                  };
-                  compareField("nombre", row["nombre"] || "", "Nombre");
-                  compareField("cargo", row["cargo"] || "", "Cargo");
-
-                  if (Object.keys(changes).length > 0) {
-                    allStats.sph.details.push({
-                      type: "update",
-                      id: idSujeto,
-                      nombre:
-                        row["nombre"] || oldRow.nombre || `ID: ${idSujeto}`,
-                      changes: changes,
-                    });
-                  }
-                }
-                updateStmt.run(updateValues, (err) => {
-                  if (err)
-                    console.error(
-                      `Error al actualizar SPH ID ${idSujeto}:`,
-                      err.message,
-                    );
-                  pendingOps--;
-                  done();
-                });
-              },
-            );
+            updateStmt.run(updateValues, (err) => {
+              if (err)
+                console.error(
+                  `Error al actualizar SPH ID ${idSujeto}:`,
+                  err.message,
+                );
+              pendingOps--;
+              done();
+            });
             updatesCount++;
           } else {
             skippedCount++;

@@ -1301,7 +1301,7 @@ function renderSujetosPasivos(container) {
         pageSize,
       );
     lucide.createIcons();
-    return;
+    return true;
   }
 
   container.innerHTML = `
@@ -1512,13 +1512,18 @@ function changeAdminTab(tabName) {
   if (!container) return;
 
   // Si se cambia a Reportes y no hay datos cargados, los buscamos primero
-  if (tabName === "reportes" && (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0)) {
-    if (typeof fetchReportesData === "function") {
-      fetchReportesData().then(() => {
-        if (typeof fetchVigentesNombres === "function") fetchVigentesNombres();
-        renderUsuarios(container);
-      });
-      return;
+  if (tabName === "reportes") {
+    if (typeof fetchActiveSujetoIds === "function") {
+      fetchActiveSujetoIds();
+    }
+    if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
+      if (typeof fetchReportesData === "function") {
+        fetchReportesData().then(() => {
+          if (typeof fetchVigentesNombres === "function") fetchVigentesNombres();
+          renderUsuarios(container);
+        });
+        return;
+      }
     }
   }
 
@@ -1682,6 +1687,13 @@ function generateUsuarioRowHtml(item) {
       </td>
       <td class="pl-2 pr-6 text-right whitespace-nowrap">
         <div class="flex items-center justify-end gap-1">
+          ${
+            currentUser && currentUser.rol === 'Administrador' && item.id !== currentUser.id && !currentUser.isSimulated
+              ? `<button onclick="startImpersonation(${item.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 dark:hover:bg-amber-500/20 transition-all" title="Simular Usuario">
+                   <i data-lucide="user-check" class="h-3.5 w-3.5"></i>
+                 </button>`
+              : ''
+          }
           <button onclick="openUsuarioModal(${item.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-500/10 dark:hover:bg-brand-500/20 transition-all" title="Editar">
             <i data-lucide="edit-2" class="h-3.5 w-3.5"></i>
           </button>
@@ -1769,7 +1781,8 @@ function renderUsuarios(container) {
 
   if (activeAdminTab === "sujetos") {
     // Renderizar sujetos pasivos como contenido de la pestaña (la función completa su propio HTML)
-    renderSujetosPasivos(container);
+    const isPartialUpdate = renderSujetosPasivos(container);
+    if (isPartialUpdate) return;
     // Prepend la cabecera y nav de administración
     const adminShell = document.createElement('div');
     adminShell.innerHTML = `
@@ -1785,7 +1798,8 @@ function renderUsuarios(container) {
     return;
   }
   if (activeAdminTab === "reportes") {
-    renderReportes(container);
+    const isPartialUpdate = renderReportes(container);
+    if (isPartialUpdate) return;
     const adminShell = document.createElement('div');
     adminShell.innerHTML = `
       <div class="space-y-1">
@@ -1986,10 +2000,6 @@ function renderUsuarios(container) {
               <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
                 <span class="text-body-muted">Base de Datos:</span>
                 <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.dbSize || "-"}</span>
-              </div>
-              <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
-                <span class="text-body-muted">Archivo Excel:</span>
-                <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.excelSize || "-"}</span>
               </div>
               <div class="flex justify-between items-center py-1 border-b border-slate-800/60">
                 <span class="text-body-muted">Integridad SQLite:</span>
@@ -2582,7 +2592,7 @@ function renderReportes(container) {
       exportBtnContainer.innerHTML = `
         <div class="flex items-center gap-2 mr-1">
           <label class="flex items-center gap-1 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
-            <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-700 bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" checked>
+            <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-700 bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" ${reportesFilters.soloVigentes ? 'checked' : ''}>
             <span>Solo vigentes</span>
           </label>
           <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-semibold flex items-center gap-1 transition-all shadow-sm">
@@ -2606,7 +2616,7 @@ function renderReportes(container) {
       `;
     }
     lucide.createIcons();
-    return;
+    return true;
   }
 
   container.innerHTML = `
@@ -2703,7 +2713,7 @@ function renderReportes(container) {
           <div id="reportes-export-btn-container" class="flex items-center gap-2.5">
             <div class="flex items-center gap-2 mr-1">
               <label class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-300 font-bold cursor-pointer select-none">
-                <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" checked>
+                <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" ${reportesFilters.soloVigentes ? 'checked' : ''}>
                 <span>Solo vigentes</span>
               </label>
               <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm">
@@ -4103,7 +4113,7 @@ function showAgendaDetailsModal(eventId) {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div>
             <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha / Hora Agendada</span>
-            <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_agendada)}</span>
+            <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_agendada)}${item.fecha_agendada && item.fecha_agendada.split(' ')[1] ? ' ' + item.fecha_agendada.split(' ')[1].slice(0, 5) : ''}</span>
           </div>
           <div>
             <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Publicación</span>
@@ -4219,7 +4229,7 @@ function renderAgenda(container) {
       </div>
 
       <!-- Integrated Controls Bar (Uncluttered, symmetrical, and elastically aligned) -->
-      <div class="glass-card p-2.5 rounded-2xl flex flex-col md:flex-row items-center gap-4 border border-slate-200 dark:border-slate-800/60 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+      <div class="glass-card p-2.5 rounded-2xl flex flex-col md:flex-row items-center gap-4 border border-slate-200 dark:border-slate-800/60 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md relative z-30">
         <!-- Search bar with autocomplete (Stretches to fill space) -->
         <div class="relative flex-1 w-full" id="cal-search-wrapper">
           <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500"></i>

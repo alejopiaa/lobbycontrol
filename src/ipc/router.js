@@ -1492,7 +1492,13 @@ async function handle(req, setSharepointCookie) {
       db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, usuario], async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         await db.recalculateAndSignDatabase();
-        resolve({ status: 201, data: { id: this.lastID, message: 'Registro de auditoría guardado exitosamente.' } });
+        if (req.sharepointCookie) {
+          const { uploadDatabaseToSharePoint } = require('../config/db-sync');
+          uploadDatabaseToSharePoint(db, req.sharepointCookie, 'lobby').catch(e => {
+            console.error('Error al subir base de datos de lobby a SharePoint:', e.message);
+          });
+        }
+        resolve({ status: 201, data: { id: this.lastID, message: 'Registro de auditoría guardado y sincronizado en SharePoint exitosamente.' } });
       });
     });
   }
@@ -1515,7 +1521,13 @@ async function handle(req, setSharepointCookie) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Registro no encontrado.' } });
         await db.recalculateAndSignDatabase();
-        resolve({ status: 200, data: { message: 'Registro de auditoría actualizado exitosamente.' } });
+        if (req.sharepointCookie) {
+          const { uploadDatabaseToSharePoint } = require('../config/db-sync');
+          uploadDatabaseToSharePoint(db, req.sharepointCookie, 'lobby').catch(e => {
+            console.error('Error al subir base de datos de lobby a SharePoint:', e.message);
+          });
+        }
+        resolve({ status: 200, data: { message: 'Registro de auditoría actualizado y sincronizado en SharePoint exitosamente.' } });
       });
     });
   }
@@ -1528,7 +1540,13 @@ async function handle(req, setSharepointCookie) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Registro no encontrado.' } });
         await db.recalculateAndSignDatabase();
-        resolve({ status: 200, data: { message: 'Registro de auditoría eliminado exitosamente.' } });
+        if (req.sharepointCookie) {
+          const { uploadDatabaseToSharePoint } = require('../config/db-sync');
+          uploadDatabaseToSharePoint(db, req.sharepointCookie, 'lobby').catch(e => {
+            console.error('Error al subir base de datos de lobby a SharePoint:', e.message);
+          });
+        }
+        resolve({ status: 200, data: { message: 'Registro de auditoría eliminado y sincronizado en SharePoint exitosamente.' } });
       });
     });
   }

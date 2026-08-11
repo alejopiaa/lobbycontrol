@@ -462,6 +462,13 @@ function processReportData(rawData, filters) {
   const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
 
   rawData.forEach(item => {
+    // Filtro por Sujetos Pasivos Vigentes
+    if (filters.soloVigentes && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      if (!activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+        return;
+      }
+    }
+
     // Determinar estado lógico virtual
     let itemEstado = (item.estado || 'Ingresada').trim();
     const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);

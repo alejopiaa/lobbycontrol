@@ -366,7 +366,7 @@ window.handleDateDisplayInput = function(el) {
       // El render se dispara en blur para no destruir el input activo
       if (typeof dashboardFilters !== 'undefined' && typeof currentView !== 'undefined' && currentView === 'dashboard') {
         dashboardFilters[fieldName] = isoDate;
-      } else if (typeof reportesFilters !== 'undefined' && typeof currentView !== 'undefined' && currentView === 'reportes') {
+      } else if (typeof reportesFilters !== 'undefined' && typeof currentView !== 'undefined' && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'))) {
         if (fieldName === 'fechaInicio') reportesFilters.fechaInicio = isoDate;
         else if (fieldName === 'fechaTermino') reportesFilters.fechaTermino = isoDate;
       }
@@ -376,7 +376,7 @@ window.handleDateDisplayInput = function(el) {
     if (hiddenInput) hiddenInput.value = '';
     if (typeof dashboardFilters !== 'undefined' && typeof currentView !== 'undefined' && currentView === 'dashboard') {
       dashboardFilters[fieldName] = '';
-    } else if (typeof reportesFilters !== 'undefined' && typeof currentView !== 'undefined' && currentView === 'reportes') {
+    } else if (typeof reportesFilters !== 'undefined' && typeof currentView !== 'undefined' && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'))) {
       if (fieldName === 'fechaInicio') reportesFilters.fechaInicio = '';
       else if (fieldName === 'fechaTermino') reportesFilters.fechaTermino = '';
     }

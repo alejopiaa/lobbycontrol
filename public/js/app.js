@@ -167,7 +167,8 @@ let reportesFilters = {
   cargo: '',
   fechaInicio: '',
   fechaTermino: '',
-  estados: []
+  estados: [],
+  soloVigentes: true
 };
 
 let dashboardDropdownCache = {
@@ -315,7 +316,68 @@ function updateHeaderUserSection() {
       navReportes.classList.remove('hidden');
     }
   }
+
+  // Manejar el banner de simulación de perfil
+  const banner = document.getElementById('impersonation-banner');
+  if (banner) {
+    if (currentUser.isSimulated) {
+      banner.classList.remove('hidden');
+      const nameEl = document.getElementById('simulated-user-name');
+      const roleEl = document.getElementById('simulated-user-role');
+      if (nameEl) nameEl.textContent = currentUser.nombre || '';
+      if (roleEl) roleEl.textContent = currentUser.rol || '';
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
 }
+
+async function startImpersonation(userId) {
+  try {
+    const res = await fetch('/api/admin/impersonate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ userId })
+    });
+    
+    if (res.ok) {
+      showToast('Simulación de perfil iniciada.');
+      await checkAuth();
+      // Forzar recarga de datos según el nuevo rol simulado
+      await switchView('dashboard');
+    } else {
+      const data = await res.json();
+      showToast(data.error || 'No se pudo iniciar la simulación.', 'error');
+    }
+  } catch (err) {
+    console.error('Error al iniciar simulación:', err);
+    showToast('Error de red al iniciar la simulación.', 'error');
+  }
+}
+window.startImpersonation = startImpersonation;
+
+async function stopImpersonation() {
+  try {
+    const res = await fetch('/api/admin/impersonate/stop', {
+      method: 'POST'
+    });
+    
+    if (res.ok) {
+      showToast('Simulación de perfil finalizada.');
+      await checkAuth();
+      // Forzar recarga de datos según el rol real
+      await switchView('dashboard');
+    } else {
+      showToast('No se pudo finalizar la simulación.', 'error');
+    }
+  } catch (err) {
+    console.error('Error al detener simulación:', err);
+    showToast('Error de red al finalizar la simulación.', 'error');
+  }
+}
+window.stopImpersonation = stopImpersonation;
 
 async function triggerSsoLogin() {
   const loginErrorEl = document.getElementById('login-error');
@@ -920,6 +982,8 @@ async function switchView(viewName) {
       await fetchData('publicadas', signal);
       // Cargar nombres de sujetos pasivos vigentes para el autocomplete
       await fetchVigentesNombres(signal);
+      // Cargar IDs de sujetos pasivos vigentes para el filtro de la tabla
+      await fetchActiveSujetoIds(signal);
       dataStore.dashboardRawData = dataStore.reportesRawData;
       buildDashboardDropdownCache();
     } else {
@@ -1260,7 +1324,7 @@ function getActiveFiltersAndPrefix() {
   if (currentView === 'dashboard') {
     idPrefix = 'dashboard-filter-';
     filters = dashboardFilters;
-  } else if (currentView === 'reportes') {
+  } else if (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes')) {
     idPrefix = 'report-filter-';
     filters = reportesFilters;
   } else if (currentView === 'solicitudes') {
@@ -1421,7 +1485,7 @@ function selectDashboardSuggestion(fieldName, value) {
     
     // Si estamos en vistas con bloqueo reactivo, forzar bloqueo en DOM
     const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-    if (cargoInput && (currentView === 'reportes' || currentView === 'solicitudes' || currentView === 'publicadas')) {
+    if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
       if (value === '') {
         cargoInput.disabled = true;
         cargoInput.placeholder = 'Seleccione nombre primero...';
@@ -1509,7 +1573,7 @@ function hideDashboardSuggestions(fieldName) {
             
             // Si estamos en vistas con bloqueo reactivo, forzar bloqueo de cargo en DOM
             const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-            if (cargoInput && (currentView === 'reportes' || currentView === 'solicitudes' || currentView === 'publicadas')) {
+            if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
               cargoInput.disabled = true;
               cargoInput.placeholder = 'Seleccione nombre primero...';
               cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
@@ -1521,7 +1585,7 @@ function hideDashboardSuggestions(fieldName) {
         }
       } else {
         // Buscar si existe coincidencia exacta (insensible a mayúsculas) o comodín Todos en reportes
-        const isWildcardAllowed = (currentView === 'reportes' && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
+        const isWildcardAllowed = ((currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes')) && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
         const matchedItem = isWildcardAllowed ? 'Todos' : list.find(item => item.toLowerCase() === val.toLowerCase());
         if (matchedItem) {
           if (filters[fieldName] !== matchedItem) {
@@ -1530,7 +1594,7 @@ function hideDashboardSuggestions(fieldName) {
               
               // Si estamos en vistas con bloqueo reactivo, forzar desbloqueo de cargo en DOM
               const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-              if (cargoInput && (currentView === 'reportes' || currentView === 'solicitudes' || currentView === 'publicadas')) {
+              if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
                 cargoInput.disabled = false;
                 cargoInput.placeholder = 'Escribir cargo...';
                 cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
@@ -1568,7 +1632,7 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
         
         // Si estamos en vistas con bloqueo reactivo, forzar bloqueo de cargo en DOM
         const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-        if (cargoInput && (currentView === 'reportes' || currentView === 'solicitudes' || currentView === 'publicadas')) {
+        if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
           cargoInput.disabled = true;
           cargoInput.placeholder = 'Seleccione nombre primero...';
           cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
@@ -1584,7 +1648,8 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
     }
   } else {
     // Si no está vacío y estamos en tablas (reportes, solicitudes, publicadas), filtrar en tiempo real (debounced)
-    if (currentView === 'reportes' || currentView === 'solicitudes' || currentView === 'publicadas') {
+    const isReportesView = (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'));
+    if (isReportesView || currentView === 'solicitudes' || currentView === 'publicadas') {
       filters[fieldName] = value;
       if (fieldName === 'nombre') {
         filters.cargo = '';
@@ -1598,7 +1663,7 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
         }
       }
       
-      if (currentView === 'reportes') {
+      if (isReportesView) {
         debouncedReportesRender(`${idPrefix}${fieldName}`);
       } else {
         debouncedFilterRender(currentView, `${idPrefix}${fieldName}`);
@@ -1660,7 +1725,7 @@ function handleDashboardInputKeydown(event, fieldName) {
         if (val === '') {
           selectDashboardSuggestion(fieldName, '');
         } else {
-          const isWildcardAllowed = (currentView === 'reportes' && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
+          const isWildcardAllowed = ((currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes')) && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
           const matchedItem = isWildcardAllowed ? 'Todos' : list.find(item => item.toLowerCase() === val.toLowerCase());
           if (matchedItem) {
             selectDashboardSuggestion(fieldName, matchedItem);
@@ -1800,7 +1865,8 @@ function clearReportesFilters() {
     cargo: '',
     fechaInicio: '',
     fechaTermino: '',
-    estados: []
+    estados: [],
+    soloVigentes: true
   };
   renderView();
 }
@@ -2465,6 +2531,9 @@ document.addEventListener('change', (e) => {
   } else if (target.classList.contains('report-estado-checkbox')) {
     const estado = target.getAttribute('data-estado');
     handleReportesEstadoToggle(estado, target.checked);
+  } else if (target.id === 'batch-reportes-solo-vigentes') {
+    reportesFilters.soloVigentes = target.checked;
+    debouncedReportesRender();
   }
 });
 
@@ -2496,6 +2565,7 @@ const getCargoAbbreviated = (cargoText) => {
   if (clean.includes('concejal') || clean.includes('concejala')) return 'CON';
   if (clean.includes('alcalde') || clean.includes('alcaldesa') || clean.includes('gabinete alcaldía') || clean.includes('gabinete alcaldia') || clean.includes('comunicaciones alcaldía') || clean.includes('comunicaciones alcaldia') || clean.includes('asistente alcaldía') || clean.includes('asistente alcaldia')) return 'ALC';
   if (clean.includes('administrador municipal') || clean.includes('administradora municipal')) return 'ADM';
+  if (clean.includes('rentas')) return 'REN';
 
   return 'GEN'; // default generic
 };
@@ -2510,15 +2580,13 @@ const sanitizeNombreForFilename = (name) => {
     .join('');
 };
 
-// Función para generar un código único local de reporte PDF (RAP-YYMMDD-MMSS)
+// Función para generar un código local de reporte PDF (RAP-YYMMDD)
 function generateLocalReportCode() {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const min = String(now.getMinutes()).padStart(2, '0');
-  const sec = String(now.getSeconds()).padStart(2, '0');
-  return `RAP${yy}${mm}${dd}-${min}${sec}`;
+  return `RAP${yy}${mm}${dd}`;
 }
 
 // Función para exportar el reporte actual a un archivo PDF (Orientación Vertical - Portrait) usando impresión nativa del navegador
@@ -2538,7 +2606,8 @@ async function exportReportToPDF() {
     cargo: reportesFilters.cargo || '',
     fechaInicio: reportesFilters.fechaInicio || '',
     fechaTermino: reportesFilters.fechaTermino || '',
-    estados: [...(reportesFilters.estados || [])]
+    estados: [...(reportesFilters.estados || [])],
+    soloVigentes: !!reportesFilters.soloVigentes
   };
 
   const originalTitle = document.title;
@@ -4620,6 +4689,7 @@ async function generarReportesMasivos() {
   }
 
   // 4. Mostrar modal de progreso en pantalla
+  let isCancelled = false;
   const modal = document.getElementById('modal-container');
   if (modal) {
     modal.classList.remove('hidden');
@@ -4647,12 +4717,45 @@ async function generarReportesMasivos() {
             <span id="batch-progress-percent">0%</span>
           </div>
         </div>
+
+        <div class="flex justify-end pt-2">
+          <button id="cancel-batch-btn" class="px-4 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-[10px] uppercase tracking-wider transition-colors">
+            Cancelar
+          </button>
+        </div>
       </div>
     `;
+
+    const cancelBtn = document.getElementById('cancel-batch-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        isCancelled = true;
+        cancelBtn.textContent = 'Cancelando...';
+        cancelBtn.disabled = true;
+        cancelBtn.classList.remove('bg-red-500/10', 'text-red-500');
+        cancelBtn.classList.add('bg-slate-500/10', 'text-slate-400');
+        showToast('Cancelando exportación masiva...', 'info');
+      });
+    }
   }
 
   // 5. Procesar e imprimir secuencialmente cada reporte
   for (let index = 0; index < totalGroups; index++) {
+    if (isCancelled) {
+      closeModal();
+      showToast('Generación masiva cancelada por el usuario.', 'info');
+      window.api.invokeRoute({
+        url: '/api/log',
+        method: 'POST',
+        body: {
+          code: 'INFO-REP-505',
+          message: 'Generación masiva cancelada',
+          details: `Procesamiento cancelado por el usuario en el reporte ${index + 1} de ${totalGroups} | Destino: ${destFolder} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
+          severity: 'info'
+        }
+      }).catch(err => console.error('Error al registrar log de cancelación de reporte:', err));
+      return;
+    }
     const key = groupKeys[index];
     const [name, cargo] = key.split('|||');
     const groupItems = groups[key];

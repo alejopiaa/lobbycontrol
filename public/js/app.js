@@ -159,7 +159,8 @@ let dashboardFilters = {
   fechaInicio: '',
   fechaTermino: '',
   nombre: '',
-  cargo: ''
+  cargo: '',
+  soloVigentes: true
 };
 
 let reportesFilters = {
@@ -186,6 +187,7 @@ function updateCapsuleStatus(state, details = '') {
   const labelEl = document.getElementById('capsule-label');
   const netStatusEl = document.getElementById('capsule-net-status');
   const lastUpdateEl = document.getElementById('capsule-last-update');
+  const syncContainer = document.getElementById('capsule-sync-container');
 
   if (details && lastUpdateEl) {
     lastUpdateEl.textContent = details;
@@ -203,6 +205,7 @@ function updateCapsuleStatus(state, details = '') {
       labelEl.textContent = 'Conectado';
       netStatusEl.textContent = 'Conectado';
       netStatusEl.classList.add('text-emerald-600', 'dark:text-emerald-400');
+      if (syncContainer) syncContainer.classList.add('hidden');
     } else if (state === 'syncing') {
       pingEl.classList.remove('hidden');
       pingEl.classList.add('bg-amber-400');
@@ -210,12 +213,14 @@ function updateCapsuleStatus(state, details = '') {
       labelEl.textContent = 'Actualizando...';
       netStatusEl.textContent = 'Sincronizando...';
       netStatusEl.classList.add('text-amber-500');
+      if (syncContainer) syncContainer.classList.add('hidden');
     } else if (state === 'error') {
       pingEl.classList.add('hidden');
       dotEl.classList.add('bg-rose-500');
       labelEl.textContent = 'Desconectado';
       netStatusEl.textContent = 'Error Sync';
       netStatusEl.classList.add('text-rose-600', 'dark:text-rose-400');
+      if (syncContainer) syncContainer.classList.remove('hidden');
     }
   }
 }
@@ -520,6 +525,65 @@ function initBackgroundSync() {
   window.bgSyncInterval = setInterval(runSync, syncIntervalTime);
 }
 
+// Función para ejecutar la sincronización manual desde la cápsula de estado
+async function runCapsuleSync(isManual = false) {
+  if (!currentUser) return;
+  
+  // 1. Mostrar estado "Actualizando..."
+  updateCapsuleStatus('syncing');
+  
+  const syncBtn = document.getElementById('btn-capsule-sync');
+  if (syncBtn) {
+    syncBtn.disabled = true;
+    syncBtn.classList.add('opacity-50', 'pointer-events-none');
+  }
+
+  try {
+    console.log('[Manual-Sync] Forzando sincronización de base de datos...');
+    const res = await fetch('/api/db/sync', { method: 'POST' });
+    
+    if (res.ok) {
+      const data = await res.json();
+      
+      if (data.success) {
+        if (data.updated) {
+          console.log('[Manual-Sync] ¡Base de datos actualizada con éxito!');
+          showToast('Base de datos sincronizada con éxito.', 'success');
+          updateCapsuleStatus('synced', data.dbLastUpdate || 'Al día');
+          
+          if (typeof renderView === 'function') {
+            renderView();
+          }
+        } else {
+          console.log('[Manual-Sync] La base de datos ya está al día.');
+          if (isManual) {
+            showToast('La base de datos ya se encuentra al día.', 'info');
+          }
+          const lastUpdateEl = document.getElementById('capsule-last-update');
+          const lastText = lastUpdateEl ? lastUpdateEl.textContent : 'Al día';
+          updateCapsuleStatus('synced', lastText);
+        }
+      } else {
+        updateCapsuleStatus('error');
+        if (isManual) showToast('Error al intentar sincronizar: ' + (data.error || 'Servicio no disponible'), 'error');
+      }
+    } else {
+      updateCapsuleStatus('error');
+      if (isManual) showToast('No se pudo establecer conexión con el servidor.', 'error');
+    }
+  } catch (err) {
+    console.error('[Manual-Sync] Error en la sincronización manual:', err);
+    updateCapsuleStatus('error');
+    if (isManual) showToast('Error de red al intentar sincronizar.', 'error');
+  } finally {
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.classList.remove('opacity-50', 'pointer-events-none');
+    }
+  }
+}
+window.runCapsuleSync = runCapsuleSync;
+
 
 // Obtener y mostrar la versión de la app desde el backend (package.json)
 async function fetchAppVersion() {
@@ -732,65 +796,7 @@ window.clearRelacionFilter = clearRelacionFilter;
 
 
 
-// Control de Tooltips globales
-function showGlobalTooltip(event, text) {
-  if (tooltipTimeout) {
-    clearTimeout(tooltipTimeout);
-    tooltipTimeout = null;
-  }
 
-  const tooltip = document.getElementById('global-tooltip');
-  const tooltipText = document.getElementById('global-tooltip-text');
-  if (!tooltip || !tooltipText) return;
-
-  tooltipText.textContent = text || 'Sin Cargo Definido';
-  tooltip.classList.remove('hidden');
-  
-  // Forzar reflujo
-  tooltip.offsetHeight;
-  tooltip.classList.remove('opacity-0');
-  tooltip.classList.add('opacity-100');
-
-  // Posicionar tooltip
-  const rect = event.currentTarget.getBoundingClientRect();
-  const tooltipRect = tooltip.getBoundingClientRect();
-  
-  // Centrado horizontal sobre el elemento
-  let left = rect.left + (rect.width - tooltipRect.width) / 2;
-  // Posición vertical arriba del elemento
-  let top = rect.top - tooltipRect.height - 8;
-
-  // Evitar que se salga por los lados de la pantalla
-  if (left < 10) left = 10;
-  if (left + tooltipRect.width > window.innerWidth - 10) {
-    left = window.innerWidth - tooltipRect.width - 10;
-  }
-  // Si se sale por arriba de la pantalla, mostrar abajo del elemento
-  if (top < 10) {
-    top = rect.bottom + 8;
-  }
-
-  tooltip.style.left = `${left}px`;
-  tooltip.style.top = `${top}px`;
-}
-
-function hideGlobalTooltip() {
-  const tooltip = document.getElementById('global-tooltip');
-  if (!tooltip) return;
-  tooltip.classList.remove('opacity-100');
-  tooltip.classList.add('opacity-0');
-  
-  if (tooltipTimeout) {
-    clearTimeout(tooltipTimeout);
-  }
-  
-  // Ocultar después de la transición
-  tooltipTimeout = setTimeout(() => {
-    if (tooltip.classList.contains('opacity-0')) {
-      tooltip.classList.add('hidden');
-    }
-  }, 150);
-}
 
 // Mostrar notificaciones Toast
 function showToast(message, type = 'success', options = {}) {
@@ -1254,15 +1260,27 @@ async function fetchVigentesNombres(signal) {
   }
 }
 
+// Helper interno: extrae el arreglo real de una respuesta API que puede ser
+// un arreglo directo o un objeto envuelto { success, data: [...] }
+function _getArr(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (val.data && Array.isArray(val.data)) return val.data;
+  return [];
+}
+
 // Construir caché única de años, nombres y cargos del sujeto pasivo
 function buildDashboardDropdownCache() {
   const rawNombresSet = new Set();
   const rawCargosSet = new Set();
   const rawSujetosActivosRepresentadosSet = new Set();
 
-  const dataset = (dataStore.dashboardRawData && dataStore.dashboardRawData.length) ? dataStore.dashboardRawData : 
-                  ((dataStore.solicitudes && dataStore.solicitudes.length) ? dataStore.solicitudes : 
-                  ((dataStore.publicadas && dataStore.publicadas.length) ? dataStore.publicadas : []));
+  // Obtener el arreglo plano independientemente de si la API retorna un objeto envuelto
+  const dataset = _getArr(dataStore.dashboardRawData).length
+    ? _getArr(dataStore.dashboardRawData)
+    : (_getArr(dataStore.solicitudes).length
+      ? _getArr(dataStore.solicitudes)
+      : _getArr(dataStore.publicadas));
 
   dataset.forEach(item => {
     if (item.sujeto_pasivo) rawNombresSet.add(item.sujeto_pasivo);
@@ -1304,7 +1322,7 @@ function buildDashboardDropdownCache() {
 
   // Construir lista de sujetos pasivos VIGENTES desde el endpoint dedicado
   const vigentesNombresSet = new Set();
-  (dataStore.sujetosVigentesNombres || []).forEach(sp => {
+  _getArr(dataStore.sujetosVigentesNombres).forEach(sp => {
     if (sp.nombre) {
       const normalized = normalizeName(sp.nombre);
       if (normalized) vigentesNombresSet.add(normalized);
@@ -1501,6 +1519,14 @@ function selectDashboardSuggestion(fieldName, value) {
     }
   }
 
+  // Si se selecciona un nuevo año diferente, resetear las fechas de inicio y término y forzar re-renderizado completo
+  if (fieldName === 'anio' && filters.anio !== value) {
+    filters.fechaInicio = '';
+    filters.fechaTermino = '';
+    const mainEl = document.getElementById('main-content');
+    if (mainEl) mainEl.innerHTML = '';
+  }
+
   filters[fieldName] = value;
   
   const input = document.getElementById(`${idPrefix}${fieldName}`);
@@ -1581,6 +1607,12 @@ function hideDashboardSuggestions(fieldName) {
               cargoInput.value = '';
             }
           }
+          if (fieldName === 'anio') {
+            filters.fechaInicio = '';
+            filters.fechaTermino = '';
+            const mainEl = document.getElementById('main-content');
+            if (mainEl) mainEl.innerHTML = '';
+          }
           triggerRenderOrFetch();
         }
       } else {
@@ -1593,13 +1625,19 @@ function hideDashboardSuggestions(fieldName) {
               filters.cargo = '';
               
               // Si estamos en vistas con bloqueo reactivo, forzar desbloqueo de cargo en DOM
-              const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
+               const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
               if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
                 cargoInput.disabled = false;
                 cargoInput.placeholder = 'Escribir cargo...';
                 cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
                 cargoInput.classList.add('text-slate-200');
               }
+            }
+            if (fieldName === 'anio') {
+              filters.fechaInicio = '';
+              filters.fechaTermino = '';
+              const mainEl = document.getElementById('main-content');
+              if (mainEl) mainEl.innerHTML = '';
             }
             filters[fieldName] = matchedItem;
             input.value = matchedItem;
@@ -1777,11 +1815,7 @@ function updateHighlightedSuggestion(items) {
   });
 }
 
-// Cambiar filtro del dashboard y re-renderizar
-function handleDashboardFilter(fieldName, value) {
-  dashboardFilters[fieldName] = value;
-  renderView();
-}
+
 
 // Limpiar filtros del dashboard
 function clearDashboardFilters() {
@@ -1790,10 +1824,18 @@ function clearDashboardFilters() {
     fechaInicio: '',
     fechaTermino: '',
     nombre: '',
-    cargo: ''
+    cargo: '',
+    soloVigentes: true
   };
+  const main = document.getElementById('main-content');
+  if (main) main.innerHTML = ''; // Fuerza re-renderizado completo de los filtros
   renderView();
 }
+
+window.toggleDashboardSoloVigentes = function(checked) {
+  dashboardFilters.soloVigentes = checked;
+  renderView(true);
+};
 
 // Manejar cambios en filtros de reportes con debounce y mantención de foco
 const debouncedReportesRender = debounce((activeInputId) => {
@@ -1812,39 +1854,7 @@ const debouncedReportesRender = debounce((activeInputId) => {
   }
 }, 250);
 
-function handleReportesFilter(fieldName, value, inputId) {
-  paginationState.reportes.page = 1;
-  if (fieldName === 'nombre') {
-    reportesFilters.nombre = value;
-    // Si cambia o se limpia el nombre, resetear cargo a vacío
-    reportesFilters.cargo = '';
-    
-    // Forzar el bloqueo del input físico en el DOM
-    const cargoInput = document.getElementById('report-filter-cargo');
-    if (cargoInput) {
-      if (value === '') {
-        cargoInput.disabled = true;
-        cargoInput.placeholder = 'Seleccione nombre primero...';
-        cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
-        cargoInput.classList.remove('text-slate-200');
-        cargoInput.value = '';
-      } else {
-        cargoInput.disabled = false;
-        cargoInput.placeholder = 'Escribir cargo...';
-        cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
-        cargoInput.classList.add('text-slate-200');
-      }
-    }
-  } else if (fieldName === 'cargo') {
-    reportesFilters.cargo = value;
-  } else if (fieldName === 'fechaInicio') {
-    reportesFilters.fechaInicio = value;
-  } else if (fieldName === 'fechaTermino') {
-    reportesFilters.fechaTermino = value;
-  }
 
-  debouncedReportesRender(inputId);
-}
 
 function handleReportesEstadoToggle(estado, checked) {
   paginationState.reportes.page = 1;
@@ -1868,26 +1878,31 @@ function clearReportesFilters() {
     estados: [],
     soloVigentes: true
   };
+  const main = document.getElementById('main-content');
+  if (main) main.innerHTML = ''; // Fuerza re-renderizado completo de los filtros
   renderView();
 }
 
 
 // Renderizar Vistas según selección
-function renderView() {
+function renderView(forceAnimateCards = false) {
   const main = document.getElementById('main-content');
   if (!main) return;
   
+  let isPartialUpdate = false;
   switch (currentView) {
     case 'login':
       renderLogin(main);
       break;
     case 'dashboard':
-      renderDashboard(main);
+      isPartialUpdate = renderDashboard(main);
       initDashboardCharts();
-      ['count-total-solicitudes', 'count-solicitudes-respondidas', 'count-solicitudes-pendientes',
-       'count-estado-aceptada', 'count-estado-rechazada', 'count-estado-suspendida', 
-       'count-estado-cancelada', 'count-estado-encomendada', 'count-estado-publicadas', 
-       'count-estado-pendientesPublicacion'].forEach(id => animateNumberCount(id, null, 1000));
+      if (!isPartialUpdate || forceAnimateCards) {
+        ['count-total-solicitudes', 'count-solicitudes-respondidas', 'count-solicitudes-pendientes',
+         'count-estado-aceptada', 'count-estado-rechazada', 'count-estado-suspendida', 
+         'count-estado-cancelada', 'count-estado-encomendada', 'count-estado-publicadas', 
+         'count-estado-pendientesPublicacion'].forEach(id => animateNumberCount(id, null, 1000));
+      }
       break;
     case 'solicitudes':
       renderSolicitudes(main);
@@ -1905,7 +1920,7 @@ function renderView() {
       renderUsuarios(main);
       break;
     case 'reportes':
-      renderReportes(main);
+      isPartialUpdate = renderReportes(main);
       break;
     case 'alertas':
       renderAlertasCentro(main);
@@ -1913,13 +1928,181 @@ function renderView() {
   }
   lucide.createIcons();
   updateThemeIcons();
+  
+  // Inicializar Air Datepicker SOLO si la vista se redibujó por completo
+  if (!isPartialUpdate) {
+    requestAnimationFrame(() => initAirDatepickerFields());
+  }
+  
+  if (typeof HSStaticMethods !== 'undefined' && HSStaticMethods.autoInit) {
+    HSStaticMethods.autoInit();
+  }
   hideLoader(!!window.activeInputId || !window.isSwitchingView);
   window.isSwitchingView = false;
 }
 
 
 
+// ─── AIR DATEPICKER v3: Inicialización de selectores de fecha premium ───────
+// Permite navegación por grid de meses y grid de años al hacer click en el header
+function initAirDatepickerFields() {
+  console.log('[DatePicker] Inicializando campos de fecha...');
+  if (typeof AirDatepicker === 'undefined') {
+    console.error('[DatePicker] AirDatepicker no está definido en el ámbito global.');
+    return;
+  }
+
+  const locale = (typeof window.AirDatepickerLocaleEs !== 'undefined')
+    ? window.AirDatepickerLocaleEs
+    : undefined;
+
+  const inputs = document.querySelectorAll('.flatpickr-display-input');
+  console.log(`[DatePicker] Encontrados ${inputs.length} inputs con la clase .flatpickr-display-input`);
+
+  inputs.forEach(displayInput => {
+    try {
+      const hiddenInputId = displayInput.getAttribute('data-date-target');
+      const hiddenInput = hiddenInputId ? document.getElementById(hiddenInputId) : null;
+      console.log(`[DatePicker] Procesando display ID: ${displayInput.id}, target oculto: ${hiddenInputId}`);
+
+      // 1. Obtener límites min y max desde el input oculto
+      let minDate = undefined;
+      let maxDate = undefined;
+      if (hiddenInput) {
+        const minVal = hiddenInput.getAttribute('min');
+        if (minVal) {
+          const parts = minVal.split('-').map(Number);
+          if (parts.length === 3 && !parts.some(isNaN)) {
+            minDate = new Date(parts[0], parts[1] - 1, parts[2]);
+          }
+        }
+        const maxVal = hiddenInput.getAttribute('max');
+        if (maxVal) {
+          const parts = maxVal.split('-').map(Number);
+          if (parts.length === 3 && !parts.some(isNaN)) {
+            maxDate = new Date(parts[0], parts[1] - 1, parts[2]);
+          }
+        }
+      }
+
+      // 2. Si ya tiene una instancia de AirDatepicker, solo actualizamos sus opciones en lugar de recrearla
+      if (displayInput._airDatepicker) {
+        console.log(`[DatePicker] Instancia existente encontrada para ${displayInput.id}. Actualizando opciones.`);
+        const dp = displayInput._airDatepicker;
+        dp.update({
+          minDate: minDate,
+          maxDate: maxDate
+        });
+        
+        // Si el año cambió y la fecha seleccionada queda fuera del rango, la limpiamos
+        if (dp.selectedDates.length > 0) {
+          const selDate = dp.selectedDates[0];
+          if ((minDate && selDate < minDate) || (maxDate && selDate > maxDate)) {
+            dp.clear();
+            if (hiddenInput) {
+              hiddenInput.value = '';
+              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        }
+        return;
+      }
+
+      // 3. Crear opciones base del calendario
+      const adpOptions = {
+        dateFormat: 'dd/MM/yyyy',
+        autoClose: true,
+        isMobile: false,
+        position: 'bottom left',
+        navTitles: {
+          days: 'MMMM yyyy',   // Click abre selector de meses
+          months: 'yyyy',      // Click abre selector de años
+          years: 'yyyy1 - yyyy2'
+        },
+        buttons: [{
+          content: 'Hoy',
+          className: 'adp-btn-today',
+          onClick: (dp) => { dp.selectDate(new Date()); dp.hide(); }
+        }, {
+          content: 'Limpiar',
+          className: 'adp-btn-clear',
+          onClick: (dp) => {
+            dp.clear();
+            if (hiddenInput && hiddenInput.value !== '') {
+              hiddenInput.value = '';
+              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            dp.hide();
+          }
+        }],
+        onSelect: ({ date, formattedDate }) => {
+          if (!hiddenInput) return;
+          if (date) {
+            const d = Array.isArray(date) ? date[0] : date;
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            const newVal = `${yyyy}-${mm}-${dd}`;
+            
+            // Solo si el valor realmente cambió disparamos el cambio (evita bucles infinitos en re-render)
+            if (hiddenInput.value !== newVal) {
+              hiddenInput.value = newVal;
+              displayInput.value = formattedDate || `${dd.toString().padStart(2,'0')}/${mm}/${yyyy}`;
+              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          } else {
+            if (hiddenInput.value !== '') {
+              hiddenInput.value = '';
+              displayInput.value = '';
+              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        }
+      };
+
+      if (locale) adpOptions.locale = locale;
+      if (minDate) adpOptions.minDate = minDate;
+      if (maxDate) adpOptions.maxDate = maxDate;
+
+      // Pre-seleccionar fecha parseando a Date local
+      if (hiddenInput && hiddenInput.value && hiddenInput.value.length === 10) {
+        const parts = hiddenInput.value.split('-').map(Number);
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          adpOptions.selectedDates = [new Date(parts[0], parts[1] - 1, parts[2])];
+          // Forzar que el display text muestre la fecha seleccionada al inicializar
+          const dd = String(parts[2]).padStart(2, '0');
+          const mm = String(parts[1]).padStart(2, '0');
+          displayInput.value = `${dd}/${mm}/${parts[0]}`;
+        }
+      }
+
+      const dp = new AirDatepicker(displayInput, adpOptions);
+      displayInput._airDatepicker = dp;
+
+      // Evento click al input display para asegurar que abra el calendario
+      displayInput.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dp.show();
+      });
+
+      // Botón del ícono de calendario: toggle del picker
+      const triggerBtn = displayInput.parentElement
+        ? displayInput.parentElement.querySelector(`[data-flatpickr-trigger="${hiddenInputId}"]`)
+        : null;
+      if (triggerBtn) {
+        const newBtn = triggerBtn.cloneNode(true);
+        triggerBtn.parentNode.replaceChild(newBtn, triggerBtn);
+        newBtn.addEventListener('click', (e) => { e.stopPropagation(); dp.show(); });
+      }
+      console.log(`[DatePicker] Inicialización exitosa para ID: ${displayInput.id}`);
+    } catch (e) {
+      console.error(`[DatePicker] Error al inicializar para el elemento:`, displayInput, e);
+    }
+  });
+}
+
 // Eliminación genérica de registros
+
 function deleteRecord(viewName, id) {
   openConfirmModal(
     'Eliminar Registro',
@@ -2444,6 +2627,13 @@ document.addEventListener('click', (e) => {
       }
     }
     
+    if (fieldName === 'anio') {
+      filters.fechaInicio = '';
+      filters.fechaTermino = '';
+      const mainEl = document.getElementById('main-content');
+      if (mainEl) mainEl.innerHTML = '';
+    }
+    
     const input = document.getElementById(inputId);
     if (input) {
       input.value = '';
@@ -2639,9 +2829,19 @@ async function exportReportToPDF() {
       return mainCode === 'DDP';
     };
 
-    // Calcular estadísticas
+    // Calcular estadísticas de plazo
     const overdueCount = processedData.filter(isFdpItem).length;
     const compliantCount = processedData.filter(isDdpItem).length;
+
+    // Calcular contadores por estado para la segunda fila de KPIs
+    const countIngresada = processedData.filter(i => (i.estado || '').toLowerCase() === 'ingresada').length;
+    const countAceptada = processedData.filter(i => (i.estado || '').toLowerCase() === 'aceptada').length;
+    const countPendientePub = processedData.filter(i => (i.estado || '').toLowerCase() === 'pendiente de publicación').length;
+    const countRechazada = processedData.filter(i => (i.estado || '').toLowerCase() === 'rechazada').length;
+    const countOtras = processedData.filter(i => {
+      const est = (i.estado || '').toLowerCase();
+      return est === 'cancelada' || est === 'suspendida' || est === 'encomendada';
+    }).length;
 
     const rowsArray = processedData.map((item, idx) => {
       let stateColor = '#334155';
@@ -2654,9 +2854,22 @@ async function exportReportToPDF() {
       else if (stateLower === 'cancelada' || stateLower === 'suspendida') { stateColor = '#9a3412'; stateBg = '#fffbeb'; stateBorder = '#fed7aa'; }
 
       const isOverdue = isOverdueItem(item);
-      const plazoColor = isOverdue ? '#991b1b' : '#166534';
-      const plazoBg   = isOverdue ? '#fef2f2' : '#f0fdf4';
-      const plazoBorder = isOverdue ? '#fecaca' : '#bbf7d0';
+      // Paleta Liquid Lavender para estados de solicitud
+      if (stateLower === 'ingresada') {
+        stateColor = '#475569'; stateBg = '#f8fafc'; stateBorder = '#e2e8f0';
+      } else if (stateLower === 'aceptada') {
+        stateColor = '#0369a1'; stateBg = '#f0f9ff'; stateBorder = '#bae6fd';
+      } else if (stateLower === 'pendiente de publicación') {
+        stateColor = '#7c3aed'; stateBg = '#f5f3ff'; stateBorder = '#ddd6fe';
+      } else if (stateLower === 'rechazada') {
+        stateColor = '#be123c'; stateBg = '#fff1f2'; stateBorder = '#fecdd3';
+      } else if (stateLower === 'cancelada' || stateLower === 'suspendida' || stateLower === 'encomendada') {
+        stateColor = '#b45309'; stateBg = '#fffbeb'; stateBorder = '#fde68a';
+      }
+      // Colores plazo Liquid Lavender: FDP = rosa/fucsia, DDP = indigo suave
+      const plazoColor = isOverdue ? '#be123c' : '#4338ca';
+      const plazoBg   = isOverdue ? '#fff1f2' : '#eef2ff';
+      const plazoBorder = isOverdue ? '#fecdd3' : '#c7d2fe';
 
       const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
       let mainCode = item.plazo;
@@ -2770,11 +2983,10 @@ async function exportReportToPDF() {
           </table>
         </div>
 
-        <!-- Sujeto Pasivo en grande y filtros alineados dentro de la tarjeta de fondo -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
-          <div style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos'}</div>
-          <div style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${filtersSnapshot.cargo || 'Todos los Cargos'}</div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #475569; margin-top: 6px;">
+        <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
+          <div style="font-size: 12px; font-weight: 800; color: #5b21b6; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos'}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #7c3aed; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${filtersSnapshot.cargo || 'Todos los Cargos'}</div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #6d28d9; margin-top: 6px;">
             <tr>
               <td style="padding: 0; border: none; width: 50%;"><strong>Período:</strong> ${rfechasStr}</td>
               <td style="padding: 0; border: none; width: 50%;"><strong>Estados:</strong> ${filtersSnapshot.estados.length > 0 ? filtersSnapshot.estados.join(', ') : 'Todos'}</td>
@@ -2782,28 +2994,63 @@ async function exportReportToPDF() {
           </table>
         </div>
 
-        <!-- Métricas rápidas - KPIs Premium -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
           <tr>
             <td style="width: 33.3%; padding-right: 8px; border: none;">
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
-                <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalItems}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #e2e8f0; font-weight: 900; line-height: 1; user-select: none;">#</div>
+              <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
+                <div style="font-size: 20px; font-weight: 800; color: #4c1d95; margin-top: 2px;">${totalItems}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #ddd6fe; font-weight: 900; line-height: 1; user-select: none;">#</div>
               </div>
             </td>
             <td style="width: 33.3%; padding-left: 4px; padding-right: 4px; border: none;">
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #15803d; margin-top: 2px;">${compliantCount}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #dcfce7; font-weight: 900; line-height: 1; user-select: none;">✓</div>
+              <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #3730a3; margin-top: 2px;">${compliantCount}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #c7d2fe; font-weight: 900; line-height: 1; user-select: none;">&#10003;</div>
               </div>
             </td>
             <td style="width: 33.3%; padding-left: 8px; border: none;">
-              <div style="background: #fffdfd; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #b91c1c; margin-top: 2px;">${overdueCount}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fee2e2; font-weight: 900; line-height: 1; user-select: none;">!</div>
+              <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+                <div style="font-size: 7.5px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
+                <div style="font-size: 20px; font-weight: 800; color: #9f1239; margin-top: 2px;">${overdueCount}</div>
+                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fecdd3; font-weight: 900; line-height: 1; user-select: none;">!</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- KPIs Fila 2: Estados de solicitud -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+          <tr>
+            <td style="width: 20%; padding-right: 6px; border: none;">
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
+                <div style="font-size: 6.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Ingresadas</div>
+                <div style="font-size: 16px; font-weight: 800; color: #334155; margin-top: 1px;">${countIngresada}</div>
+              </div>
+            </td>
+            <td style="width: 20%; padding-right: 6px; border: none;">
+              <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
+                <div style="font-size: 6.5px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.05em;">Aceptadas</div>
+                <div style="font-size: 16px; font-weight: 800; color: #075985; margin-top: 1px;">${countAceptada}</div>
+              </div>
+            </td>
+            <td style="width: 20%; padding-right: 6px; border: none;">
+              <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
+                <div style="font-size: 6.5px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.05em;">Pend. Publicación</div>
+                <div style="font-size: 16px; font-weight: 800; color: #5b21b6; margin-top: 1px;">${countPendientePub}</div>
+              </div>
+            </td>
+            <td style="width: 20%; padding-right: 6px; border: none;">
+              <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
+                <div style="font-size: 6.5px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.05em;">Rechazadas</div>
+                <div style="font-size: 16px; font-weight: 800; color: #9f1239; margin-top: 1px;">${countRechazada}</div>
+              </div>
+            </td>
+            <td style="width: 20%; border: none;">
+              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
+                <div style="font-size: 6.5px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.05em;">Cancel./Susp.</div>
+                <div style="font-size: 16px; font-weight: 800; color: #92400e; margin-top: 1px;">${countOtras}</div>
               </div>
             </td>
           </tr>
@@ -3895,31 +4142,52 @@ function closeAuditoriaRecord(id) {
 
 // Inicialización de Gráficos Comparativos con Chart.js
 function initDashboardCharts() {
-  const canvasDist = document.getElementById('chart-distribucion-estados');
-  const canvasEvol = document.getElementById('chart-evolucion-mensual');
-  const canvasCumpl = document.getElementById('chart-cumplimiento-plazos');
-  const canvasTop = document.getElementById('chart-top-autoridades');
+  const containerDist = document.getElementById('chart-distribucion-estados');
+  const containerEvol = document.getElementById('chart-evolucion-mensual');
+  const containerCumpl = document.getElementById('chart-cumplimiento-plazos');
+  const containerTop = document.getElementById('chart-top-autoridades');
 
-  if (!canvasDist || !canvasEvol || !canvasCumpl || !canvasTop) return;
+  if (!containerDist || !containerEvol || !containerCumpl || !containerTop) return;
 
-  // Destruir instancias previas para evitar superposiciones
-  if (chartDistribucionInstance) { chartDistribucionInstance.destroy(); chartDistribucionInstance = null; }
-  if (chartEvolucionInstance) { chartEvolucionInstance.destroy(); chartEvolucionInstance = null; }
-  if (chartCumplimientoInstance) { chartCumplimientoInstance.destroy(); chartCumplimientoInstance = null; }
-  if (chartTopAutoridadesInstance) { chartTopAutoridadesInstance.destroy(); chartTopAutoridadesInstance = null; }
+  // Destruir instancias previas para evitar superposiciones o fugas de memoria
+  if (chartDistribucionInstance) {
+    try { chartDistribucionInstance.destroy(); } catch(e){}
+    chartDistribucionInstance = null;
+  }
+  if (chartEvolucionInstance) {
+    try { chartEvolucionInstance.destroy(); } catch(e){}
+    chartEvolucionInstance = null;
+  }
+  if (chartCumplimientoInstance) {
+    try { chartCumplimientoInstance.destroy(); } catch(e){}
+    chartCumplimientoInstance = null;
+  }
+  if (chartTopAutoridadesInstance) {
+    try { chartTopAutoridadesInstance.destroy(); } catch(e){}
+    chartTopAutoridadesInstance = null;
+  }
 
-  if (typeof Chart === 'undefined') {
-    console.warn('Chart.js no está cargado.');
+  if (typeof ApexCharts === 'undefined') {
+    console.warn('ApexCharts no está cargado.');
     return;
   }
 
-  // Detectar tema actual
+  // Detectar tema actual y leer variables CSS computadas (@theme Sincronización)
+  const style = getComputedStyle(document.documentElement);
   const isDark = document.documentElement.classList.contains('dark');
+
+  // Colores principales de la marca Liquid Lavender
+  const colorBrand = style.getPropertyValue('--brand-600').trim() || '#7c3aed';
+
+  // Paleta de colores WCAG AA / pasteles tecnológicos
+  const colorSky = isDark ? '#38bdf8' : '#0284c7';
+  const colorRose = isDark ? '#fda4af' : '#f43f5e';
+  const colorPurple = isDark ? '#c084fc' : '#a78bfa';
+  const colorSlate = isDark ? '#64748b' : '#94a3b8';
+  const colorAmber = isDark ? '#fbbf24' : '#d97706';
+
   const textColor = isDark ? '#cbd5e1' : '#334155'; // slate-300 vs slate-700
   const gridColor = isDark ? '#1e293b' : '#e2e8f0'; // slate-800 vs slate-200
-  const tooltipBg = isDark ? '#0f172a' : '#ffffff';
-  const tooltipBorder = isDark ? '#334155' : '#cbd5e1';
-  const tooltipText = isDark ? '#f8fafc' : '#0f172a';
 
   // Obtener datos y calcular estadísticas
   const rawData = dataStore.dashboardRawData || [];
@@ -3928,6 +4196,11 @@ function initDashboardCharts() {
 
   // 1. Re-filtrar datos locales para cálculos temporales
   let filtered = rawData;
+  if (filters.soloVigentes) {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      filtered = filtered.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  }
   if (filters.anio && filters.anio !== 'TODOS') {
     filtered = filtered.filter(item => item.fecha_ingreso && item.fecha_ingreso.startsWith(filters.anio));
   }
@@ -3946,16 +4219,11 @@ function initDashboardCharts() {
     filtered = filtered.filter(item => item.cargo && getCargoClean(item.cargo).toLowerCase().includes(val));
   }
 
-  // Opciones de fuentes estándar
-  const fontConfig = {
-    family: 'Inter, sans-serif',
-    size: 10
-  };
-
   // ----------------------------------------------------
-  // GRÁFICO A: DISTRIBUCIÓN POR ESTADO (Doughnut)
+  // GRÁFICO A: DISTRIBUCIÓN POR ESTADO (Donut)
   // ----------------------------------------------------
   const distData = [
+    stats.totales.pendientes,
     stats.estados.aceptada.count,
     stats.estados.rechazada.count,
     stats.estados.suspendida.count,
@@ -3963,74 +4231,93 @@ function initDashboardCharts() {
     stats.estados.encomendada.count
   ];
 
-  const colorsDoughnut = isDark ? [
-    '#818cf8', // Aceptada (indigo-400)
-    '#f472b6', // Rechazada (pink-400)
-    '#a78bfa', // Suspendida (purple-400)
-    '#cbd5e1', // Cancelada (slate-300)
-    '#fb923c'  // Encomendada (orange-400)
-  ] : [
-    '#4f46e5', // Aceptada (indigo-600)
-    '#db2777', // Rechazada (pink-600)
-    '#7c3aed', // Suspendida (purple-600)
-    '#475569', // Cancelada (slate-600)
-    '#ea580c'  // Encomendada (orange-600)
-  ];
-
-  chartDistribucionInstance = new Chart(canvasDist, {
-    type: 'doughnut',
-    data: {
-      labels: ['Aceptadas', 'Rechazadas', 'Suspendidas', 'Canceladas', 'Encomendadas'],
-      datasets: [{
-        data: distData,
-        backgroundColor: colorsDoughnut,
-        borderColor: isDark ? '#0f172a' : '#ffffff',
-        borderWidth: 2,
-        hoverOffset: 6
-      }]
+  const distOptions = {
+    chart: {
+      type: 'donut',
+      height: 280,
+      fontFamily: 'Inter, sans-serif',
+      foreColor: textColor,
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'right',
+    series: distData,
+    labels: ['Ingresadas', 'Aceptadas', 'Rechazadas', 'Suspendidas', 'Canceladas', 'Encomendadas'],
+    colors: [colorSky, colorBrand, colorRose, colorPurple, colorSlate, colorAmber],
+    stroke: {
+      show: true,
+      width: 2,
+      colors: [isDark ? '#0c0b14' : '#ffffff']
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '65%',
+          background: 'transparent',
           labels: {
-            color: textColor,
-            font: fontConfig,
-            padding: 12,
-            boxWidth: 8,
-            boxHeight: 8,
-            usePointStyle: true
-          }
-        },
-        tooltip: {
-          backgroundColor: tooltipBg,
-          borderColor: tooltipBorder,
-          borderWidth: 1,
-          titleColor: tooltipText,
-          bodyColor: tooltipText,
-          titleFont: { family: 'Inter', weight: 'bold', size: 11 },
-          bodyFont: { family: 'Inter', size: 11 },
-          callbacks: {
-            label: function(context) {
-              const label = context.label || '';
-              const value = context.parsed || 0;
-              const total = filtered.length; // Usar el universo total filtrado para coincidir con las cards
-              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-              return ` ${label}: ${value.toLocaleString('es-CL')} (${percentage}%)`;
+            show: true,
+            name: {
+              show: true,
+              fontSize: '11px',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+            },
+            value: {
+              show: true,
+              fontSize: '16px',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 700,
+              color: isDark ? '#e2e0ed' : '#0c0b14',
+              formatter: function(val) {
+                return parseInt(val, 10).toLocaleString('es-CL');
+              }
+            },
+            total: {
+              show: true,
+              label: 'Total',
+              fontSize: '11px',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              color: textColor,
+              formatter: function(w) {
+                const sum = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                return sum.toLocaleString('es-CL');
+              }
             }
           }
         }
+      }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    legend: {
+      position: 'right',
+      fontSize: '11px',
+      markers: {
+        width: 8,
+        height: 8,
+        radius: 8
       },
-      cutout: '65%'
+      itemMargin: {
+        vertical: 4
+      }
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light',
+      y: {
+        formatter: function(value) {
+          const total = filtered.length;
+          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+          return `${value.toLocaleString('es-CL')} (${percentage}%)`;
+        }
+      }
     }
-  });
+  };
+
+  chartDistribucionInstance = new ApexCharts(containerDist, distOptions);
+  chartDistribucionInstance.render();
 
   // ----------------------------------------------------
-  // GRÁFICO B: EVOLUCIÓN MENSUAL INTERANUAL (Line)
+  // GRÁFICO B: EVOLUCIÓN MENSUAL INTERANUAL (Area/Line)
   // ----------------------------------------------------
-  // Determinar años comparativos
   const selectedYearStr = (filters.anio && filters.anio !== 'TODOS') ? filters.anio : new Date().getFullYear().toString();
   const selectedYear = parseInt(selectedYearStr, 10);
   const previousYear = selectedYear - 1;
@@ -4078,72 +4365,68 @@ function initDashboardCharts() {
     }
   });
 
-  chartEvolucionInstance = new Chart(canvasEvol, {
-    type: 'line',
-    data: {
-      labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-      datasets: [
-        {
-          label: `${selectedYear} (Año Actual)`,
-          data: currentYearMonthly,
-          borderColor: '#6366f1',
-          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-          fill: true,
-          tension: 0.35,
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        },
-        {
-          label: `${previousYear} (Año Anterior)`,
-          data: previousYearMonthly,
-          borderColor: isDark ? '#64748b' : '#94a3b8',
-          backgroundColor: 'transparent',
-          borderDash: [5, 5],
-          tension: 0.35,
-          borderWidth: 1.5,
-          pointRadius: 2,
-          pointHoverRadius: 4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: { color: textColor, font: fontConfig, boxWidth: 12, usePointStyle: true }
-        },
-        tooltip: {
-          backgroundColor: tooltipBg,
-          borderColor: tooltipBorder,
-          borderWidth: 1,
-          titleColor: tooltipText,
-          bodyColor: tooltipText,
-          titleFont: { family: 'Inter', weight: 'bold' },
-          bodyFont: { family: 'Inter' }
-        }
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          ticks: { color: textColor, font: fontConfig }
-        },
-        y: {
-          grid: { color: gridColor },
-          ticks: { color: textColor, font: fontConfig }
-        }
+  const evolOptions = {
+    chart: {
+      type: 'area',
+      height: 280,
+      fontFamily: 'Inter, sans-serif',
+      foreColor: textColor,
+      toolbar: {
+        show: false
       }
+    },
+    series: [
+      {
+        name: `${selectedYear} (Año Actual)`,
+        data: currentYearMonthly
+      },
+      {
+        name: `${previousYear} (Año Anterior)`,
+        data: previousYearMonthly
+      }
+    ],
+    colors: [colorBrand, colorSlate],
+    stroke: {
+      curve: 'smooth',
+      width: [2, 1.5],
+      dashArray: [0, 4]
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: [0.25, 0],
+        opacityTo: [0.05, 0],
+        stops: [0, 90, 100]
+      }
+    },
+    xaxis: {
+      categories: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    grid: {
+      borderColor: gridColor,
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light'
     }
-  });
+  };
+
+  chartEvolucionInstance = new ApexCharts(containerEvol, evolOptions);
+  chartEvolucionInstance.render();
 
   // ----------------------------------------------------
   // GRÁFICO C: CUMPLIMIENTO DE PLAZOS MENSUAL (Stacked Bar)
   // ----------------------------------------------------
   const inPlazoMonthly = Array(12).fill(0);
   const fueraPlazoMonthly = Array(12).fill(0);
-
 
   filtered.forEach(item => {
     if (!item.fecha_ingreso) return;
@@ -4169,73 +4452,70 @@ function initDashboardCharts() {
     }
   });
 
-  chartCumplimientoInstance = new Chart(canvasCumpl, {
-    type: 'bar',
-    data: {
-      labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
-      datasets: [
-        {
-          label: 'Dentro de Plazo (RDP/DDP)',
-          data: inPlazoMonthly,
-          backgroundColor: isDark ? '#818cf8' : '#4f46e5', // Índigo elegante (Dentro de plazo)
-          borderRadius: 4
-        },
-        {
-          label: 'Fuera de Plazo (RFP/FDP)',
-          data: fueraPlazoMonthly,
-          backgroundColor: isDark ? '#fecdd3' : '#fda4af', // Rosa pastel suave (Fuera de plazo)
-          borderRadius: 4
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'top',
-          labels: { color: textColor, font: fontConfig, boxWidth: 12, usePointStyle: true }
-        },
-        tooltip: {
-          backgroundColor: tooltipBg,
-          borderColor: tooltipBorder,
-          borderWidth: 1,
-          titleColor: tooltipText,
-          bodyColor: tooltipText,
-          titleFont: { family: 'Inter', weight: 'bold' },
-          bodyFont: { family: 'Inter' }
-        }
-      },
-      scales: {
-        x: {
-          stacked: true,
-          grid: { display: false },
-          ticks: { color: textColor, font: fontConfig }
-        },
-        y: {
-          stacked: true,
-          grid: { color: gridColor },
-          ticks: { color: textColor, font: fontConfig }
-        }
+  const cumplOptions = {
+    chart: {
+      type: 'bar',
+      height: 280,
+      stacked: true,
+      fontFamily: 'Inter, sans-serif',
+      foreColor: textColor,
+      toolbar: {
+        show: false
       }
+    },
+    series: [
+      {
+        name: 'Dentro de Plazo (RDP/DDP)',
+        data: inPlazoMonthly
+      },
+      {
+        name: 'Fuera de Plazo (RFP/FDP)',
+        data: fueraPlazoMonthly
+      }
+    ],
+    colors: [colorBrand, colorRose],
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '45%',
+        borderRadius: 4,
+        borderRadiusApplication: 'end',
+        borderRadiusWhenStacked: 'last'
+      }
+    },
+    xaxis: {
+      categories: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    grid: {
+      borderColor: gridColor,
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light'
     }
-  });
+  };
+
+  chartCumplimientoInstance = new ApexCharts(containerCumpl, cumplOptions);
+  chartCumplimientoInstance.render();
 
   // ----------------------------------------------------
   // GRÁFICO D: TOP 5 AUTORIDADES (Horizontal Bar)
   // ----------------------------------------------------
-  const onlyActive = document.getElementById('top-autoridades-only-active')?.checked ?? true;
-
   const counts = {}; // spId -> { name, count }
   filtered.forEach(item => {
     if (item.sujeto_pasivo_id && item.sujeto_pasivo) {
       const spId = item.sujeto_pasivo_id;
-      if (!onlyActive || activeSujetoIdsCache.has(spId)) {
-        if (!counts[spId]) {
-          counts[spId] = { name: normalizeName(item.sujeto_pasivo), count: 0 };
-        }
-        counts[spId].count++;
+      if (!counts[spId]) {
+        counts[spId] = { name: normalizeName(item.sujeto_pasivo), count: 0 };
       }
+      counts[spId].count++;
     }
   });
 
@@ -4247,54 +4527,58 @@ function initDashboardCharts() {
   const topLabels = sortedTop.map(x => x.name);
   const topData = sortedTop.map(x => x.count);
 
-  chartTopAutoridadesInstance = new Chart(canvasTop, {
-    type: 'bar',
-    data: {
-      labels: topLabels.length > 0 ? topLabels : ['Sin registros'],
-      datasets: [{
-        label: 'Solicitudes Recibidas',
-        data: topData.length > 0 ? topData : [0],
-        backgroundColor: isDark ? 'rgba(129, 140, 248, 0.85)' : 'rgba(79, 70, 229, 0.85)',
-        borderColor: isDark ? '#818cf8' : '#4f46e5',
-        borderWidth: 1,
-        borderRadius: 4,
-        barThickness: 16
-      }]
+  const topOptions = {
+    chart: {
+      type: 'bar',
+      height: 280,
+      fontFamily: 'Inter, sans-serif',
+      foreColor: textColor,
+      toolbar: {
+        show: false
+      }
     },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: tooltipBg,
-          borderColor: tooltipBorder,
-          borderWidth: 1,
-          titleColor: tooltipText,
-          bodyColor: tooltipText,
-          titleFont: { family: 'Inter', weight: 'bold' },
-          bodyFont: { family: 'Inter' }
+    series: [{
+      name: 'Solicitudes Recibidas',
+      data: topData.length > 0 ? topData : [0]
+    }],
+    colors: [colorBrand],
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        barHeight: '35%',
+        borderRadius: 4,
+        borderRadiusApplication: 'end'
+      }
+    },
+    xaxis: {
+      categories: topLabels.length > 0 ? topLabels : ['Sin registros'],
+      labels: {
+        formatter: function(val) {
+          return Math.floor(val);
         }
       },
-      scales: {
-        x: {
-          grid: { color: gridColor },
-          ticks: { color: textColor, font: fontConfig, precision: 0 }
-        },
-        y: {
-          grid: { display: false },
-          ticks: { color: textColor, font: fontConfig }
-        }
-      }
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    grid: {
+      borderColor: gridColor,
+      strokeDashArray: 4,
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: false } }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light'
     }
-  });
+  };
+
+  chartTopAutoridadesInstance = new ApexCharts(containerTop, topOptions);
+  chartTopAutoridadesInstance.render();
 }
 
-// Handler para alternar el filtro de autoridades vigentes en el gráfico
-function toggleTopAutoridadesActive() {
-  initDashboardCharts();
-}
+
 
 // ==========================================
 // CAPA DE ALERTAS PREVENTIVAS Y SEMÁFORO (FASE 2)
@@ -4628,7 +4912,8 @@ async function generarReportesMasivos() {
   // 3. Filtrar y agrupar solicitudes por (sujeto_pasivo, cargo)
   const filtered = [];
   const hasEstadosFilter = reportesFilters.estados && reportesFilters.estados.length > 0;
-  const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
+  const publicadasArray = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+  const publicadosFolios = new Set(publicadasArray.map(p => p.folio_lobby).filter(Boolean));
 
   dataStore.reportesRawData.forEach(item => {
     let itemEstado = (item.estado || 'Ingresada').trim();
@@ -4637,19 +4922,27 @@ async function generarReportesMasivos() {
       itemEstado = 'Pendiente de publicación';
     }
 
-    // Filtro por rango de fechas
-    if (item.fecha_limite_sh) {
-      const itemDate = item.fecha_limite_sh.split(' ')[0];
-      if (fInicio && itemDate < fInicio) return;
-      if (fTermino && itemDate > fTermino) return;
-    } else {
-      if (fInicio || fTermino) return;
-    }
-
-    if (item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---') {
-      const agendaDate = item.fecha_agendada.split(' ')[0];
-      if (fInicio && agendaDate < fInicio) return;
-      if (fTermino && agendaDate > fTermino) return;
+    // Filtro por Rango de Fechas (PDR Compliance: la fecha de evaluación depende del estado)
+    // - Ingresada (PDR): se evalúa contra la fecha límite de respuesta (DDL)
+    // - Aceptada / Pendiente: se evalúa contra la fecha agendada
+    // - Otros: se evalúa contra la fecha de ingreso
+    if (fInicio || fTermino) {
+      const statusLower = itemEstado.toLowerCase();
+      let evalDate = null;
+      if (statusLower === 'ingresada') {
+        evalDate = item.fecha_limite_sh || item.fecha_ingreso;
+      } else if (item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---') {
+        evalDate = item.fecha_agendada;
+      } else {
+        evalDate = item.fecha_ingreso;
+      }
+      if (evalDate) {
+        const dateStr = evalDate.split(' ')[0];
+        if (fInicio && dateStr < fInicio) return;
+        if (fTermino && dateStr > fTermino) return;
+      } else {
+        return;
+      }
     }
 
     // Filtro por estados

@@ -1,16 +1,4 @@
-// Helper para generar HTML de tooltip premium para el sujeto pasivo y su cargo
-function renderSujetoPasivoTooltip(nombre, cargo) {
-  const displayNombre = nombre || "Sin Nombre";
-  const escapedCargo = escapeHtmlAttr(cargo || "Sin Cargo Definido");
 
-  return `
-    <span class="font-semibold text-slate-200 cursor-help border-b border-dashed border-slate-500 hover:text-brand-400 hover:border-brand-400 transition-colors"
-          onmouseenter="showGlobalTooltip(event, '${escapedCargo}')"
-          onmouseleave="hideGlobalTooltip()">
-      ${escapeHtml(displayNombre)}
-    </span>
-  `;
-}
 
 // Generador de controles de paginación
 function renderPaginationControls(
@@ -109,8 +97,84 @@ function renderDashboard(container) {
     dashboardFilters,
   );
 
+  const existingDashboard = container.querySelector("#dashboard-view-container");
+  if (existingDashboard) {
+    // 1. Actualizar números y porcentajes de las tarjetas principales
+    // Total Solicitudes
+    const totalCountEl = existingDashboard.querySelector('#count-total-solicitudes');
+    if (totalCountEl) totalCountEl.textContent = stats.totales.total;
+
+    // Respondidas
+    const respCountEl = existingDashboard.querySelector('#count-solicitudes-respondidas');
+    if (respCountEl) respCountEl.textContent = stats.totales.respondidas;
+    const respPctEl = respCountEl ? respCountEl.nextElementSibling : null;
+    if (respPctEl) respPctEl.textContent = formatPct(stats.respondidas.pctTotal, stats.totales.respondidas);
+    
+    // progress bar Total
+    const barTotalResp = existingDashboard.querySelector('#bar-total-respondidas');
+    if (barTotalResp) barTotalResp.style.width = `${stats.respondidas.pctTotal}%`;
+    const barTotalPend = existingDashboard.querySelector('#bar-total-pendientes');
+    if (barTotalPend) barTotalPend.style.width = `${stats.pendientes.pctTotal}%`;
+
+    // text Total
+    const textTotalResp = existingDashboard.querySelector('#text-total-respondidas');
+    if (textTotalResp) textTotalResp.textContent = `${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)} Respondidas (${stats.totales.respondidas})`;
+    const textTotalPend = existingDashboard.querySelector('#text-total-pendientes');
+    if (textTotalPend) textTotalPend.textContent = `${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)} Pendientes (${stats.totales.pendientes})`;
+
+    // progress bar Respondidas
+    const barRespRdp = existingDashboard.querySelector('#bar-respondidas-rdp');
+    if (barRespRdp) barRespRdp.style.width = `${stats.respondidas.pctRdp}%`;
+    const barRespRfp = existingDashboard.querySelector('#bar-respondidas-rfp');
+    if (barRespRfp) barRespRfp.style.width = `${stats.respondidas.pctRfp}%`;
+
+    // text Respondidas
+    const textRespRdp = existingDashboard.querySelector('#text-respondidas-rdp');
+    if (textRespRdp) textRespRdp.textContent = `${formatPct(stats.respondidas.pctRdp, stats.respondidas.rdp)} RDP (${stats.respondidas.rdp})`;
+    const textRespRfp = existingDashboard.querySelector('#text-respondidas-rfp');
+    if (textRespRfp) textRespRfp.textContent = `${formatPct(stats.respondidas.pctRfp, stats.respondidas.rfp)} RFP (${stats.respondidas.rfp})`;
+
+    // Pendientes
+    const pendCountEl = existingDashboard.querySelector('#count-solicitudes-pendientes');
+    if (pendCountEl) pendCountEl.textContent = stats.totales.pendientes;
+    const pendPctEl = pendCountEl ? pendCountEl.nextElementSibling : null;
+    if (pendPctEl) pendPctEl.textContent = formatPct(stats.pendientes.pctTotal, stats.totales.pendientes);
+
+    // progress bar Pendientes
+    const barPendDdp = existingDashboard.querySelector('#bar-pendientes-ddp');
+    if (barPendDdp) barPendDdp.style.width = `${stats.pendientes.pctDdp}%`;
+    const barPendFdp = existingDashboard.querySelector('#bar-pendientes-fdp');
+    if (barPendFdp) barPendFdp.style.width = `${stats.pendientes.pctFdp}%`;
+
+    // text Pendientes
+    const textPendDdp = existingDashboard.querySelector('#text-pendientes-ddp');
+    if (textPendDdp) textPendDdp.textContent = `${formatPct(stats.pendientes.pctDdp, stats.pendientes.ddp)} DDP (${stats.pendientes.ddp})`;
+    const textPendFdp = existingDashboard.querySelector('#text-pendientes-fdp');
+    if (textPendFdp) textPendFdp.textContent = `${formatPct(stats.pendientes.pctFdp, stats.pendientes.fdp)} FDP (${stats.pendientes.fdp})`;
+
+    // 2. Actualizar desglose de 7 estados
+    const estadosMap = [
+      { id: 'count-estado-aceptada', textId: 'text-pct-aceptada', count: stats.estados.aceptada.count, pct: stats.estados.aceptada.pct },
+      { id: 'count-estado-rechazada', textId: 'text-pct-rechazada', count: stats.estados.rechazada.count, pct: stats.estados.rechazada.pct },
+      { id: 'count-estado-suspendida', textId: 'text-pct-suspendida', count: stats.estados.suspendida.count, pct: stats.estados.suspendida.pct },
+      { id: 'count-estado-cancelada', textId: 'text-pct-cancelada', count: stats.estados.cancelada.count, pct: stats.estados.cancelada.pct },
+      { id: 'count-estado-encomendada', textId: 'text-pct-encomendada', count: stats.estados.encomendada.count, pct: stats.estados.encomendada.pct },
+      { id: 'count-estado-publicadas', textId: 'text-pct-publicadas', count: stats.totales.publicadas, pct: stats.totales.pctPublicadas },
+      { id: 'count-estado-pendientesPublicacion', textId: 'text-pct-pendientesPublicacion', count: stats.totales.pendientesPublicacion, pct: stats.totales.pctPendientesPublicacion }
+    ];
+
+    estadosMap.forEach(item => {
+      const elCount = existingDashboard.querySelector(`#${item.id}`);
+      if (elCount) elCount.textContent = item.count;
+      const elText = existingDashboard.querySelector(`#${item.textId}`);
+      if (elText) elText.textContent = formatPct(item.pct, item.count);
+    });
+
+    return true;
+  }
+
   container.innerHTML = `
-    <div class="space-y-4">
+    <div class="space-y-4" id="dashboard-view-container">
       <div class="space-y-1">
         <h2 class="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
       </div>
@@ -123,9 +187,16 @@ function renderDashboard(container) {
             <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
             Filtros
           </h3>
-          <button onclick="clearDashboardFilters()" class="text-[10px] text-slate-300 hover:text-white transition-colors flex items-center gap-1">
-            <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
-          </button>
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-1.5 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
+              <input type="checkbox" id="dashboard-filter-solo-vigentes" onchange="toggleDashboardSoloVigentes(this.checked)" class="rounded border-slate-700 bg-slate-900/60 text-brand-600 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5" ${dashboardFilters.soloVigentes ? 'checked' : ''}>
+              <span>Solo Sujeto Pasivos vigentes</span>
+            </label>
+            <div class="h-3.5 w-[1px] bg-slate-800"></div>
+            <button onclick="clearDashboardFilters()" class="text-[10px] text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+              <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <!-- AÑO -->
@@ -191,13 +262,13 @@ function renderDashboard(container) {
             <p class="text-xs text-body-muted font-semibold mt-1">100%</p>
           </div>
           <div class="space-y-1.5">
-            <div class="w-full h-3 rounded-full overflow-hidden bg-slate-800 flex">
-              <div class="h-full bg-deadline-ok" style="width: ${stats.respondidas.pctTotal}%"></div>
-              <div class="h-full bg-deadline-pending" style="width: ${stats.pendientes.pctTotal}%"></div>
+            <div class="w-full h-3 rounded-full overflow-hidden bg-border-ui flex">
+              <div id="bar-total-respondidas" class="h-full bg-deadline-ok" style="width: ${stats.respondidas.pctTotal}%"></div>
+              <div id="bar-total-pendientes" class="h-full bg-deadline-pending" style="width: ${stats.pendientes.pctTotal}%"></div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
-              <span>${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)} Respondidas (${stats.totales.respondidas})</span>
-              <span>${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)} Pendientes (${stats.totales.pendientes})</span>
+              <span id="text-total-respondidas">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)} Respondidas (${stats.totales.respondidas})</span>
+              <span id="text-total-pendientes">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)} Pendientes (${stats.totales.pendientes})</span>
             </div>
           </div>
         </div>
@@ -210,13 +281,13 @@ function renderDashboard(container) {
             <p class="text-xs text-body-muted font-semibold mt-1">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)}</p>
           </div>
           <div class="space-y-1.5">
-            <div class="w-full h-3 rounded-full overflow-hidden bg-slate-800 flex">
-              <div class="h-full bg-deadline-ok" style="width: ${stats.respondidas.pctRdp}%"></div>
-              <div class="h-full bg-deadline-overdue" style="width: ${stats.respondidas.pctRfp}%"></div>
+            <div class="w-full h-3 rounded-full overflow-hidden bg-border-ui flex">
+              <div id="bar-respondidas-rdp" class="h-full bg-deadline-ok" style="width: ${stats.respondidas.pctRdp}%"></div>
+              <div id="bar-respondidas-rfp" class="h-full bg-deadline-overdue" style="width: ${stats.respondidas.pctRfp}%"></div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
-              <span>${formatPct(stats.respondidas.pctRdp, stats.respondidas.rdp)} RDP (${stats.respondidas.rdp})</span>
-              <span>${formatPct(stats.respondidas.pctRfp, stats.respondidas.rfp)} RFP (${stats.respondidas.rfp})</span>
+              <span id="text-respondidas-rdp">${formatPct(stats.respondidas.pctRdp, stats.respondidas.rdp)} RDP (${stats.respondidas.rdp})</span>
+              <span id="text-respondidas-rfp">${formatPct(stats.respondidas.pctRfp, stats.respondidas.rfp)} RFP (${stats.respondidas.rfp})</span>
             </div>
           </div>
         </div>
@@ -229,13 +300,13 @@ function renderDashboard(container) {
             <p class="text-xs text-body-muted font-semibold mt-1">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)}</p>
           </div>
           <div class="space-y-1.5">
-            <div class="w-full h-3 rounded-full overflow-hidden bg-slate-800 flex">
-              <div class="h-full bg-deadline-ok" style="width: ${stats.pendientes.pctDdp}%"></div>
-              <div class="h-full bg-deadline-overdue" style="width: ${stats.pendientes.pctFdp}%"></div>
+            <div class="w-full h-3 rounded-full overflow-hidden bg-border-ui flex">
+              <div id="bar-pendientes-ddp" class="h-full bg-deadline-ok" style="width: ${stats.pendientes.pctDdp}%"></div>
+              <div id="bar-pendientes-fdp" class="h-full bg-deadline-overdue" style="width: ${stats.pendientes.pctFdp}%"></div>
             </div>
             <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
-              <span>${formatPct(stats.pendientes.pctDdp, stats.pendientes.ddp)} DDP (${stats.pendientes.ddp})</span>
-              <span>${formatPct(stats.pendientes.pctFdp, stats.pendientes.fdp)} FDP (${stats.pendientes.fdp})</span>
+              <span id="text-pendientes-ddp">${formatPct(stats.pendientes.pctDdp, stats.pendientes.ddp)} DDP (${stats.pendientes.ddp})</span>
+              <span id="text-pendientes-fdp">${formatPct(stats.pendientes.pctFdp, stats.pendientes.fdp)} FDP (${stats.pendientes.fdp})</span>
             </div>
           </div>
         </div>
@@ -251,7 +322,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-aceptada">${stats.estados.aceptada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</p>
+            <p id="text-pct-aceptada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</p>
           </div>
         </div>
 
@@ -263,7 +334,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-rechazada">${stats.estados.rechazada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</p>
+            <p id="text-pct-rechazada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</p>
           </div>
         </div>
 
@@ -275,7 +346,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-suspendida">${stats.estados.suspendida.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</p>
+            <p id="text-pct-suspendida" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</p>
           </div>
         </div>
 
@@ -287,7 +358,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-cancelada">${stats.estados.cancelada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</p>
+            <p id="text-pct-cancelada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</p>
           </div>
         </div>
 
@@ -299,7 +370,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-encomendada">${stats.estados.encomendada.count}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</p>
+            <p id="text-pct-encomendada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</p>
           </div>
         </div>
 
@@ -311,7 +382,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-publicadas">${stats.totales.publicadas}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</p>
+            <p id="text-pct-publicadas" class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</p>
           </div>
         </div>
 
@@ -323,7 +394,7 @@ function renderDashboard(container) {
           </div>
           <div class="p-6 text-center space-y-1">
             <h3 class="text-3xl font-bold text-heading" id="count-estado-pendientesPublicacion">${stats.totales.pendientesPublicacion}</h3>
-            <p class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</p>
+            <p id="text-pct-pendientesPublicacion" class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</p>
           </div>
         </div>
       </div>
@@ -332,51 +403,46 @@ function renderDashboard(container) {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <!-- 1. Distribución por Estado -->
         <div class="glass-card p-6 rounded-2xl flex flex-col justify-between shadow-sm min-h-[360px] relative">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 mb-4 flex items-center gap-2">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-4 flex items-center gap-2">
             <i data-lucide="pie-chart" class="h-4 w-4"></i> Distribución por Estado
           </h4>
-          <div class="flex-1 flex items-center justify-center">
-            <canvas id="chart-distribucion-estados" class="max-h-[260px] w-full"></canvas>
+          <div class="flex-1 w-full flex items-center justify-center">
+            <div id="chart-distribucion-estados" class="w-full min-h-[260px]"></div>
           </div>
         </div>
 
         <!-- 2. Evolución Mensual Comparativa (Año vs Año Anterior) -->
         <div class="glass-card p-6 rounded-2xl flex flex-col justify-between shadow-sm min-h-[360px] relative">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 mb-4 flex items-center gap-2">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-4 flex items-center gap-2">
             <i data-lucide="trending-up" class="h-4 w-4"></i> Evolución Mensual Interanual
           </h4>
-          <div class="flex-1 flex items-center justify-center">
-            <canvas id="chart-evolucion-mensual" class="max-h-[260px] w-full"></canvas>
+          <div class="flex-1 w-full flex items-center justify-center">
+            <div id="chart-evolucion-mensual" class="w-full min-h-[260px]"></div>
           </div>
         </div>
 
         <!-- 3. Cumplimiento de Plazos Mensual -->
         <div class="glass-card p-6 rounded-2xl flex flex-col justify-between shadow-sm min-h-[360px] relative">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 mb-4 flex items-center gap-2">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-4 flex items-center gap-2">
             <i data-lucide="bar-chart-3" class="h-4 w-4"></i> Cumplimiento de Plazos (Mensual)
           </h4>
-          <div class="flex-1 flex items-center justify-center">
-            <canvas id="chart-cumplimiento-plazos" class="max-h-[260px] w-full"></canvas>
+          <div class="flex-1 w-full flex items-center justify-center">
+            <div id="chart-cumplimiento-plazos" class="w-full min-h-[260px]"></div>
           </div>
         </div>
 
         <!-- 4. Top 5 Sujetos Pasivos con más Solicitudes -->
         <div class="glass-card p-6 rounded-2xl flex flex-col justify-between shadow-sm min-h-[360px] relative">
           <div class="flex items-center justify-between mb-4">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 flex items-center gap-2">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
               <i data-lucide="award" class="h-4 w-4"></i> Top 5 Autoridades
             </h4>
-            <label class="flex items-center gap-1.5 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
-              <input type="checkbox" id="top-autoridades-only-active" checked onchange="toggleTopAutoridadesActive()" class="rounded border-slate-700 bg-slate-900/60 text-brand-600 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5">
-              <span>Solo Vigentes</span>
-            </label>
           </div>
-          <div class="flex-1 flex items-center justify-center">
-            <canvas id="chart-top-autoridades" class="max-h-[260px] w-full"></canvas>
+          <div class="flex-1 w-full flex items-center justify-center">
+            <div id="chart-top-autoridades" class="w-full min-h-[260px]"></div>
           </div>
         </div>
       </div>
-
     </div>
   `;
 }
@@ -478,7 +544,7 @@ function renderSolicitudes(container) {
   } else {
     paginatedItems.forEach((item) => {
       rowsHtml += `
-        <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
+        <tr class="hover:bg-cal-cell-hover border-b border-border-ui transition-colors h-[72px]">
           <td class="pl-6 pr-2 text-xs font-semibold text-slate-100 text-left">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
           <td class="px-2 text-xs text-left">
             <div class="font-semibold text-slate-200" title="Fecha Ingreso">${formatDate(item.fecha_ingreso)}</div>
@@ -522,7 +588,7 @@ function renderSolicitudes(container) {
             </div>
           </td>
           <td class="pl-2 pr-6 text-left whitespace-nowrap">
-            ${item.id_lobby ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${item.id_lobby}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition-all inline-block hover:shadow-md hover:shadow-emerald-900/40 whitespace-nowrap">Ver Solicitud</a>` : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Enlace</span>'}
+            ${item.id_lobby ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${item.id_lobby}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap">Ver Solicitud</a>` : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Enlace</span>'}
           </td>
         </tr>
       `;
@@ -956,7 +1022,7 @@ function renderPublicadas(container) {
             <td class="pl-2 pr-6 text-left whitespace-nowrap">
               ${
                 item.id_solicitud_lobby
-                  ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_solicitud_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition-all inline-block hover:shadow-md hover:shadow-emerald-900/40 whitespace-nowrap">Ver Solicitud</a>`
+                  ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_solicitud_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap">Ver Solicitud</a>`
                   : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Solicitud</span>'
               }
             </td>
@@ -1008,7 +1074,7 @@ function renderPublicadas(container) {
               <span class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${delayInfo.badgeClass}">${escapeHtml(delayInfo.text)}</span>
             </td>
             <td class="pl-2 pr-6 py-4 align-middle text-left whitespace-nowrap">
-              ${item.id_lobby ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition-all inline-block hover:shadow-md hover:shadow-emerald-900/40 whitespace-nowrap">Ver Solicitud</a>` : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Enlace</span>'}
+              ${item.id_lobby ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap">Ver Solicitud</a>` : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Enlace</span>'}
             </td>
           </tr>
         `;
@@ -1185,7 +1251,7 @@ function renderPublicadas(container) {
             ${
               subTab === "historial"
                 ? `
-              <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+              <tr class="bg-bg-main/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
                 <th class="pl-6 pr-2 py-3 w-36 text-left">Folio</th>
                 <th class="px-2 py-3 w-28 text-left">Fecha / Forma</th>
                 <th class="px-2 py-3 w-44 text-left">Sujeto Pasivo</th>
@@ -1196,7 +1262,7 @@ function renderPublicadas(container) {
               </tr>
             `
                 : `
-              <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+              <tr class="bg-bg-main/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
                 <th class="pl-6 pr-2 py-3 w-40 text-left">Folio</th>
                 <th class="px-2 py-3 w-36 text-left">Fecha Agendada</th>
                 <th class="px-2 py-3 w-56 text-left">Sujeto Pasivo</th>
@@ -1451,8 +1517,8 @@ function showSujetoDetailsModal(sujetoId) {
               <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Vigencia</span>
               <p class="mt-1">
                 ${item.fecha_termino 
-                  ? `<span class="px-2.5 py-0.5 text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-md font-semibold">No Vigente</span>` 
-                  : `<span class="px-2.5 py-0.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md font-semibold">Vigente</span>`
+                  ? `<span class="px-2.5 py-0.5 text-[10px] rounded-md font-semibold badge-status-vencido">No Vigente</span>` 
+                  : `<span class="px-2.5 py-0.5 text-[10px] rounded-md font-semibold badge-status-enplazo">Vigente</span>`
                 }
               </p>
             </div>
@@ -1593,7 +1659,7 @@ function renderHistoryList() {
             ${
               hasDetails
                 ? `
-              <button onclick="viewSyncDetails(${item.id})" class="text-emerald-500 hover:text-emerald-400 p-0.5 transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center" title="Ver detalles de los cambios">
+              <button onclick="viewSyncDetails(${item.id})" class="text-brand-500 hover:text-brand-400 p-0.5 transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center" title="Ver detalles de los cambios">
                 <i data-lucide="eye" class="h-3.5 w-3.5"></i>
               </button>
             `
@@ -1620,7 +1686,7 @@ function generateUsuarioRowHtml(item) {
 
   const colors = [
     "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-    "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    "bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/20",
     "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
     "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20",
     "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
@@ -1637,18 +1703,18 @@ function generateUsuarioRowHtml(item) {
   let roleClasses = "";
   switch (item.rol) {
     case "Administrador":
-      roleClasses = "bg-blue-500/10 text-blue-400 border-blue-500/20 border";
+      roleClasses = "bg-brand-500/10 text-brand-500 dark:text-brand-400 border-brand-500/20 border";
       break;
     case "Auditor":
       roleClasses =
-        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 border";
+        "bg-badge-enplazo-bg text-badge-enplazo-text border-badge-enplazo-border border";
       break;
     case "Sujeto Pasivo":
-      roleClasses = "bg-amber-500/10 text-amber-400 border-amber-500/20 border";
+      roleClasses = "bg-card-amber-bg text-card-amber-text border-card-amber-border border";
       break;
     case "Asistente técnico":
       roleClasses =
-        "bg-purple-500/10 text-purple-400 border-purple-500/20 border";
+        "bg-badge-ingresada-bg text-badge-ingresada-text border-badge-ingresada-border border";
       break;
     default:
       roleClasses = "bg-slate-500/10 text-slate-400 border-slate-500/20 border";
@@ -1837,7 +1903,7 @@ function renderUsuarios(container) {
           </div>
           
           <div class="flex items-center gap-2.5 w-full sm:w-auto sm:justify-end shrink-0">
-            <button id="btn-sincronizar-usuarios" onclick="confirmarSincronizacionUsuarios(this)" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-emerald-500/20 shrink-0 cursor-pointer">
+            <button id="btn-sincronizar-usuarios" onclick="confirmarSincronizacionUsuarios(this)" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-brand-500/20 shrink-0 cursor-pointer">
               <i data-lucide="cloud-lightning" class="h-4 w-4"></i> Sincronizar usuarios
             </button>
             <button id="btn-registrar-usuario" onclick="openUsuarioModal()" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-brand-500/20 shrink-0 cursor-pointer">
@@ -1850,7 +1916,7 @@ function renderUsuarios(container) {
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse table-fixed" id="table-usuarios">
               <thead>
-                <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+                <tr class="bg-bg-main/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
                   <th class="pl-6 pr-2 py-3 w-44 text-left">Nombre Completo</th>
                   <th class="px-2 py-3 w-28 text-left">RUT</th>
                   <th class="px-2 py-3 w-48 text-left">Correo Electrónico</th>
@@ -1896,7 +1962,7 @@ function renderUsuarios(container) {
           </div>
         </div>
         <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div class="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+          <div class="h-10 w-10 rounded-xl bg-badge-enplazo-bg text-badge-enplazo-text flex items-center justify-center shrink-0">
             <i data-lucide="calendar-check" class="h-5 w-5"></i>
           </div>
           <div>
@@ -1962,7 +2028,7 @@ function renderUsuarios(container) {
                   <span id="import-progress-status" class="text-slate-400 font-medium">Sincronizando registros...</span>
                   <span class="text-brand-400 font-bold animate-pulse">En curso</span>
                 </div>
-                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div class="w-full bg-border-ui h-1.5 rounded-full overflow-hidden">
                   <div class="bg-brand-500 h-full w-full animate-pulse rounded-full" style="width: 100%;"></div>
                 </div>
               </div>
@@ -2067,8 +2133,8 @@ function renderUsuarios(container) {
       const sign = pct > 0 ? "+" : "";
       const colorClass =
         pct > 0
-          ? "text-emerald-400 font-semibold animate-pulse-subtle"
-          : "text-rose-400 font-semibold";
+          ? "text-badge-enplazo-text font-semibold animate-pulse-subtle"
+          : "text-badge-vencido-text font-semibold";
       return `<span class="${colorClass} text-[9px] ml-1">${sign}${pct.toFixed(2).replace(".", ",")}%</span>`;
     };
 
@@ -2116,7 +2182,7 @@ function renderUsuarios(container) {
         let warningBadge = "";
         if (cur.estado === "Cerrado") {
           warningBadge = `
-            <span class="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 inline-flex shrink-0 select-none cursor-default">
+            <span class="px-1.5 py-0.5 rounded text-[8px] font-bold badge-status-enplazo flex items-center gap-1 inline-flex shrink-0 select-none cursor-default">
               <i data-lucide="shield-check" class="h-2.5 w-2.5 shrink-0"></i> Validado
             </span>
           `;
@@ -2169,7 +2235,7 @@ function renderUsuarios(container) {
 
         const cerrarBtnHtml =
           isEnProceso && isLatest
-            ? `<button onclick="closeAuditoriaRecord(${cur.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 transition-all shrink-0" title="Cerrar y Validar Control Semanal">
+            ? `<button onclick="closeAuditoriaRecord(${cur.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-brand-500 hover:bg-brand-500/10 dark:hover:bg-brand-500/20 transition-all shrink-0" title="Cerrar y Validar Control Semanal">
                <i data-lucide="check-square" class="h-3.5 w-3.5"></i>
              </button>`
             : `<div class="w-[26px] h-[26px] shrink-0"></div>`;
@@ -2299,7 +2365,7 @@ function renderUsuarios(container) {
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse table-fixed">
                 <thead>
-                  <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[9px] uppercase font-bold tracking-widest">
+                  <tr class="bg-bg-main/50 border-b border-border-ui text-text-tertiary text-[9px] uppercase font-bold tracking-widest">
                     <th class="pl-6 pr-2 py-3 w-32 text-left">Mes</th>
                     <th class="px-2 py-3 w-28 text-left">Total Mensual</th>
                     <th class="px-2 py-3 w-24 text-left">Ingresada</th>
@@ -2327,7 +2393,7 @@ function renderUsuarios(container) {
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse table-fixed">
                 <thead>
-                  <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[9px] uppercase font-bold tracking-widest">
+                  <tr class="bg-bg-main/50 border-b border-border-ui text-text-tertiary text-[9px] uppercase font-bold tracking-widest">
                     <th class="pl-6 pr-2 py-3 w-40 text-left">Fecha de Control</th>
                     <th class="px-2 py-3 w-28 text-left">Total</th>
                     <th class="px-2 py-3 w-24 text-left">Ingresada</th>
@@ -2568,45 +2634,49 @@ function renderReportes(container) {
     });
   }
 
-  const existingTable = container.querySelector("#table-reportes");
-  if (existingTable && window.activeInputId) {
-    existingTable.querySelector("tbody").innerHTML = rowsHtml;
-    const counterEl = container.querySelector("#reportes-counter");
-    if (counterEl)
-      counterEl.textContent = `${totalItems} registros coincidentes encontrados`;
-    const pagEl = container.querySelector("#reportes-pagination-container");
-    if (pagEl)
+  const existingReportes = container.querySelector("#reportes-view-container");
+  if (existingReportes) {
+    // 1. Actualizar cuerpo de la tabla
+    const tbody = existingReportes.querySelector("#table-reportes tbody");
+    if (tbody) tbody.innerHTML = rowsHtml;
+    
+    // 2. Actualizar contador
+    const counterEl = existingReportes.querySelector("#reportes-counter");
+    if (counterEl) counterEl.textContent = `${totalItems} registros coincidentes encontrados`;
+    
+    // 3. Actualizar paginación
+    const pagEl = existingReportes.querySelector("#reportes-pagination-container");
+    if (pagEl) {
       pagEl.innerHTML = renderPaginationControls(
         "reportes",
         totalItems,
         currentPage,
         pageSize,
       );
+    }
 
-    // update export PDF button visibility
-    const exportBtnContainer = container.querySelector(
-      "#reportes-export-btn-container",
-    );
+    // 4. Actualizar botones de exportación y checkboxes
+    const exportBtnContainer = existingReportes.querySelector("#reportes-export-btn-container");
     if (exportBtnContainer) {
       exportBtnContainer.className = "flex items-center gap-2.5";
       exportBtnContainer.innerHTML = `
         <div class="flex items-center gap-2 mr-1">
-          <label class="flex items-center gap-1 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
-            <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-700 bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" ${reportesFilters.soloVigentes ? 'checked' : ''}>
+          <label class="flex items-center gap-1 text-[10px] text-slate-550 dark:text-slate-300 font-bold cursor-pointer select-none">
+            <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-350 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" ${reportesFilters.soloVigentes ? 'checked' : ''}>
             <span>Solo vigentes</span>
           </label>
-          <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-semibold flex items-center gap-1 transition-all shadow-sm">
+          <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm">
             <i data-lucide="files" class="h-3 w-3"></i>
             Generación Masiva
           </button>
         </div>
         
-        <div class="h-4 w-[1px] bg-slate-700/60 mx-1"></div>
+        <div class="h-4 w-[1px] bg-slate-200 dark:bg-slate-700/60 mx-1"></div>
 
         ${
           totalItems > 0
             ? `
-          <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+          <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
             <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
             Exportar PDF
           </button>
@@ -2629,7 +2699,7 @@ function renderReportes(container) {
       ${renderGlassCard(
         `
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 flex items-center gap-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
             <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
             Filtros
           </h3>
@@ -2727,7 +2797,7 @@ function renderReportes(container) {
             ${
               totalItems > 0
                 ? `
-              <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+              <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
                 <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
                 Exportar PDF
               </button>
@@ -2740,7 +2810,7 @@ function renderReportes(container) {
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse table-fixed" id="table-reportes">
             <thead>
-              <tr class="bg-slate-50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800/60 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+              <tr class="bg-bg-main/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
                 <th class="pl-6 pr-2 py-3 w-12 text-left">#</th>
                 <th class="px-2 py-3 w-36 text-left">Folio</th>
                 <th class="px-2 py-3 text-left">Sujeto Pasivo y Cargo</th>
@@ -3129,15 +3199,7 @@ function changeInspectorPage(page) {
   fetchInspectorData();
 }
 
-let activeDbSubTab = "sincronizacion";
 
-function changeDbSubTab(subTabName) {
-  activeDbSubTab = subTabName;
-  const container = document.getElementById("main-content");
-  if (container) {
-    renderUsuarios(container);
-  }
-}
 
 // ==========================================
 // VISTA: CENTRO DE ALERTAS
@@ -3272,7 +3334,7 @@ function renderAlertasCentro(container) {
               w.type === "solicitud"
                 ? `<span class="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Solicitud</span>`
                 : w.type === "agenda"
-                  ? `<span class="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider text-emerald-500">Agenda</span>`
+                  ? `<span class="text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider badge-status-enplazo">Agenda</span>`
                   : `<span class="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-500/20 text-[9px] px-2 py-0.5 rounded-lg font-bold uppercase tracking-wider">Publicación</span>`;
 
             const urgencyBadge =
@@ -4062,7 +4124,7 @@ function showAgendaDetailsModal(eventId) {
     let pubStatusHtml = "";
     if (isPublished) {
       pubStatusHtml = `
-        <span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0">
+        <span class="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 shrink-0 badge-status-enplazo">
           <i data-lucide="check" class="h-3 w-3"></i> Publicada
         </span>
       `;

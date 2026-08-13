@@ -1,220 +1,262 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Configuración de Preline para Tailwind v4 */
+@source "../../node_modules/preline/dist/*.js";
+@import "../../node_modules/preline/variants.css";
+
 /* Variables CSS Semánticas - Light-First por defecto */
 :root {
-  /* Marca / Acento */
-  --brand-color: #4f46e5;        /* indigo-600 */
-  --accent-color: #6366f1;       /* indigo-500 */
+  /* Marca / Acento - Soft-tech pastels (Liquid Lavender) */
+  --brand-color: #7c3aed;        /* Violeta / Amatista digital */
+  --accent-color: #6d28d9;       /* Violeta profundo foco */
   
   /* Fondo Principal y Encabezado */
-  --bg-main: #f8fafc;           /* slate-50 */
-  --bg-header: #ffffff;         /* white */
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --border-ui: #e2e8f0;         /* slate-200 */
-  --border-ui-focus: #6366f1;    /* indigo-500 */
+  --bg-main: #f8f7fc;           /* Misty Lavender pálido (muy fácil en los ojos) */
+  --bg-header: #ffffff;         /* Blanco puro para paneles y tarjetas */
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --border-ui: #edeaf5;         /* Bordes lavanda suaves */
+  --border-ui-focus: #7c3aed;
   
   /* Jerarquía de Texto */
-  --text-primary: #0f172a;      /* slate-900 */
-  --text-secondary: #334155;    /* slate-700 */
-  --text-tertiary: #64748b;     /* slate-500 */
+  --text-primary: #18112b;      /* Violeta índigo profundo */
+  --text-secondary: #3b2a66;    /* Violeta medio */
+  --text-tertiary: #9d8dbf;     /* Lavanda desaturado */
   
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --glass-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --glass-border: color-mix(in srgb, var(--brand-color), transparent 92%);
+  --glass-shadow: 0 4px 12px -1px color-mix(in srgb, var(--brand-color), transparent 95%);
   --glass-input-bg: rgba(255, 255, 255, 0.9);
-  --glass-input-border: rgba(0, 0, 0, 0.15);
+  --glass-input-border: color-mix(in srgb, var(--brand-color), transparent 85%);
 
   /* Scrollbar */
-  --scrollbar-track: #f1f5f9;
-  --scrollbar-thumb: #cbd5e1;
-  --scrollbar-thumb-hover: #6366f1;
+  --scrollbar-track: #f5f4fa;
+  --scrollbar-thumb: #d8d3e8;
+  --scrollbar-thumb-hover: var(--brand-color);
 
   /* Badges de Estado (Helpers) */
-  --badge-ingresada-bg: #f1f5f9;
-  --badge-ingresada-text: #334155;
-  --badge-ingresada-border: #cbd5e1;
+  --badge-ingresada-bg: #edeaf5;
+  --badge-ingresada-text: #3b2a66;
+  --badge-ingresada-border: #d8d3e8;
   
-  --badge-enplazo-bg: #d1fae5;
-  --badge-enplazo-text: #047857;
-  --badge-enplazo-border: #a7f3d0;
+  --badge-enplazo-bg: color-mix(in srgb, #6366f1, transparent 92%); /* Cool bluish-purple instead of green */
+  --badge-enplazo-text: #4f46e5;
+  --badge-enplazo-border: color-mix(in srgb, #6366f1, transparent 75%);
   
-  --badge-vencido-bg: #fee2e2;
-  --badge-vencido-text: #e43b66;
-  --badge-vencido-border: #fecdd3;
+  --badge-vencido-bg: color-mix(in srgb, #f43f5e, transparent 92%); /* Washed fuchsia/pink */
+  --badge-vencido-text: #e11d48;
+  --badge-vencido-border: color-mix(in srgb, #f43f5e, transparent 75%);
   
-  --badge-otros-bg: #e0f2fe;
-  --badge-otros-text: #0369a1;
-  --badge-otros-border: #bae6fd;
+  --badge-otros-bg: color-mix(in srgb, #a855f7, transparent 92%); /* Soft purple/mauve */
+  --badge-otros-text: #8b5cf6;
+  --badge-otros-border: color-mix(in srgb, #a855f7, transparent 75%);
 
-  /* Dashboard Card Colors - Light Mode (Darker text/borders) */
-  --card-blue-bg: rgba(79, 70, 229, 0.1);
-  --card-blue-text: #4f46e5;
-  --card-blue-border: rgba(79, 70, 229, 0.25);
+  /* Dashboard Card Colors - Light Mode (Soft-tech pastels) */
+  --card-blue-bg: color-mix(in srgb, var(--brand-color), transparent 92%);
+  --card-blue-text: var(--brand-color);
+  --card-blue-border: color-mix(in srgb, var(--brand-color), transparent 82%);
 
-  --card-emerald-bg: rgba(5, 150, 105, 0.1);
-  --card-emerald-text: #059669;
-  --card-emerald-border: rgba(5, 150, 105, 0.25);
+  --card-emerald-bg: color-mix(in srgb, #6366f1, transparent 92%); /* Mapped to brand-blue/indigo for RDP */
+  --card-emerald-text: #4f46e5;
+  --card-emerald-border: color-mix(in srgb, #6366f1, transparent 82%);
 
-  --card-amber-bg: rgba(217, 119, 6, 0.1);
-  --card-amber-text: #d97706;
-  --card-amber-border: rgba(217, 119, 6, 0.25);
+  --card-amber-bg: color-mix(in srgb, #d97706, transparent 92%);
+  --card-amber-text: #b45309;
+  --card-amber-border: color-mix(in srgb, #d97706, transparent 82%);
 
-  --card-purple-bg: rgba(124, 58, 237, 0.1);
-  --card-purple-text: #7c3aed;
-  --card-purple-border: rgba(124, 58, 237, 0.25);
+  --card-purple-bg: color-mix(in srgb, #a78bfa, transparent 92%);
+  --card-purple-text: #8b5cf6;
+  --card-purple-border: color-mix(in srgb, #a78bfa, transparent 82%);
 
-  --card-orange-bg: rgba(249, 115, 22, 0.1);
-  --card-orange-text: #ea580c;
-  --card-orange-border: rgba(249, 115, 22, 0.25);
+  --card-orange-bg: color-mix(in srgb, #f43f5e, transparent 92%); /* Washed pink instead of orange */
+  --card-orange-text: #e11d48;
+  --card-orange-border: color-mix(in srgb, #f43f5e, transparent 82%);
 
-  --card-teal-bg: rgba(13, 148, 136, 0.1);
+  --card-teal-bg: color-mix(in srgb, #0d9488, transparent 92%);
   --card-teal-text: #0d9488;
-  --card-teal-border: rgba(13, 148, 136, 0.25);
+  --card-teal-border: color-mix(in srgb, #0d9488, transparent 82%);
 
-  --card-slate-bg: rgba(100, 116, 139, 0.1);
+  --card-slate-bg: color-mix(in srgb, #94a3b8, transparent 92%);
   --card-slate-text: #475569;
-  --card-slate-border: rgba(100, 116, 139, 0.25);
+  --card-slate-border: color-mix(in srgb, #94a3b8, transparent 82%);
 
-  --card-pink-bg: rgba(219, 39, 119, 0.1);
-  --card-pink-text: #db2777;
-  --card-pink-border: rgba(219, 39, 119, 0.25);
+  --card-pink-bg: color-mix(in srgb, #f43f5e, transparent 92%);
+  --card-pink-text: #e11d48;
+  --card-pink-border: color-mix(in srgb, #f43f5e, transparent 82%);
 
-  --deadline-ok-color: #4f46e5;
-  --deadline-overdue-color: #fda4af;
+  --deadline-ok-color: var(--brand-color);
+  --deadline-overdue-color: #fca5a5;
 
   /* Calendar Theme Adaptive Colors */
-  --cal-grid-bg: #e2e8f0;
+  --cal-grid-bg: #edeaf5;
   --cal-grid-border: var(--border-ui);
   --cal-cell-bg: #ffffff;
-  --cal-cell-hover: rgba(79, 70, 229, 0.04);
-  --cal-header-bg: #f1f5f9;
+  --cal-cell-hover: color-mix(in srgb, var(--brand-color), transparent 96%);
+  --cal-header-bg: #f5f3fa;
   --cal-header-text: var(--text-tertiary);
-  --cal-past-bg: #f1f5f9;
-  --cal-past-text: #475569;
-  --cal-past-border: #cbd5e1;
-  --cal-future-bg: #f0fdf4;
-  --cal-future-text: #065f46;
-  --cal-future-border: #10b981;
-  --cal-badge-bg: rgba(0, 0, 0, 0.04);
+  --cal-past-bg: #f5f3fa;
+  --cal-past-text: #6b5c8a;
+  --cal-past-border: #d8d3e8;
+  --cal-future-bg: color-mix(in srgb, var(--brand-color), transparent 94%); /* Lavender instead of green */
+  --cal-future-text: var(--brand-color);
+  --cal-future-border: color-mix(in srgb, var(--brand-color), transparent 75%);
+  --cal-badge-bg: color-mix(in srgb, var(--brand-color), transparent 95%);
   --cal-badge-text: var(--text-tertiary);
   --cal-badge-border: var(--border-ui);
   --cal-week-card-bg: var(--glass-bg);
   --cal-day-card-bg: var(--glass-bg);
   --cal-empty-text: var(--text-tertiary);
-  --cal-folio-bg: rgba(0, 0, 0, 0.04);
+  --cal-folio-bg: color-mix(in srgb, var(--brand-color), transparent 95%);
   --cal-folio-text: var(--text-tertiary);
   --cal-folio-border: var(--border-ui);
-  --cal-suggest-bg: rgba(255, 255, 255, 0.97);
-  --cal-suggest-hover: rgba(79, 70, 229, 0.06);
+  --cal-suggest-bg: rgba(255, 255, 255, 0.98);
+  --cal-suggest-hover: color-mix(in srgb, var(--brand-color), transparent 94%);
   --cal-suggest-border: var(--border-ui);
 }
 
 html.dark {
   /* Marca / Acento */
-  --brand-color: #818cf8;        /* indigo-400 */
-  --accent-color: #4f46e5;       /* indigo-600 */
+  --brand-color: #a78bfa;        /* Lavanda neón */
+  --accent-color: #7c3aed;       /* Violeta */
   
-  /* Fondo Principal y Encabezado */
-  --bg-main: #020617;           /* slate-950 */
-  --bg-header: #0f172a;         /* slate-900 */
-  --bg-card: rgba(15, 23, 42, 0.65);
-  --border-ui: #1e293b;         /* slate-800 */
-  --border-ui-focus: #818cf8;    /* indigo-400 */
+  /* Fondo Principal y Encabezado (Suavizado para evitar alto contraste) */
+  --bg-main: #0c0b14;           /* Gris oscuro carbón-lavanda */
+  --bg-header: #141221;         /* Obsidiana lavanda oscura */
+  --bg-card: rgba(20, 18, 33, 0.7);
+  --border-ui: #221e33;         /* Bordes suaves oscuros */
+  --border-ui-focus: #a78bfa;
   
-  /* Jerarquía de Texto */
-  --text-primary: #f8fafc;      /* slate-50 */
-  --text-secondary: #cbd5e1;    /* slate-300 */
-  --text-tertiary: #94a3b8;     /* slate-400 */
+  /* Jerarquía de Texto (WCAG AA Cumplido) */
+  --text-primary: #e2e0ed;      /* Gris lavanda suave */
+  --text-secondary: #9a95b0;    /* Lavanda pizarra (Contraste 6.69:1) */
+  --text-tertiary: #827d96;     /* Gris lavanda apagado (Contraste 4.86:1 - WCAG AA) */
   
   /* Glassmorphism */
-  --glass-bg: rgba(15, 23, 42, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-bg: rgba(20, 18, 33, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
   --glass-shadow: none;
-  --glass-input-bg: rgba(15, 23, 42, 0.4);
-  --glass-input-border: rgba(255, 255, 255, 0.18);
+  --glass-input-bg: rgba(20, 18, 33, 0.4);
+  --glass-input-border: rgba(255, 255, 255, 0.15);
 
   /* Scrollbar */
-  --scrollbar-track: #0b1329;
-  --scrollbar-thumb: #1e293b;
-  --scrollbar-thumb-hover: #818cf8;
+  --scrollbar-track: #0c0817;
+  --scrollbar-thumb: #21163b;
+  --scrollbar-thumb-hover: var(--brand-color);
 
   /* Badges de Estado (Helpers) */
-  --badge-ingresada-bg: rgba(30, 41, 59, 0.5);
-  --badge-ingresada-text: #cbd5e1;
-  --badge-ingresada-border: rgba(71, 85, 105, 0.5);
+  --badge-ingresada-bg: rgba(33, 22, 59, 0.5);
+  --badge-ingresada-text: #d8b4fe;
+  --badge-ingresada-border: rgba(124, 58, 237, 0.4);
   
-  --badge-enplazo-bg: rgba(6, 78, 59, 0.6);
-  --badge-enplazo-text: #a7f3d0;
-  --badge-enplazo-border: rgba(4, 120, 87, 0.6);
+  --badge-enplazo-bg: rgba(99, 102, 241, 0.2); /* Mapped to brand-blue/indigo */
+  --badge-enplazo-text: #a5b4fc;
+  --badge-enplazo-border: rgba(99, 102, 241, 0.4);
   
-  --badge-vencido-bg: rgba(153, 27, 27, 0.6);
-  --badge-vencido-text: #fecdd3;
-  --badge-vencido-border: rgba(185, 28, 28, 0.6);
+  --badge-vencido-bg: rgba(244, 63, 94, 0.2);
+  --badge-vencido-text: #fda4af;
+  --badge-vencido-border: rgba(244, 63, 94, 0.4);
   
-  --badge-otros-bg: rgba(8, 47, 73, 0.4);
-  --badge-otros-text: #bae6fd;
-  --badge-otros-border: rgba(3, 105, 161, 0.4);
+  --badge-otros-bg: rgba(168, 85, 247, 0.2);
+  --badge-otros-text: #d8b4fe;
+  --badge-otros-border: rgba(168, 85, 247, 0.4);
 
-  /* Dashboard Card Colors - Dark Mode (Lighter/vibrant text/borders) */
-  --card-blue-bg: rgba(129, 140, 248, 0.1);
-  --card-blue-text: #818cf8;
-  --card-blue-border: rgba(129, 140, 248, 0.2);
+  /* Dashboard Card Colors - Dark Mode */
+  --card-blue-bg: rgba(167, 139, 250, 0.1);
+  --card-blue-text: var(--brand-color);
+  --card-blue-border: rgba(167, 139, 250, 0.2);
 
-  --card-emerald-bg: rgba(16, 185, 129, 0.1);
-  --card-emerald-text: #34d399;
-  --card-emerald-border: rgba(16, 185, 129, 0.2);
+  --card-emerald-bg: rgba(99, 102, 241, 0.1); /* Mapped to brand-blue/indigo for RDP */
+  --card-emerald-text: #a5b4fc;
+  --card-emerald-border: rgba(99, 102, 241, 0.2);
 
   --card-amber-bg: rgba(245, 158, 11, 0.1);
   --card-amber-text: #fbbf24;
   --card-amber-border: rgba(245, 158, 11, 0.2);
 
-  --card-purple-bg: rgba(139, 92, 246, 0.1);
-  --card-purple-text: #a78bfa;
-  --card-purple-border: rgba(139, 92, 246, 0.2);
+  --card-purple-bg: rgba(167, 139, 250, 0.1);
+  --card-purple-text: var(--brand-color);
+  --card-purple-border: rgba(167, 139, 250, 0.2);
 
-  --card-orange-bg: rgba(249, 115, 22, 0.1);
-  --card-orange-text: #fb923c;
-  --card-orange-border: rgba(249, 115, 22, 0.2);
-
-  --card-slate-bg: rgba(148, 163, 184, 0.1);
-  --card-slate-text: #cbd5e1;
-  --card-slate-border: rgba(148, 163, 184, 0.2);
+  --card-orange-bg: rgba(244, 63, 94, 0.1);
+  --card-orange-text: #fda4af;
+  --card-orange-border: rgba(244, 63, 94, 0.2);
 
   --card-teal-bg: rgba(45, 212, 191, 0.1);
   --card-teal-text: #2dd4bf;
   --card-teal-border: rgba(45, 212, 191, 0.2);
 
+  --card-slate-bg: rgba(148, 163, 184, 0.1);
+  --card-slate-text: #cbd5e1;
+  --card-slate-border: rgba(148, 163, 184, 0.2);
+
   --card-pink-bg: rgba(244, 114, 182, 0.1);
   --card-pink-text: #f472b6;
   --card-pink-border: rgba(244, 114, 182, 0.2);
 
-  --deadline-ok-color: #818cf8;
-  --deadline-overdue-color: #fecdd3;
+  --deadline-ok-color: var(--brand-color);
+  --deadline-overdue-color: #fca5a5;
 
   /* Calendar Theme Adaptive Colors */
-  --cal-grid-bg: #334155;
-  --cal-grid-border: rgba(255, 255, 255, 0.06);
-  --cal-cell-bg: #0f172a;
-  --cal-cell-hover: rgba(59, 130, 246, 0.05);
-  --cal-header-bg: rgba(15, 23, 42, 0.8);
-  --cal-header-text: #94a3b8;
-  --cal-past-bg: rgba(71, 85, 105, 0.15);
-  --cal-past-text: #cbd5e1;
-  --cal-past-border: #64748b;
-  --cal-future-bg: rgba(16, 185, 129, 0.1);
-  --cal-future-text: #34d399;
-  --cal-future-border: #34d399;
-  --cal-badge-bg: rgba(30, 41, 59, 0.8);
-  --cal-badge-text: #94a3b8;
-  --cal-badge-border: rgba(71, 85, 105, 0.5);
+  --cal-grid-bg: #221e33;
+  --cal-grid-border: rgba(255, 255, 255, 0.05);
+  --cal-cell-bg: #141221;
+  --cal-cell-hover: color-mix(in srgb, var(--brand-color), transparent 95%);
+  --cal-header-bg: rgba(20, 18, 33, 0.8);
+  --cal-header-text: #9a95b0;
+  --cal-past-bg: color-mix(in srgb, #221e33, transparent 85%);
+  --cal-past-text: #9a95b0;
+  --cal-past-border: var(--brand-color);
+  --cal-future-bg: color-mix(in srgb, var(--brand-color), transparent 90%);
+  --cal-future-text: var(--brand-color);
+  --cal-future-border: var(--brand-color);
+  --cal-badge-bg: color-mix(in srgb, #221e33, transparent 20%);
+  --cal-badge-text: #9a95b0;
+  --cal-badge-border: color-mix(in srgb, var(--brand-color), transparent 70%);
   --cal-week-card-bg: var(--glass-bg);
   --cal-day-card-bg: var(--glass-bg);
-  --cal-empty-text: #475569;
-  --cal-folio-bg: rgba(30, 41, 59, 0.8);
-  --cal-folio-text: #94a3b8;
-  --cal-folio-border: rgba(71, 85, 105, 0.5);
-  --cal-suggest-bg: rgba(15, 23, 42, 0.97);
-  --cal-suggest-hover: rgba(129, 140, 248, 0.08);
+  --cal-empty-text: #645e7a;
+  --cal-folio-bg: color-mix(in srgb, #221e33, transparent 20%);
+  --cal-folio-text: #9a95b0;
+  --cal-folio-border: color-mix(in srgb, var(--brand-color), transparent 70%);
+  --cal-suggest-bg: rgba(20, 18, 33, 0.98);
+  --cal-suggest-hover: color-mix(in srgb, var(--brand-color), transparent 92%);
   --cal-suggest-border: rgba(255, 255, 255, 0.1);
+}
+
+@theme {
+  --color-brand-50: var(--brand-color);
+  --color-brand-100: var(--brand-color);
+  --color-brand-500: var(--brand-color);
+  --color-brand-600: var(--brand-color);
+  --color-brand-700: var(--brand-color);
+  --color-brand-900: var(--brand-color);
+  
+  /* Design Tokens Semánticos para Utilidades Nativas de Tailwind v4 */
+  --color-bg-main: var(--bg-main);
+  --color-bg-header: var(--bg-header);
+  --color-bg-card: var(--bg-card);
+  --color-border-ui: var(--border-ui);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-cal-cell-hover: var(--cal-cell-hover);
+  --color-cal-header-bg: var(--cal-header-bg);
+  --color-cal-past-bg: var(--cal-past-bg);
+  --color-cal-past-text: var(--cal-past-text);
+  
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Estructura Base */
+html, body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}
+header {
+  background-color: var(--bg-header) !important;
+  border-color: var(--border-ui) !important;
 }
 
 /* Efecto de scrollbar premium */
@@ -255,86 +297,29 @@ html.dark {
   color: var(--text-tertiary);
 }
 
-/* Estructura Base y Sobreescrituras de Tailwind */
-html, body {
-  background-color: var(--bg-main) !important;
-  color: var(--text-primary) !important;
+/* Estilo premium para inputs de fecha nativos */
+input[type="date"] {
+  position: relative;
+  font-family: inherit;
 }
-header {
-  background-color: var(--bg-header) !important;
-  border-color: var(--border-ui) !important;
-}
-
-/* Sobreescrituras de Clases Oscuras de Tailwind para Light-First sin !important */
-html .bg-slate-950 {
-  background-color: var(--bg-main);
-}
-html .bg-slate-900 {
-  background-color: var(--bg-header);
-}
-html .bg-slate-900\/60, 
-html .bg-slate-900\/50, 
-html .bg-slate-950\/40 {
-  background-color: var(--bg-card);
-}
-html .bg-slate-900\/10, 
-html .bg-slate-800, 
-html .bg-slate-700 {
-  background-color: var(--border-ui);
-}
-html .bg-slate-800\/30 {
-  background-color: var(--border-ui);
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.6);
   opacity: 0.8;
+  transition: opacity 0.2s, filter 0.2s;
 }
-html .text-slate-100 {
-  color: var(--text-primary);
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  filter: invert(0.8);
 }
-html .text-slate-200, 
-html .text-slate-300 {
-  color: var(--text-secondary);
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
 }
-html .text-slate-400, 
-html .text-slate-500 {
-  color: var(--text-tertiary);
-}
-html h1.text-white, 
-html h2.text-white, 
-html h3.text-white, 
-html h4.text-white,
-html div.text-white, 
-html span.text-white, 
-html p.text-white,
-html button.bg-slate-700.text-white {
-  color: var(--text-primary);
-}
-html .border-slate-800, 
-html .border-slate-700, 
-html .border-slate-900,
-html .border-slate-800\/80, 
-html .border-slate-800\/60, 
-html .border-slate-700\/40, 
-html .border-slate-700\/60, 
-html .border-slate-600\/60 {
-  border-color: var(--border-ui);
-}
-html .hover\:bg-slate-800:hover {
-  background-color: var(--border-ui);
-}
-html .hover\:bg-slate-900\/40:hover {
-  background-color: var(--border-ui);
-  opacity: 0.95;
-}
-html .hover\:text-white:hover {
-  color: var(--text-primary);
+html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1);
 }
 
-/* Evitar que elementos específicos de texto en botones o enlaces pierdan su color blanco */
-html a.text-white, 
-html button.text-white, 
-html .btn-primary {
-  color: #ffffff;
-}
-/* Estandarización de Componentes de UI */
+/* Estilizaciones de Componentes Heredados de Maipú */
 .btn-primary {
   background-color: var(--brand-color) !important;
   transition: all 0.2s ease;
@@ -349,125 +334,7 @@ html .btn-primary {
   color: var(--text-tertiary) !important;
 }
 
-/* Modificadores Semánticos de Estados (Helpers) */
-.bg-indigo-950\/40,
-.bg-sky-950\/40,
-.bg-purple-950\/60 {
-  background-color: var(--badge-otros-bg) !important;
-}
-.border-indigo-900\/60,
-.border-sky-900\/40,
-.border-purple-900\/60 {
-  border-color: var(--badge-otros-border) !important;
-}
-.text-indigo-300,
-.text-sky-300,
-.text-purple-300 {
-  color: var(--badge-otros-text) !important;
-}
-
-.bg-emerald-950\/60 {
-  background-color: var(--badge-enplazo-bg) !important;
-}
-.border-emerald-900\/60 {
-  border-color: var(--badge-enplazo-border) !important;
-}
-.text-emerald-300 {
-  color: var(--badge-enplazo-text) !important;
-}
-
-.bg-rose-950\/60 {
-  background-color: var(--badge-vencido-bg) !important;
-}
-.border-rose-900\/60 {
-  border-color: var(--badge-vencido-border) !important;
-}
-.text-rose-300 {
-  color: var(--badge-vencido-text) !important;
-}
-
-.bg-slate-700\/50 {
-  background-color: var(--badge-ingresada-bg) !important;
-}
-.border-slate-600\/50 {
-  border-color: var(--badge-ingresada-border) !important;
-}
-
-/* Módulos / Dashboard Cards Overrides */
-.bg-blue-500\/10 {
-  background-color: var(--card-blue-bg) !important;
-}
-.text-blue-400 {
-  color: var(--card-blue-text) !important;
-}
-.border-blue-500\/20 {
-  border-color: var(--card-blue-border) !important;
-}
-.bg-emerald-500\/10 {
-  background-color: var(--card-emerald-bg) !important;
-}
-.text-emerald-400 {
-  color: var(--card-emerald-text) !important;
-}
-.border-emerald-500\/20 {
-  border-color: var(--card-emerald-border) !important;
-}
-.bg-amber-500\/10 {
-  background-color: var(--card-amber-bg) !important;
-}
-.text-amber-400 {
-  color: var(--card-amber-text) !important;
-}
-.border-amber-500\/20 {
-  border-color: var(--card-amber-border) !important;
-}
-.bg-purple-500\/10 {
-  background-color: var(--card-purple-bg) !important;
-}
-.text-purple-400 {
-  color: var(--card-purple-text) !important;
-}
-.border-purple-500\/20 {
-  border-color: var(--card-purple-border) !important;
-}
-
-img[alt="Secretaría Municipal Maipú"] {
-  filter: none !important;
-}
-html.dark img[alt="Secretaría Municipal Maipú"] {
-  filter: brightness(0) invert(1) !important;
-}
-
-#global-tooltip {
-  background-color: var(--bg-card) !important;
-  border-color: var(--border-ui) !important;
-  color: var(--text-primary) !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-}
-#global-tooltip-text {
-  color: var(--text-secondary) !important;
-}
-#modal-container {
-  background-color: rgba(15, 23, 42, 0.3) !important;
-}
-.font-semibold.text-slate-200.cursor-help {
-  color: var(--text-secondary) !important;
-  border-color: var(--text-tertiary) !important;
-}
-.font-semibold.text-slate-200.cursor-help:hover {
-  color: var(--border-ui-focus) !important;
-  border-color: var(--border-ui-focus) !important;
-}
-div[style*="background: rgba(15, 20, 40"] {
-  background: var(--bg-card) !important;
-  border-color: var(--border-ui) !important;
-}
-select, select option {
-  background-color: var(--bg-header) !important;
-  color: var(--text-primary) !important;
-}
-
-/* Badges de Estado Semánticos */
+/* Badges de Estado */
 .badge-status-vencido {
   background-color: var(--badge-vencido-bg) !important;
   color: var(--badge-vencido-text) !important;
@@ -489,7 +356,7 @@ select, select option {
   border: 1px solid var(--badge-ingresada-border) !important;
 }
 
-/* Colores de Texto Semánticos para Plazos */
+/* Plazos y Límites */
 .text-deadline-responded {
   color: #7c3aed !important;
 }
@@ -509,7 +376,7 @@ html.dark .text-deadline-responded {
   color: var(--badge-enplazo-text) !important;
 }
 
-/* Header Premium - Relieve y Estilo */
+/* Header Premium */
 header.header-premium {
   position: relative;
   height: 100px !important;
@@ -521,6 +388,10 @@ header.header-premium img.header-logo {
   height: 76px !important;
   max-height: 76px !important;
   width: auto !important;
+  transition: filter 0.2s ease;
+}
+html.dark header.header-premium img.header-logo {
+  filter: brightness(0) invert(1) opacity(0.8);
 }
 header.header-premium::before {
   content: '';
@@ -536,26 +407,23 @@ html.dark header.header-premium {
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Status Pill de Última Actualización */
 .header-status-pill {
   background-color: var(--bg-main) !important;
   border: 1px solid var(--border-ui) !important;
 }
 .header-status-date {
-  color: #059669 !important; /* Verde esmeralda para Light Mode */
+  color: #059669 !important;
 }
 html.dark .header-status-date {
-  color: #34d399 !important; /* Verde brillante para Dark Mode */
+  color: #34d399 !important;
 }
-
-/* Cápsula de Navegación (Segmented Control) */
 .header-nav-capsule {
   background-color: var(--bg-main) !important;
   border: 1px solid var(--border-ui) !important;
   padding: 4px !important;
 }
 
-/* Clases de Navegación Adaptativas */
+/* Sidebar e Items de Navegación */
 .sidebar-nav-active {
   background-color: #ffffff !important;
   color: var(--brand-color) !important;
@@ -594,7 +462,7 @@ html.dark .sidebar-nav-inactive:hover {
   background-color: rgba(255, 255, 255, 0.04) !important;
 }
 
-/* Botones de Acción Circulares */
+/* Botones de Cabecera y Avatar */
 #theme-toggle {
   border-radius: 9999px !important;
   background-color: var(--bg-main) !important;
@@ -608,8 +476,6 @@ html.dark .sidebar-nav-inactive:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
 }
-
-/* Avatar y Perfil */
 #header-user-initials {
   border: 1.5px solid var(--border-ui) !important;
   background-color: var(--bg-main) !important;
@@ -619,14 +485,14 @@ html.dark .sidebar-nav-inactive:hover {
 .group:hover #header-user-initials {
   border-color: var(--brand-color) !important;
   color: var(--brand-color) !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color) 10%, transparent) !important;
 }
 html.dark .group:hover #header-user-initials {
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.15) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color) 15%, transparent) !important;
 }
 #header-user-rol {
   font-size: 10px !important;
-  background-color: rgba(79, 70, 229, 0.08) !important;
+  background-color: color-mix(in srgb, var(--brand-color) 8%, transparent) !important;
   color: var(--brand-color) !important;
   padding: 1px 6px !important;
   border-radius: 9999px !important;
@@ -634,17 +500,15 @@ html.dark .group:hover #header-user-initials {
   line-height: normal !important;
 }
 html.dark #header-user-rol {
-  background-color: rgba(129, 140, 248, 0.12) !important;
+  background-color: color-mix(in srgb, var(--brand-color) 12%, transparent) !important;
 }
 
-/* Inputs Readonly/Disabled */
 .glass-input-disabled {
   background-color: var(--border-ui) !important;
   border-color: var(--glass-border) !important;
   color: var(--text-tertiary) !important;
 }
 
-/* Botones Secundarios */
 .btn-secondary {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border-ui) !important;
@@ -656,7 +520,7 @@ html.dark #header-user-rol {
   color: var(--text-primary) !important;
 }
 
-/* Segmented progress bars for the analytical dashboard */
+/* Modificadores de Progreso Dashboard */
 .bg-deadline-ok {
   background-color: var(--deadline-ok-color) !important;
 }
@@ -667,23 +531,20 @@ html.dark #header-user-rol {
   background-color: var(--text-tertiary) !important;
 }
 
-/* Menú de Sugerencias Autocompletables */
 .suggestions-dropdown {
   background-color: var(--bg-header) !important;
   border-color: var(--border-ui) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   backdrop-filter: blur(16px) !important;
-  opacity: 0.98 !important; /* Extremely high opacity to prevent overlapping text bleeding through */
+  opacity: 0.98 !important;
   z-index: 50 !important;
 }
 
-/* Módulo de Reportes: Checkbox e Interacción */
 .report-estado-checkbox:checked + span {
   font-weight: 700;
   letter-spacing: 0.025em;
 }
 
-/* Interacciones Dinámicas del Dashboard */
 .dashboard-card-interactive {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
               box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
@@ -709,123 +570,22 @@ html.dark .dashboard-card-interactive:hover {
     transform: translateY(0);
   }
 }
-
 .stagger-card {
   opacity: 0;
   animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ====================================================
-   ESTILOS DE IMPRESIÓN NATIVA (CSS PRINT)
-   ==================================================== */
-#print-report-container {
-  display: none;
-}
-
-@media print {
-  /* Ocultar la app solo si el contenedor de reportes TIENE contenido (no está vacío) */
-  body:has(#print-report-container:not(:empty)) > *:not(#print-report-container) {
-    display: none !important;
-  }
-
-  /* Si NO se está imprimiendo un reporte (contenedor vacío), permitir que la pantalla haga scroll para imprimirse completa */
-  body:not(:has(#print-report-container:not(:empty))) {
-    overflow: visible !important;
-    height: auto !important;
-  }
-  body:not(:has(#print-report-container:not(:empty))) main {
-    overflow: visible !important;
-    height: auto !important;
-    position: static !important;
-  }
-
-  /* Mostrar y dar formato al contenedor de impresión */
-  #print-report-container {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    background: white !important;
-    color: #1e293b !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
-  }
-
-  /* Asegurar que las tablas tengan comportamiento nativo de impresión */
-  #print-report-container table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-  }
-
-  #print-report-container tr {
-    page-break-inside: avoid !important;
-  }
-
-  #print-report-container thead {
-    display: table-header-group !important;
-  }
-
-  #print-report-container tbody {
-    display: table-row-group !important;
-  }
-
-  /* Correcciones de colores y contrastes para impresora */
-  body, html {
-    background: white !important;
-    color: black !important;
-  }
-
-  /* Asegurar visualización de los badges en impresión a color */
-  #print-report-container span {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-  
-  #print-report-container div {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-} /* Cierre de @media print */
-
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-
 .animate-fade-in {
   animation: fadeIn 0.25s ease-out forwards;
-}
-
-/* Estilo premium para inputs de fecha nativos */
-input[type="date"] {
-  position: relative;
-  font-family: inherit;
-}
-input[type="date"]::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  filter: invert(0.6);
-  opacity: 0.8;
-  transition: opacity 0.2s, filter 0.2s;
-}
-input[type="date"]::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
-  filter: invert(0.8);
-}
-html.dark input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8);
-}
-html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
-  filter: invert(1);
 }
 
 /* ============================================================
    MODAL DE TIMEOUT DE SESIÓN
    ============================================================ */
-
 #session-timeout-overlay {
   display: none;
   position: fixed;
@@ -838,7 +598,6 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   justify-content: center;
   padding: 1rem;
 }
-
 .session-timeout-backdrop {
   position: absolute;
   top: 0;
@@ -849,7 +608,6 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-
 .session-timeout-modal {
   position: relative;
   z-index: 1;
@@ -863,13 +621,10 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.05);
   animation: sto-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
-
 @keyframes sto-slide-in {
   from { opacity: 0; transform: translateY(-24px) scale(0.95); }
   to   { opacity: 1; transform: translateY(0)     scale(1);    }
 }
-
-/* Ícono animado */
 .sto-icon-wrap {
   position: relative;
   width: 72px;
@@ -879,7 +634,6 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   align-items: center;
   justify-content: center;
 }
-
 .sto-icon-ring {
   position: absolute;
   inset: 0;
@@ -891,12 +645,10 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   animation-delay: 0.7s;
   border-color: rgba(245, 158, 11, 0.2);
 }
-
 @keyframes sto-ring-pulse {
   0%, 100% { transform: scale(1);    opacity: 1;   }
   50%       { transform: scale(1.35); opacity: 0;   }
 }
-
 .sto-icon {
   width: 36px;
   height: 36px;
@@ -905,23 +657,18 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   position: relative;
   z-index: 1;
 }
-
-/* Textos */
 .sto-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: #f1f5f9;
   margin-bottom: 0.5rem;
 }
-
 .sto-body {
   font-size: 0.8125rem;
   color: #94a3b8;
   line-height: 1.5;
   margin-bottom: 1.5rem;
 }
-
-/* Cuenta regresiva */
 .sto-countdown {
   font-size: 3rem;
   font-weight: 800;
@@ -932,17 +679,13 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   line-height: 1;
   font-family: 'Courier New', monospace;
 }
-
 .sto-sep {
   opacity: 0.5;
   animation: sto-blink 1s step-end infinite;
 }
-
 @keyframes sto-blink {
   50% { opacity: 0; }
 }
-
-/* Barra de progreso */
 .sto-progress-track {
   width: 100%;
   height: 4px;
@@ -951,7 +694,6 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   overflow: hidden;
   margin-bottom: 2rem;
 }
-
 .sto-progress-bar {
   height: 100%;
   border-radius: 999px;
@@ -959,14 +701,11 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   transition: width 1s linear, background 0.5s ease;
   width: 100%;
 }
-
-/* Botones */
 .sto-actions {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
 }
-
 .sto-btn-primary {
   display: flex;
   align-items: center;
@@ -984,17 +723,14 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   color: #fff;
   box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
 }
-
 .sto-btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.45);
   background: linear-gradient(135deg, #60a5fa, #3b82f6);
 }
-
 .sto-btn-primary:active {
   transform: translateY(0);
 }
-
 .sto-btn-secondary {
   display: flex;
   align-items: center;
@@ -1011,33 +747,25 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator:hover {
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
 }
-
 .sto-btn-secondary:hover {
   background: rgba(239, 68, 68, 0.12);
   border-color: rgba(239, 68, 68, 0.3);
   color: #fca5a5;
 }
-
-/* Estado urgente: quedan menos de 60 seg */
 .session-timeout-modal.sto-urgent .sto-countdown {
   animation: sto-urgent-pulse 0.6s ease-in-out infinite alternate;
   color: #f87171;
 }
-
 .session-timeout-modal.sto-urgent .sto-icon {
   color: #f87171;
 }
-
 .session-timeout-modal.sto-urgent .sto-icon-ring {
   border-color: rgba(239, 68, 68, 0.5);
 }
-
 @keyframes sto-urgent-pulse {
   from { opacity: 1; }
   to   { opacity: 0.6; }
 }
-
-/* Modo claro */
 html:not(.dark) .session-timeout-modal {
   background: rgba(255, 255, 255, 0.95);
   border-color: rgba(0, 0, 0, 0.08);
@@ -1046,175 +774,135 @@ html:not(.dark) .sto-title  { color: #1e293b; }
 html:not(.dark) .sto-body   { color: #64748b; }
 html:not(.dark) .sto-countdown { color: #1e293b; }
 
-/* ============================================================
-   BOTONES DE ACCIÓN Y TARJETAS EN CENTRO DE ALERTAS
-   ============================================================ */
-
-/* Estilos de botones de acción de alerta */
+/* Botones de acción de Alertas */
 .alert-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 0.75rem; /* 12px, rounded-xl */
+  border-radius: 0.75rem;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   border: 1px solid var(--border-ui);
   background-color: var(--bg-card);
   color: var(--text-secondary);
 }
-
 .alert-action-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
-
 .alert-action-btn:active {
   transform: translateY(0);
 }
-
-/* Modificadores de color específicos en hover para cada botón */
 .alert-action-btn.btn-view:hover {
   background-color: rgba(59, 130, 246, 0.1) !important;
   border-color: rgba(59, 130, 246, 0.3) !important;
   color: var(--brand-color) !important;
 }
-
 .alert-action-btn.btn-read:hover {
   background-color: rgba(16, 185, 129, 0.1) !important;
   border-color: rgba(16, 185, 129, 0.3) !important;
-  color: #10b981 !important; /* emerald */
+  color: #10b981 !important;
 }
-
 .alert-action-btn.btn-unread:hover {
   background-color: rgba(245, 158, 11, 0.1) !important;
   border-color: rgba(245, 158, 11, 0.3) !important;
-  color: #f59e0b !important; /* amber */
+  color: #f59e0b !important;
 }
-
 .alert-action-btn.btn-delete:hover {
   background-color: rgba(239, 68, 68, 0.1) !important;
   border-color: rgba(239, 68, 68, 0.3) !important;
-  color: #ef4444 !important; /* rose */
+  color: #ef4444 !important;
 }
-
-/* Modo oscuro para botones */
 html.dark .alert-action-btn {
   background-color: rgba(15, 23, 42, 0.4);
   border-color: rgba(255, 255, 255, 0.08);
   color: var(--text-tertiary);
 }
-
 html.dark .alert-action-btn:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
-
 html.dark .alert-action-btn.btn-view:hover {
   background-color: rgba(59, 130, 246, 0.2) !important;
   border-color: rgba(59, 130, 246, 0.4) !important;
   color: #60a5fa !important;
 }
-
 html.dark .alert-action-btn.btn-read:hover {
   background-color: rgba(16, 185, 129, 0.2) !important;
   border-color: rgba(16, 185, 129, 0.4) !important;
   color: #34d399 !important;
 }
-
 html.dark .alert-action-btn.btn-unread:hover {
   background-color: rgba(245, 158, 11, 0.2) !important;
   border-color: rgba(245, 158, 11, 0.4) !important;
   color: #fbbf24 !important;
 }
-
 html.dark .alert-action-btn.btn-delete:hover {
   background-color: rgba(239, 68, 68, 0.2) !important;
   border-color: rgba(239, 68, 68, 0.4) !important;
   color: #f87171 !important;
 }
 
-/* Estilos de tarjeta con bordes izquierdos de severidad */
+/* Severidades de Alerta */
 .card-alert-urgent {
-  border-left: 4px solid #ef4444 !important; /* rose-500 */
+  border-left: 4px solid #ef4444 !important;
   background: rgba(239, 68, 68, 0.02) !important;
 }
-
 html.dark .card-alert-urgent {
   background: rgba(239, 68, 68, 0.04) !important;
 }
-
 .card-alert-warning {
-  border-left: 4px solid #f59e0b !important; /* amber-500 */
+  border-left: 4px solid #f59e0b !important;
   background: rgba(245, 158, 11, 0.02) !important;
 }
-
 html.dark .card-alert-warning {
   background: rgba(245, 158, 11, 0.04) !important;
 }
-
 .card-alert-info {
-  border-left: 4px solid #3b82f6 !important; /* blue-500 */
+  border-left: 4px solid #3b82f6 !important;
   background: rgba(59, 130, 246, 0.02) !important;
 }
-
 html.dark .card-alert-info {
   background: rgba(59, 130, 246, 0.04) !important;
 }
 
-/* Calendar Custom Styles — see bottom of file for themed calendar rules */
-
+/* Calendario */
 .calendar-day-header {
   border-bottom: 2px solid var(--border-ui);
 }
-
-/* Scrollbar styling for calendar timeline */
 .calendar-timeline-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
-
 .calendar-timeline-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 .calendar-timeline-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .calendar-timeline-scroll::-webkit-scrollbar-thumb {
   background-color: rgba(148, 163, 184, 0.3);
   border-radius: 10px;
 }
-
-/* Calendar Theme Adaptive Colors (Moved to main blocks at start of file) */
-
-/* Calendar Cell Fixed Height */
 .calendar-cell {
   min-height: 110px;
   height: 110px;
   transition: all 0.15s ease-in-out;
   background-color: var(--cal-cell-bg) !important;
 }
-
 .calendar-cell:hover {
   background-color: var(--cal-cell-hover) !important;
 }
-
-/* Calendar grid wrapper */
 .calendar-grid-wrapper {
   background-color: var(--cal-grid-bg) !important;
   border-color: var(--cal-grid-border) !important;
 }
-
-/* Calendar header row */
 .calendar-header-cell {
   background-color: var(--cal-header-bg) !important;
   color: var(--cal-header-text) !important;
 }
-
-/* Calendar event chips */
 .cal-event-past {
   background-color: var(--cal-past-bg) !important;
   color: var(--cal-past-text) !important;
@@ -1231,15 +919,11 @@ html.dark .card-alert-info {
   border-bottom: none !important;
   border-left: 3px solid var(--cal-future-border) !important;
 }
-
-/* Calendar event count badge */
 .cal-count-badge {
   background-color: var(--cal-badge-bg) !important;
   color: var(--cal-badge-text) !important;
   border-color: var(--cal-badge-border) !important;
 }
-
-/* Week/Day view cards */
 .cal-week-card {
   background-color: var(--cal-week-card-bg) !important;
   border-color: var(--cal-grid-border) !important;
@@ -1248,15 +932,11 @@ html.dark .card-alert-info {
   background-color: var(--cal-day-card-bg) !important;
   border-color: var(--cal-grid-border) !important;
 }
-
-/* Folio badges in week/day */
 .cal-folio-badge {
   background-color: var(--cal-folio-bg) !important;
   color: var(--cal-folio-text) !important;
   border-color: var(--cal-folio-border) !important;
 }
-
-/* Calendar Autocomplete Suggestions */
 .cal-suggestions {
   background-color: var(--cal-suggest-bg);
   border: 1px solid var(--cal-suggest-border);
@@ -1266,7 +946,6 @@ html.dark .card-alert-info {
   overflow-y: auto;
   z-index: 50;
 }
-
 .cal-suggestion-item {
   padding: 0.5rem 0.75rem;
   font-size: 0.7rem;
@@ -1274,14 +953,11 @@ html.dark .card-alert-info {
   transition: background-color 0.1s;
   color: var(--text-secondary);
 }
-
 .cal-suggestion-item:hover,
 .cal-suggestion-item.active {
   background-color: var(--cal-suggest-hover);
   color: var(--text-primary);
 }
-
-/* Event chips global text standardization across Day, Week and Month views */
 .cal-event-past,
 .cal-event-past h4,
 .cal-event-past p,
@@ -1289,7 +965,6 @@ html.dark .card-alert-info {
 .cal-event-past div {
   color: var(--cal-past-text) !important;
 }
-
 .cal-event-future,
 .cal-event-future h4,
 .cal-event-future p,
@@ -1297,97 +972,76 @@ html.dark .card-alert-info {
 .cal-event-future div {
   color: var(--cal-future-text) !important;
 }
-
-/* Secondary typography hierarchy inside chips (cargos, descriptions, headers) */
 .cal-event-past p,
 .cal-event-past span:not(.font-bold),
 .cal-event-past .text-\[8px\],
 .cal-event-past [style*="color: var(--text-tertiary)"] {
   opacity: 0.75 !important;
 }
-
 .cal-event-future p,
 .cal-event-future span:not(.font-bold),
 .cal-event-future .text-\[8px\],
 .cal-event-future [style*="color: var(--text-tertiary)"] {
   opacity: 0.75 !important;
 }
-
-/* Coordinated folio badges inside chips */
 .cal-event-past .cal-folio-badge {
   background-color: rgba(203, 213, 225, 0.25) !important;
   color: var(--cal-past-text) !important;
   border-color: rgba(203, 213, 225, 0.7) !important;
 }
-
 .cal-event-future .cal-folio-badge {
   background-color: rgba(16, 185, 129, 0.12) !important;
   color: var(--cal-future-text) !important;
   border-color: rgba(16, 185, 129, 0.4) !important;
 }
-
-/* Coordinated dark mode folio badges */
 html.dark .cal-event-past .cal-folio-badge {
   background-color: rgba(148, 163, 184, 0.1) !important;
   color: var(--cal-past-text) !important;
   border-color: rgba(148, 163, 184, 0.3) !important;
 }
-
 html.dark .cal-event-future .cal-folio-badge {
   background-color: rgba(52, 211, 153, 0.08) !important;
   color: var(--cal-future-text) !important;
   border-color: rgba(52, 211, 153, 0.25) !important;
 }
-
-/* Coordinated horizontal divider lines in Day view */
 .cal-event-past div[style*="border-top"] {
   border-top-color: rgba(203, 213, 225, 0.4) !important;
 }
-
 .cal-event-future div[style*="border-top"] {
   border-top-color: rgba(16, 185, 129, 0.25) !important;
 }
-
 html.dark .cal-event-past div[style*="border-top"] {
   border-top-color: rgba(148, 163, 184, 0.2) !important;
 }
-
 html.dark .cal-event-future div[style*="border-top"] {
   border-top-color: rgba(52, 211, 153, 0.15) !important;
 }
 
-/* Cápsula de Estado Flotante */
+/* Cápsula de Estado */
 #system-status-capsule {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-/* Glassmorphism para la Cápsula */
 #system-status-capsule > div.flex {
   background-color: var(--glass-bg) !important;
   border-color: var(--glass-border) !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
   transition: all 0.2s ease;
 }
-
 #system-status-capsule > div.flex:hover {
   background-color: var(--bg-header) !important;
   border-color: var(--brand-color) !important;
   transform: translateY(-2px);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
 }
-
 html.dark #system-status-capsule > div.flex {
   background-color: rgba(15, 23, 42, 0.8) !important;
   border-color: rgba(255, 255, 255, 0.05) !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
 }
-
 html.dark #system-status-capsule > div.flex:hover {
   background-color: rgba(15, 23, 42, 0.95) !important;
   border-color: var(--brand-color) !important;
 }
-
-/* Hover Card Detallado */
 #system-status-hover-card {
   box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 10px 10px -5px rgba(15, 23, 42, 0.04) !important;
 }
@@ -1397,3 +1051,358 @@ html.dark #system-status-hover-card {
   box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
+/* ============================================================
+   ESTILOS DE IMPRESIÓN NATIVA (CSS PRINT)
+   ============================================================ */
+#print-report-container {
+  display: none;
+}
+@media print {
+  body:has(#print-report-container:not(:empty)) > *:not(#print-report-container) {
+    display: none !important;
+  }
+  body:not(:has(#print-report-container:not(:empty))) {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  body:not(:has(#print-report-container:not(:empty))) main {
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
+  #print-report-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    background: white !important;
+    color: #1e293b !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  }
+  #print-report-container table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  #print-report-container tr {
+    page-break-inside: avoid !important;
+  }
+  #print-report-container thead {
+    display: table-header-group !important;
+  }
+  #print-report-container tbody {
+    display: table-row-group !important;
+  }
+  body, html {
+    background: white !important;
+    color: black !important;
+  }
+  #print-report-container span,
+  #print-report-container div {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* ============================================================
+   SOBREESCRITURAS SCOPED PARA SOPORTE LIGHT-FIRST EN MODO CLARO
+   ============================================================ */
+html:not(.dark) {
+  .bg-slate-950 { background-color: var(--bg-main) !important; }
+  .bg-slate-900 { background-color: var(--bg-header) !important; }
+  .bg-slate-900\/60, .bg-slate-900\/50, .bg-slate-950\/40 { background-color: var(--bg-card) !important; }
+  .bg-slate-900\/10, .bg-slate-800, .bg-slate-700 { background-color: var(--border-ui) !important; }
+  .bg-slate-800\/30 { background-color: var(--border-ui) !important; opacity: 0.8; }
+  
+  .text-slate-100 { color: var(--text-primary) !important; }
+  .text-slate-200, .text-slate-300 { color: var(--text-secondary) !important; }
+  .text-slate-400, .text-slate-500 { color: var(--text-tertiary) !important; }
+  
+  h1.text-white, h2.text-white, h3.text-white, h4.text-white, 
+  div.text-white, span.text-white, p.text-white, button.bg-slate-700.text-white { 
+    color: var(--text-primary) !important; 
+  }
+  
+  .border-slate-800, .border-slate-700, .border-slate-900,
+  .border-slate-800\/80, .border-slate-800\/60, .border-slate-700\/40, 
+  .border-slate-700\/60, .border-slate-600\/60 { 
+    border-color: var(--border-ui) !important; 
+  }
+  
+  .hover\:bg-slate-800:hover { background-color: var(--border-ui) !important; }
+  .hover\:bg-slate-900\/40:hover { background-color: var(--border-ui) !important; opacity: 0.95; }
+  .hover\:text-white:hover { color: var(--text-primary) !important; }
+  
+  a.text-white, button.text-white, .btn-primary {
+    color: #ffffff !important;
+  }
+}
+
+/* ============================================================
+   AIR DATEPICKER v3 — TEMA LIQUID LAVENDER (Modo Claro + Oscuro)
+   ============================================================ */
+
+/* Variables de tema */
+.air-datepicker {
+  --adp-font-family: 'Inter', sans-serif;
+  --adp-font-size: 13px;
+  --adp-width: 248px;
+  --adp-z-index: 9999;
+  --adp-padding: 8px;
+  --adp-border-radius: 16px;
+  --adp-border-color: #e8e2f7;
+  --adp-background-color: #ffffff;
+  --adp-color: #374151;
+  --adp-color-secondary: #9ca3af;
+  --adp-accent-color: #7c3aed;
+  --adp-color-current-date: #7c3aed;
+  --adp-color-disabled: #d1d5db;
+  --adp-cell-height: 32px;
+  --adp-cell-width: 32px;
+  --adp-cell-border-radius: 10px;
+  --adp-selected-color: #ffffff;
+  --adp-selected-background-color: #7c3aed;
+  --adp-btn-color: #7c3aed;
+  --adp-btn-color-hover: #6d28d9;
+  --adp-btn-background-color-hover: #f3f0ff;
+  --adp-nav-color-secondary: #7c3aed;
+  --adp-shadow: 0 8px 32px -4px rgba(109, 40, 217, 0.14), 0 2px 8px -2px rgba(109, 40, 217, 0.08);
+}
+
+/* Contenedor */
+.air-datepicker-global-container {
+  z-index: 9999 !important;
+}
+.air-datepicker {
+  border: 1px solid #e8e2f7 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px -4px rgba(109,40,217,0.14), 0 2px 8px -2px rgba(109,40,217,0.08) !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Cabecera de navegación */
+.air-datepicker-nav {
+  border-bottom: 1px solid #f0ebff !important;
+  padding: 8px 4px !important;
+}
+.air-datepicker-nav--title {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #4c1d95 !important;
+  border-radius: 8px !important;
+  padding: 4px 8px !important;
+  transition: background 0.15s !important;
+}
+.air-datepicker-nav--title:hover {
+  background: #f3f0ff !important;
+  color: #6d28d9 !important;
+}
+.air-datepicker-nav--action {
+  color: #7c3aed !important;
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+.air-datepicker-nav--action:hover {
+  background: #f3f0ff !important;
+}
+.air-datepicker-nav--action svg path {
+  stroke: #7c3aed !important;
+}
+
+/* Días de la semana */
+.air-datepicker-body--day-names {
+  margin: 6px 0 2px !important;
+}
+.air-datepicker-body--day-name {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #9ca3af !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Celdas de días */
+.-day- .air-datepicker-cell {
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  height: 32px !important;
+  color: #374151 !important;
+  transition: background 0.12s, color 0.12s !important;
+}
+.air-datepicker-cell:hover {
+  background: #f3f0ff !important;
+  color: #6d28d9 !important;
+}
+.air-datepicker-cell.-current- {
+  color: #7c3aed !important;
+  font-weight: 700 !important;
+  background: #ede9fe !important;
+  border: 1.5px solid #c4b5fd !important;
+}
+.air-datepicker-cell.-selected- {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+}
+.air-datepicker-cell.-selected-:hover {
+  background: #6d28d9 !important;
+}
+.air-datepicker-cell.-other-month- {
+  color: #d1d5db !important;
+}
+.air-datepicker-cell.-disabled- {
+  color: #e5e7eb !important;
+}
+
+/* Grid de meses */
+.air-datepicker-body--cells.-months- .air-datepicker-cell {
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  height: 40px !important;
+  color: #374151 !important;
+}
+.air-datepicker-body--cells.-months- .air-datepicker-cell:hover {
+  background: #f3f0ff !important;
+  color: #6d28d9 !important;
+}
+.air-datepicker-body--cells.-months- .air-datepicker-cell.-selected- {
+  background: #7c3aed !important;
+  color: #fff !important;
+}
+.air-datepicker-body--cells.-months- .air-datepicker-cell.-current- {
+  color: #7c3aed !important;
+  background: #ede9fe !important;
+}
+
+/* Grid de años */
+.air-datepicker-body--cells.-years- .air-datepicker-cell {
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+.air-datepicker-body--cells.-years- .air-datepicker-cell:hover {
+  background: #f3f0ff !important;
+  color: #6d28d9 !important;
+}
+.air-datepicker-body--cells.-years- .air-datepicker-cell.-selected- {
+  background: #7c3aed !important;
+  color: #fff !important;
+}
+.air-datepicker-body--cells.-years- .air-datepicker-cell.-current- {
+  color: #7c3aed !important;
+  background: #ede9fe !important;
+}
+
+/* Botones Hoy / Limpiar */
+.air-datepicker-buttons {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 6px 8px 4px !important;
+  border-top: 1px solid #f0ebff !important;
+}
+.air-datepicker-button {
+  flex: 1 !important;
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  border: none !important;
+  transition: background 0.15s !important;
+}
+.adp-btn-today {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+}
+.adp-btn-today:hover {
+  background: #6d28d9 !important;
+}
+.adp-btn-clear {
+  background: #f3f0ff !important;
+  color: #7c3aed !important;
+}
+.adp-btn-clear:hover {
+  background: #ede9fe !important;
+}
+
+/* ── MODO OSCURO ── */
+html.dark .air-datepicker {
+  --adp-background-color: #1a1825;
+  --adp-border-color: #312e5a;
+  --adp-color: #d1d5db;
+  --adp-color-secondary: #6b7280;
+  --adp-color-disabled: #374151;
+  background: #1a1825 !important;
+  border-color: #312e5a !important;
+  box-shadow: 0 8px 32px -4px rgba(0,0,0,0.5) !important;
+}
+html.dark .air-datepicker-nav {
+  border-bottom-color: #312e5a !important;
+}
+html.dark .air-datepicker-nav--title {
+  color: #c4b5fd !important;
+}
+html.dark .air-datepicker-nav--title:hover {
+  background: #2d2a4a !important;
+  color: #a78bfa !important;
+}
+html.dark .air-datepicker-nav--action {
+  color: #a78bfa !important;
+}
+html.dark .air-datepicker-nav--action:hover {
+  background: #2d2a4a !important;
+}
+html.dark .air-datepicker-nav--action svg path {
+  stroke: #a78bfa !important;
+}
+html.dark .air-datepicker-body--day-name {
+  color: #6b7280 !important;
+}
+html.dark .-day- .air-datepicker-cell {
+  color: #d1d5db !important;
+}
+html.dark .air-datepicker-cell:hover {
+  background: #2d2a4a !important;
+  color: #c4b5fd !important;
+}
+html.dark .air-datepicker-cell.-current- {
+  background: #2d2a4a !important;
+  color: #a78bfa !important;
+  border-color: #4c3a9e !important;
+}
+html.dark .air-datepicker-cell.-selected- {
+  background: #7c3aed !important;
+  color: #fff !important;
+}
+html.dark .air-datepicker-cell.-other-month- {
+  color: #374151 !important;
+}
+html.dark .air-datepicker-body--cells.-months- .air-datepicker-cell,
+html.dark .air-datepicker-body--cells.-years- .air-datepicker-cell {
+  color: #d1d5db !important;
+}
+html.dark .air-datepicker-body--cells.-months- .air-datepicker-cell:hover,
+html.dark .air-datepicker-body--cells.-years- .air-datepicker-cell:hover {
+  background: #2d2a4a !important;
+  color: #c4b5fd !important;
+}
+html.dark .air-datepicker-body--cells.-months- .air-datepicker-cell.-current-,
+html.dark .air-datepicker-body--cells.-years- .air-datepicker-cell.-current- {
+  background: #2d2a4a !important;
+  color: #a78bfa !important;
+}
+html.dark .air-datepicker-buttons {
+  border-top-color: #312e5a !important;
+}
+html.dark .adp-btn-clear {
+  background: #2d2a4a !important;
+  color: #a78bfa !important;
+}
+html.dark .adp-btn-clear:hover {
+  background: #3a3560 !important;
+}

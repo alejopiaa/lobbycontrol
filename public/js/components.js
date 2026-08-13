@@ -158,12 +158,13 @@ function renderDateInput(options) {
                placeholder="DD/MM/AAAA"
                maxlength="10"
                autocomplete="off"
+               readonly
                value="${escapeHtmlAttr(displayValue)}"
                oninput="handleDateDisplayInput(this)"
                onkeydown="handleDateDisplayKeydown(event, this)"
-               class="w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 tracking-widest">
+               class="flatpickr-display-input w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 tracking-widest cursor-pointer">
         <button type="button"
-                onclick="toggleDateNativePicker('${id}')"
+                data-flatpickr-trigger="${id}"
                 class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-400 transition-colors p-0.5">
           <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
         </button>

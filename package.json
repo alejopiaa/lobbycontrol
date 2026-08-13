@@ -1,6 +1,6 @@
 {
   "name": "lobbycontrol",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "description": "Sistema local para la gestión y control de audiencias de la Ley de Lobby",
   "main": "main.js",
   "scripts": {
@@ -8,6 +8,8 @@
     "check-db": "node scripts/check_db.js",
     "inspect-db": "node scripts/inspect.js",
     "sync-prod-db": "node scripts/sync_prod_to_dev.js",
+    "build:css": "tailwindcss -i ./src/styles/input.css -o ./public/css/output.css --minify",
+    "watch:css": "tailwindcss -i ./src/styles/input.css -o ./public/css/output.css --watch",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --dir",
     "electron:installer": "electron-builder",
@@ -27,8 +29,10 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
     "electron": "^42.5.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "preline": "^4.2.0"
   },
   "build": {
     "appId": "com.lobbycontrol.app",

@@ -4,28 +4,36 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [Unreleased]
-
-### Added
-
-### Changed
-
-### Removed
-
-### Fixed
+## Unreleased
 
 ---
 
-## [2.4.1] - 2026-08-11
+## 2.5.0 - 2026-08-12
+
+### Changed
+- **Migración a ApexCharts**: Reemplazo de la biblioteca Chart.js por ApexCharts (v3) de forma local, mejorando la interactividad, tooltips y la adaptabilidad de los gráficos en el Dashboard al cambiar entre modo claro y oscuro.
+- **Actualización de Selector de Fechas**: Integración local de Air Datepicker v3 en los campos de fecha para solucionar incompatibilidades en la navegación de meses y años.
+- **Filtro Global de Vigencia**: Reubicación y unificación del checkbox de "Solo Sujeto Pasivos vigentes" al panel de filtros superior del Dashboard, aplicando el filtrado sobre todas las tarjetas de métricas y los gráficos en sincronía.
+- **Animaciones en Tarjetas**: Configuración para que las animaciones de conteo numérico de las tarjetas del Dashboard se ejecuten solo en cambios mayores de estado (como alternar vigencia de sujetos pasivos) para evitar interrupciones visuales durante la edición de textos o fechas.
+
+### Removed
+- **Remoción de Dependencias en Desuso**: Eliminación del archivo de biblioteca local obsoleto correspondiente a Chart.js.
+
+### Fixed
+- **Habilitación de Selector de Fechas en Reportes**: Solución al bloqueo que impedía usar el calendario de Reportes de forma independiente sin configurar previamente filtros secundarios.
+
+---
+
+## 2.4.1 - 2026-08-11
 
 ### Added
 - **Cancelación en exportación masiva**: Botón de cancelación en el modal de exportación masiva de PDFs para detener el proceso de generación en cualquier momento.
 
 ### Changed
-- **Optimización de importación de Excel**: Reducción drástica en el tiempo de carga de planillas Excel de más de 5 minutos a menos de 2 segundos.
+- **Optimización del Importador de Excel**: Reducción drástica en el tiempo de carga de planillas Excel secundarias de respaldo (de más de 5 minutos a menos de 2 segundos).
 
 ### Removed
-- **Métrica obsoleta de salud**: Remoción de la métrica "Archivo Excel" en la sección de salud del sistema por no corresponder a la arquitectura actual del sistema.
+- **Métrica de Archivo Excel**: Remoción de la verificación del archivo físico Excel local en el panel de salud del sistema, ya que la base de datos local definitiva reside en SQLite y se sincroniza directamente con SharePoint, reduciendo la dependencia del archivo de planilla original.
 
 ### Fixed
 - **Persistencia de auditorías**: Sincronización automática de cambios a SharePoint tras registrar, editar o eliminar auditorías semanales, evitando pérdidas de cambios locales al reiniciar la aplicación.
@@ -37,7 +45,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [2.4.0] - 2026-07-10
+## 2.4.0 - 2026-07-10
 
 ### Added
 - **Simulador de Perfiles (Impersonación)**: Herramienta administrativa para emular de forma segura la sesión de otros usuarios y auditar la visibilidad de datos y accesos. Incluye un banner superior de advertencia en color ámbar mientras la simulación permanezca activa.
@@ -54,12 +62,12 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [2.3.1] - 2026-07-09
+## 2.3.1 - 2026-07-09
 
 ### Added
 - **Reintento de Sincronización Manual**: Botón en la cápsula de estado para restablecer de forma directa la sincronización en la nube ante problemas de conexión temporales.
 - **Información de Errores de Red**: Visualización del detalle de errores directamente en el panel flotante de conexión.
-- **Bloqueo Inteligente de Búsqueda**: El buscador de sujetos pasivos se pre-completa y bloquea automáticamente para los usuarios que cuentan con este rol, facilitando el uso de filtros secundarios.
+- **Bloqueo Inteligente de Búsqueda**: El buscador de sujetos pasivos se pre-completa y bloquea automáticamente para los usuarios con rol de Sujeto Pasivo, facilitando el uso de filtros secundarios.
 
 ### Changed
 - **Mejoras del Encabezado**: Rediseño estético de la barra superior de la aplicación.
@@ -75,7 +83,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [2.3.0] - 2026-07-08
+## 2.3.0 - 2026-07-08
 
 ### Added
 - **Filtro de Historial de Eventos**: Clasificación rápida de eventos por nivel de severidad e integración de paginación en el panel administrativo.
@@ -91,11 +99,11 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [2.2.0] - 2026-07-07
+## 2.2.0 - 2026-07-07
 
 ### Added
 - **Historial de Cambios Detallado**: Registro visual de registros agregados, modificados y eliminados en cada sincronización de datos.
-- **Escudo de Salud del Sistema**: Indicador visual que comprueba la autenticidad e integridad de la base de datos local en tiempo real.
+- **Escudo de Salud del Sistema**: Indicador visual que comprueba la autenticidad e integridad de la base de datos local y el estado del archivo físico Excel origen en tiempo real.
 - **Segmentación de Plazos**: Filtro rápido en el Centro de Alertas por tipo de plazos legales.
 
 ### Changed
@@ -107,7 +115,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [2.1.0] - 2026-07-03
+## 2.1.0 - 2026-07-03
 
 ### Added
 - **Módulo de Agenda**: Calendario integrado con vistas mensual, semanal y diaria, con codificación de colores para reuniones pendientes y pasadas.
@@ -123,7 +131,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [2.0.0] - 2026-06-26
+## 2.0.0 - 2026-06-26
 
 ### Added
 - **Migración a Escritorio**: Transición de la arquitectura web local a una aplicación nativa instalable en escritorio (Electron).
@@ -135,9 +143,9 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ### Changed
 - **Seguridad en la Nube**: Flujo directo de sincronización de usuarios hacia SharePoint para evitar pérdida de datos.
+- **Optimización del Procesamiento de Reportes**: Eliminación de la generación de archivos temporales en disco (utilizada en la v1.0.0) en favor del procesamiento directo en memoria del cliente Electron.
 
 ### Removed
-- **Historial Físico de Reportes**: Remoción de archivos temporales de reportes antiguos en disco en favor del procesamiento en memoria del cliente.
 - **Servicio Web Local**: Retiro de servidor local innecesario para utilizar mensajería directa en la aplicación de escritorio.
 
 ### Fixed
@@ -147,7 +155,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [1.1.0] - 2026-06-26
+## 1.1.0 - 2026-06-24
 
 ### Added
 - **Sincronización Bidireccional**: Motor de sincronización de datos con resolución de conflictos para soporte offline y online.
@@ -157,7 +165,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## [1.0.0] - 2026-06-22
+## 1.0.0 - 2026-06-22
 
 ### Added
 - **Lanzamiento Inicial**: Publicación de la primera versión de la plataforma de control local para la gestión de audiencias de la Ley de Lobby.

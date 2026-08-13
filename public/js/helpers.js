@@ -73,38 +73,7 @@ function getDeadlineStatusBadge(fechaIngreso, fechaRespuesta, estado, item) {
   };
 }
 
-// Helper para formatear Sujeto Pasivo y Cargo (separa por " - ")
-function formatSujetoPasivoCargo(cargoString) {
-  if (!cargoString) {
-    return { title: 'No definido', subtitle: '' };
-  }
-  
-  // Detectar si empieza con código de licitación (por ejemplo, 2770-...)
-  const licitacionMatch = cargoString.match(/^\s*(2770-\d+-?\s*[A-Z0-9]+)/i);
-  if (licitacionMatch) {
-    const code = licitacionMatch[1].trim();
-    // Intentar extraer el nombre que está después del último guion
-    const lastHyphenIndex = cargoString.lastIndexOf('-');
-    if (lastHyphenIndex !== -1 && lastHyphenIndex > licitacionMatch[0].length) {
-      const nombre = cargoString.substring(lastHyphenIndex + 1).trim();
-      return { title: code, subtitle: nombre };
-    }
-    return { title: code, subtitle: '' };
-  }
 
-  // Comportamiento normal para otros cargos
-  const parts = cargoString.split(' - ');
-  if (parts.length >= 3) {
-    const cargo = parts[0].trim();
-    const nombre = parts[parts.length - 1].trim();
-    return { title: cargo, subtitle: nombre };
-  } else if (parts.length === 2) {
-    const cargo = parts[0].trim();
-    const nombre = parts[1].trim();
-    return { title: cargo, subtitle: nombre };
-  }
-  return { title: cargoString, subtitle: '' };
-}
 
 // Helper para obtener el cargo limpio (específico para licitaciones en PH)
 function getCargoCleanBidding(cargoString) {
@@ -237,6 +206,12 @@ function calculateDashboardStats(rawData, filters) {
   // 1. Filtrar los datos en base a los filtros provistos
   let filtered = rawData;
 
+  if (filters.soloVigentes) {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      filtered = filtered.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  }
+
   if (filters.anio && filters.anio !== 'TODOS') {
     filtered = filtered.filter(item => item.fecha_ingreso && item.fecha_ingreso.startsWith(filters.anio));
   }
@@ -262,7 +237,8 @@ function calculateDashboardStats(rawData, filters) {
   }
 
   // 2. Clasificar y contar plazos y estados
-  const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
+  const publicadasArray = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+  const publicadosFolios = new Set(publicadasArray.map(p => p.folio_lobby).filter(Boolean));
   let respondidasCount = 0;
   let pendientesCount = 0;
   let publicadasCount = 0;
@@ -286,7 +262,7 @@ function calculateDashboardStats(rawData, filters) {
   const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
   // Filtrar las publicaciones directamente con la misma lógica del dashboard
-  let filteredPublicadas = dataStore.publicadas || [];
+  let filteredPublicadas = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
 
   if (filters.anio && filters.anio !== 'TODOS') {
     filteredPublicadas = filteredPublicadas.filter(item => item.fecha_inicio && item.fecha_inicio.startsWith(filters.anio));
@@ -459,7 +435,8 @@ function processReportData(rawData, filters) {
   const hasEstadosFilter = filters.estados && filters.estados.length > 0;
 
   // Optimización usando Set para verificar folios publicados en O(1)
-  const publicadosFolios = new Set((dataStore.publicadas || []).map(p => p.folio_lobby).filter(Boolean));
+  const publicadasArray = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+  const publicadosFolios = new Set(publicadasArray.map(p => p.folio_lobby).filter(Boolean));
 
   rawData.forEach(item => {
     // Filtro por Sujetos Pasivos Vigentes
@@ -489,28 +466,26 @@ function processReportData(rawData, filters) {
         return;
       }
     }
-    // Filtro por Rango de Fechas (se aplica a la fecha límite DDL y, si existe, a la fecha agendada)
-    if (item.fecha_limite_sh) {
-      const itemDate = item.fecha_limite_sh.split(' ')[0]; // YYYY-MM-DD
-      if (filters.fechaInicio && itemDate < filters.fechaInicio) {
-        return;
+    // Filtro por Rango de Fechas (PDR Compliance: la fecha de evaluación depende del estado)
+    // - Ingresada (PDR): se evalúa contra la fecha límite de respuesta (DDL) para cumplimiento normativo
+    // - Aceptada / Pendiente: se evalúa contra la fecha agendada de la audiencia
+    // - Otros estados (Rechazada, Cancelada, etc.): se evalúa contra la fecha de ingreso
+    if (filters.fechaInicio || filters.fechaTermino) {
+      const statusLower = itemEstado.toLowerCase();
+      let evalDate = null;
+      if (statusLower === 'ingresada') {
+        evalDate = item.fecha_limite_sh || item.fecha_ingreso;
+      } else if (item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---') {
+        evalDate = item.fecha_agendada;
+      } else {
+        evalDate = item.fecha_ingreso;
       }
-      if (filters.fechaTermino && itemDate > filters.fechaTermino) {
-        return;
-      }
-    } else {
-      if (filters.fechaInicio || filters.fechaTermino) {
-        return;
-      }
-    }
-
-    if (item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---') {
-      const agendaDate = item.fecha_agendada.split(' ')[0]; // YYYY-MM-DD
-      if (filters.fechaInicio && agendaDate < filters.fechaInicio) {
-        return;
-      }
-      if (filters.fechaTermino && agendaDate > filters.fechaTermino) {
-        return;
+      if (evalDate) {
+        const dateStr = evalDate.split(' ')[0]; // YYYY-MM-DD
+        if (filters.fechaInicio && dateStr < filters.fechaInicio) return;
+        if (filters.fechaTermino && dateStr > filters.fechaTermino) return;
+      } else {
+        return; // Sin fecha de evaluación disponible, excluir del rango
       }
     }
     // Filtro por Estados Múltiples

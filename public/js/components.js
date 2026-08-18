@@ -322,6 +322,40 @@ window.selectCustomOption = function(event, selectId, value, text) {
   }
 };
 
+window.selectVigenciaOption = function(event, selectId, value, label, onChangeName) {
+  if (event) event.stopPropagation();
+  
+  const dropdownEl = document.getElementById(`custom-select-dropdown-${selectId}`);
+  if (dropdownEl) {
+    dropdownEl.classList.add('hidden');
+    
+    const optionEls = dropdownEl.querySelectorAll('[data-value]');
+    optionEls.forEach(optEl => {
+      const optVal = optEl.getAttribute('data-value');
+      const optLabel = optEl.getAttribute('data-label') || optEl.textContent.trim();
+      const isSelected = optVal === value;
+      if (isSelected) {
+        optEl.className = 'px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 bg-brand-600/15 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold';
+        optEl.innerHTML = `<span>${optLabel}</span><i data-lucide="check" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400 shrink-0"></i>`;
+      } else {
+        optEl.className = 'px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-brand-400 font-normal';
+        optEl.innerHTML = `<span>${optLabel}</span>`;
+      }
+    });
+    if (window.lucide) lucide.createIcons();
+  }
+
+  const triggerEl = document.getElementById(`custom-select-trigger-${selectId}`);
+  if (triggerEl) {
+    const span = triggerEl.querySelector('span.truncate');
+    if (span) span.textContent = label;
+  }
+
+  if (typeof window[onChangeName] === 'function') {
+    window[onChangeName](value);
+  }
+};
+
 // Cerrar todos los selectores personalizados al hacer clic fuera
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.custom-select-dropdown') && !e.target.closest('[id^="custom-select-trigger-"]')) {

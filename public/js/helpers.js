@@ -14,13 +14,33 @@ function escapeHtml(str) {
   return escapeHtmlAttr(str);
 }
 
-// Helper para formatear fechas
+// Helper para formatear fechas (solo fecha)
 function formatDate(dateString) {
-  if (!dateString) return '-';
+  if (!dateString || dateString === '-' || dateString === '---' || dateString === 'null') return '-';
   try {
     const parts = dateString.split(' ')[0].split('-');
     if (parts.length === 3) {
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateString;
+  } catch (e) {
+    return dateString;
+  }
+}
+
+// Helper para formatear fechas y horas (siempre incluye hora para audiencias agendadas)
+function formatDateTime(dateString) {
+  if (!dateString || dateString === '-' || dateString === '---' || dateString === 'null') return '---';
+  try {
+    const parts = String(dateString).trim().split(' ');
+    const dateParts = parts[0].split('-');
+    if (dateParts.length === 3) {
+      const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+      if (parts[1]) {
+        const timePart = parts[1].slice(0, 5);
+        return `${formattedDate} ${timePart}`;
+      }
+      return formattedDate;
     }
     return dateString;
   } catch (e) {
@@ -206,9 +226,13 @@ function calculateDashboardStats(rawData, filters) {
   // 1. Filtrar los datos en base a los filtros provistos
   let filtered = rawData;
 
-  if (filters.soloVigentes) {
+  if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
     if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
       filtered = filtered.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  } else if (filters.vigencia === 'no_vigentes') {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      filtered = filtered.filter(item => !item.sujeto_pasivo_id || !activeSujetoIdsCache.has(item.sujeto_pasivo_id));
     }
   }
 
@@ -263,6 +287,16 @@ function calculateDashboardStats(rawData, filters) {
 
   // Filtrar las publicaciones directamente con la misma lógica del dashboard
   let filteredPublicadas = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+
+  if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      filteredPublicadas = filteredPublicadas.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  } else if (filters.vigencia === 'no_vigentes') {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      filteredPublicadas = filteredPublicadas.filter(item => !item.sujeto_pasivo_id || !activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  }
 
   if (filters.anio && filters.anio !== 'TODOS') {
     filteredPublicadas = filteredPublicadas.filter(item => item.fecha_inicio && item.fecha_inicio.startsWith(filters.anio));
@@ -439,10 +473,18 @@ function processReportData(rawData, filters) {
   const publicadosFolios = new Set(publicadasArray.map(p => p.folio_lobby).filter(Boolean));
 
   rawData.forEach(item => {
-    // Filtro por Sujetos Pasivos Vigentes
-    if (filters.soloVigentes && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-      if (!activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
-        return;
+    // Filtro por Estado de Sujeto Pasivo (Vigentes / No Vigentes / Todos)
+    if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
+      if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+        if (!activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+          return;
+        }
+      }
+    } else if (filters.vigencia === 'no_vigentes') {
+      if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+        if (item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+          return;
+        }
       }
     }
 
@@ -525,14 +567,24 @@ function processReportData(rawData, filters) {
     }
     const plazoRestanteStr = getStandardizedPlazoText(item, isPendiente);
 
+    const pubInfo = getPendingPublicationDelay(item.fecha_agendada, item);
+
     return {
       index: idx + 1,
       id: item.id || idx,
       folio: item.folio_lobby || 'Sin Folio',
+      sujetoPasivo: normalizedName,
+      sujeto_pasivo: normalizedName,
+      sujetoActivo: item.sujeto_activo || item.gestor_interes || '---',
+      representado: item.representado || '---',
+      materia: item.materia || '---',
+      especificacionMateria: item.especificacion_materia || item.especificacion || '---',
       cargoCompleto: cargoCombinado,
       cargo: cleanedCargoText,
       fechaIngreso: formatDate(item.fecha_ingreso),
-      fechaAgendada: formatDate(item.fecha_agendada) || '---',
+      fechaLimiteRespuesta: item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : null,
+      fechaAgendada: formatDateTime(item.fecha_agendada),
+      fechaLimitePublicacion: (item.fecha_agendada && item.fecha_agendada !== '-') ? pubInfo.deadlineStr : null,
       estado: itemEstado,
       badgeClass: badge.class,
       badgeText: badge.text,
@@ -706,8 +758,13 @@ function translateError(msg) {
     return 'Error en la base de datos local. Reintente la acción. [ERR-DB-500]';
   }
 
-  // 5. Importación de Excel y Hojas
-  if (cleanMsg.includes('excel') || cleanMsg.includes('sheet') || cleanMsg.includes('hoja')) {
+  // 5. Exportación de Excel / Reportes
+  if (cleanMsg.includes('exportar') || cleanMsg.includes('exportación')) {
+    return `Error al exportar planilla Excel. [ERR-EXPORT-501]: ${originalMsg}`;
+  }
+
+  // 6. Importación de Excel y Hojas
+  if (cleanMsg.includes('import') || cleanMsg.includes('excel') || cleanMsg.includes('sheet') || cleanMsg.includes('hoja')) {
     if (cleanMsg.includes('formato') || cleanMsg.includes('sh') || cleanMsg.includes('ph') || cleanMsg.includes('sph')) {
       return 'El archivo no cumple con el formato requerido de la Ley de Lobby (faltan hojas obligatorias). [ERR-IMPORT-402]';
     }
@@ -720,7 +777,7 @@ function translateError(msg) {
     return 'Ya hay una importación activa en ejecución. Espere a que finalice. [ERR-IMPORT-409]';
   }
 
-  // 6. Reportes e Impresión
+  // 7. Reportes e Impresión
   if (cleanMsg.includes('pdf') || cleanMsg.includes('reporte') || cleanMsg.includes('impresión')) {
     if (cleanMsg.includes('cancelado') || cleanMsg.includes('cancelada') || cleanMsg.includes('cancel')) {
       return 'Guardado de reporte cancelado por el usuario. [ERR-REPORT-502]';

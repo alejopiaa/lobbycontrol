@@ -22,6 +22,96 @@
   <!-- Air Datepicker v3 - Selector de fechas (español) -->
   <script src="/vendor/air-datepicker.min.js"></script>
   <script src="/vendor/air-datepicker.es.js"></script>
+
+  <!-- Micro-animaciones y Transiciones UX Premium -->
+  <style id="lobby-ux-animations">
+    @keyframes modalScaleIn {
+      0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes modalScaleOut {
+      0% { opacity: 1; transform: scale(1) translateY(0); }
+      100% { opacity: 0; transform: scale(0.96) translateY(6px); }
+    }
+    @keyframes backdropFadeIn {
+      from { opacity: 0; backdrop-filter: blur(0px); }
+      to { opacity: 1; backdrop-filter: blur(4px); }
+    }
+    @keyframes backdropFadeOut {
+      from { opacity: 1; backdrop-filter: blur(4px); }
+      to { opacity: 0; backdrop-filter: blur(0px); }
+    }
+    @keyframes toastSlideIn {
+      0% { opacity: 0; transform: translateX(40px) scale(0.94); }
+      100% { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    @keyframes toastSlideOut {
+      0% { opacity: 1; transform: translateX(0) scale(1); }
+      100% { opacity: 0; transform: translateX(50px) scale(0.94); }
+    }
+    @keyframes toastProgressBar {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    @keyframes viewFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes softPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.82; }
+    }
+
+    .modal-animate-in {
+      animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+      will-change: transform, opacity;
+    }
+    .modal-animate-out {
+      animation: modalScaleOut 0.13s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+      will-change: transform, opacity;
+    }
+    .backdrop-animate-in {
+      animation: backdropFadeIn 0.2s ease-out forwards !important;
+    }
+    .backdrop-animate-out {
+      animation: backdropFadeOut 0.13s ease-in forwards !important;
+    }
+    .toast-animate-in {
+      animation: toastSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+    .toast-animate-out {
+      animation: toastSlideOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+    }
+    .toast-progress-bar {
+      height: 2.5px;
+      border-radius: 9999px;
+      animation: toastProgressBar 3.8s linear forwards;
+    }
+    .view-transition {
+      animation: viewFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+    .meeting-card-lift {
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .meeting-card-lift:hover {
+      transform: translateY(-2px) !important;
+      box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.14) !important;
+    }
+    .badge-soft-pulse {
+      animation: softPulse 2.5s ease-in-out infinite;
+    }
+    .cal-folio-badge {
+      background-color: rgba(241, 245, 249, 0.85) !important;
+      color: #334155 !important;
+      border-color: rgba(203, 213, 225, 0.75) !important;
+      font-weight: 700 !important;
+    }
+    .dark .cal-folio-badge {
+      background-color: rgba(30, 41, 59, 0.85) !important;
+      color: #cbd5e1 !important;
+      border-color: rgba(51, 65, 85, 0.75) !important;
+    }
+  </style>
 </head>
 <body class="h-full flex flex-col font-sans antialiased overflow-hidden">
 
@@ -152,7 +242,7 @@
 
 
   <!-- MODALES COMPARTIDOS (SE CARGAN/ABREN CON JS) -->
-  <div id="modal-container" class="fixed inset-0 z-50 hidden bg-bg-main/80 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="modal-container" onclick="if (event.target === this) closeModal()" class="fixed inset-0 z-50 hidden bg-bg-main/80 backdrop-blur-sm flex items-center justify-center p-4">
     <!-- El contenido del modal se inyecta dinámicamente -->
   </div>
 

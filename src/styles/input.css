@@ -1406,3 +1406,61 @@ html.dark .adp-btn-clear {
 html.dark .adp-btn-clear:hover {
   background: #3a3560 !important;
 }
+
+/* ========================================================
+   APEXCHARTS TOOLBAR & EXPORT MENU STYLING
+   ======================================================== */
+.apexcharts-toolbar {
+  z-index: 10 !important;
+  top: 4px !important;
+  right: 6px !important;
+}
+.apexcharts-toolbar svg {
+  fill: #64748b !important;
+  transition: fill 0.15s ease, transform 0.15s ease;
+}
+.apexcharts-toolbar svg:hover {
+  fill: var(--brand-color, #7c3aed) !important;
+  transform: scale(1.1);
+}
+.apexcharts-menu {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 6px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+  min-width: 140px !important;
+}
+.apexcharts-menu-item {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+}
+.apexcharts-menu-item:hover {
+  background: #f1f5f9 !important;
+  color: var(--brand-color, #7c3aed) !important;
+}
+html.dark .apexcharts-toolbar svg {
+  fill: #94a3b8 !important;
+}
+html.dark .apexcharts-toolbar svg:hover {
+  fill: #c084fc !important;
+}
+html.dark .apexcharts-menu {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+html.dark .apexcharts-menu-item {
+  color: #cbd5e1 !important;
+}
+html.dark .apexcharts-menu-item:hover {
+  background: #1e293b !important;
+  color: #38bdf8 !important;
+}
+

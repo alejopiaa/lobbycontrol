@@ -90,6 +90,58 @@ function renderPaginationControls(
   `;
 }
 
+function renderVigenciaSelect({ id, value, onChange }) {
+  const currentVal = value || 'todos';
+  const labelMap = {
+    todos: 'Todos',
+    vigentes: 'Vigentes',
+    no_vigentes: 'No Vigentes'
+  };
+  const currentLabel = labelMap[currentVal] || 'Todos';
+
+  const options = [
+    { value: 'todos', label: 'Todos' },
+    { value: 'vigentes', label: 'Vigentes' },
+    { value: 'no_vigentes', label: 'No Vigentes' }
+  ];
+
+  const optionsHtml = options.map(opt => {
+    const isSelected = opt.value === currentVal;
+    return `
+      <div data-value="${opt.value}" data-label="${opt.label}"
+           onclick="selectVigenciaOption(event, '${id}', '${opt.value}', '${opt.label}', '${onChange}')"
+           class="px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 ${
+             isSelected
+               ? 'bg-brand-600/15 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold'
+               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-brand-400 font-normal'
+           }">
+        <span>${opt.label}</span>
+        ${isSelected ? '<i data-lucide="check" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400 shrink-0"></i>' : ''}
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="relative inline-block font-sans select-none" id="vigencia-container-${id}">
+      <div class="flex items-center gap-1.5 bg-slate-100/80 dark:bg-slate-900/60 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs shadow-sm">
+        <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">Estado Sujeto Pasivo:</span>
+        <button type="button"
+                id="custom-select-trigger-${id}"
+                onclick="toggleCustomSelectDropdown(event, '${id}')"
+                class="bg-transparent border-0 text-[11px] font-bold text-brand-600 dark:text-brand-400 focus:outline-none cursor-pointer flex items-center gap-1 pr-0.5 hover:text-brand-500 transition-colors">
+          <span class="truncate">${currentLabel}</span>
+          <i data-lucide="chevron-down" class="h-3 w-3 shrink-0 opacity-70"></i>
+        </button>
+      </div>
+      
+      <div id="custom-select-dropdown-${id}"
+           class="custom-select-dropdown hidden absolute right-0 top-full mt-1.5 z-50 glass-card bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1 min-w-[130px]">
+        ${optionsHtml}
+      </div>
+    </div>
+  `;
+}
+
 // RENDER: VISTA DASHBOARD (VISTA INICIAL)
 function renderDashboard(container) {
   const stats = calculateDashboardStats(
@@ -182,21 +234,21 @@ function renderDashboard(container) {
       <!-- CONTENEDOR FILTROS -->
       ${renderGlassCard(
         `
-        <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
-            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
-            Filtros
-          </h3>
-          <div class="flex items-center gap-4">
-            <label class="flex items-center gap-1.5 text-[10px] text-slate-300 font-semibold cursor-pointer select-none">
-              <input type="checkbox" id="dashboard-filter-solo-vigentes" onchange="toggleDashboardSoloVigentes(this.checked)" class="rounded border-slate-700 bg-slate-900/60 text-brand-600 focus:ring-0 focus:ring-offset-0 h-3.5 w-3.5" ${dashboardFilters.soloVigentes ? 'checked' : ''}>
-              <span>Solo Sujeto Pasivos vigentes</span>
-            </label>
-            <div class="h-3.5 w-[1px] bg-slate-800"></div>
-            <button onclick="clearDashboardFilters()" class="text-[10px] text-slate-300 hover:text-white transition-colors flex items-center gap-1">
-              <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
-            </button>
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3 gap-2">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+              <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+              Filtros
+            </h3>
+            ${renderVigenciaSelect({
+              id: "dashboard-filter-vigencia",
+              value: dashboardFilters.vigencia,
+              onChange: "changeDashboardVigencia",
+            })}
           </div>
+          <button onclick="clearDashboardFilters()" class="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
+            <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
+          </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <!-- AÑO -->
@@ -462,6 +514,21 @@ function renderSolicitudes(container) {
     totalItems = dataStore.solicitudes.totalItems || 0;
   } else {
     let filtered = dataStore.solicitudes || [];
+    if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
+      filtered = filtered.filter((item) => {
+        if (item.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+          return true;
+        }
+        return false;
+      });
+    } else if (filters.vigencia === 'no_vigentes') {
+      filtered = filtered.filter((item) => {
+        if (!item.sujeto_pasivo_id || typeof activeSujetoIdsCache === 'undefined' || !activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+          return true;
+        }
+        return false;
+      });
+    }
     if (filters.folio) {
       const val = filters.folio.toLowerCase();
       filtered = filtered.filter((item) =>
@@ -514,7 +581,6 @@ function renderSolicitudes(container) {
         }
         if (
           filters.relacionRepresentado &&
-          filters.relacionRepresentado.toLowerCase() !== "particular" &&
           item.representado &&
           item.representado.toLowerCase() ===
             filters.relacionRepresentado.toLowerCase()
@@ -538,7 +604,6 @@ function renderSolicitudes(container) {
   }
 
   let rowsHtml = "";
-
   if (paginatedItems.length === 0) {
     rowsHtml = `<tr><td colspan="9" class="px-6 py-8 text-center text-xs text-slate-300">No hay registros de solicitudes.</td></tr>`;
   } else {
@@ -588,7 +653,7 @@ function renderSolicitudes(container) {
             </div>
           </td>
           <td class="pl-2 pr-6 text-left whitespace-nowrap">
-            ${item.id_lobby ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${item.id_lobby}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap">Ver Solicitud</a>` : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Enlace</span>'}
+            <button onclick="showSolicitudDetailsModal(${item.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap cursor-pointer">Ver Detalle</button>
           </td>
         </tr>
       `;
@@ -623,12 +688,19 @@ function renderSolicitudes(container) {
     <!-- CONTENEDOR FILTROS -->
     ${renderGlassCard(
       `
-      <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
-          <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
-          Filtros
-        </h3>
-        <button onclick="clearFilters('solicitudes')" class="text-[10px] text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+      <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3 gap-2">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+            Filtros
+          </h3>
+          ${renderVigenciaSelect({
+            id: "filter-solicitudes-vigencia",
+            value: filters.vigencia,
+            onChange: "changeSolicitudesVigencia",
+          })}
+        </div>
+        <button onclick="clearFilters('solicitudes')" class="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
           <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
         </button>
       </div>
@@ -774,6 +846,27 @@ function renderPublicadas(container) {
       totalItems = dataStore.publicadas.totalItems || 0;
     } else {
       let filtered = dataStore.publicadas || [];
+      if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
+        filtered = filtered.filter((item) => {
+          if (item.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+            return true;
+          }
+          if (dashboardDropdownCache.nombresVigentes && item.sujeto_pasivo) {
+            return dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === item.sujeto_pasivo.toLowerCase());
+          }
+          return false;
+        });
+      } else if (filters.vigencia === 'no_vigentes') {
+        filtered = filtered.filter((item) => {
+          if (item.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+            return false;
+          }
+          if (dashboardDropdownCache.nombresVigentes && item.sujeto_pasivo) {
+            return !dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === item.sujeto_pasivo.toLowerCase());
+          }
+          return true;
+        });
+      }
       if (filters.folio) {
         const val = filters.folio.toLowerCase();
         filtered = filtered.filter((item) =>
@@ -872,6 +965,28 @@ function renderPublicadas(container) {
         if (publicadosFolios.has(item.folio_lobby)) return false;
         return true;
       });
+
+      if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
+        filtered = filtered.filter((item) => {
+          if (item.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+            return true;
+          }
+          if (dashboardDropdownCache.nombresVigentes && item.sujeto_pasivo) {
+            return dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === item.sujeto_pasivo.toLowerCase());
+          }
+          return false;
+        });
+      } else if (filters.vigencia === 'no_vigentes') {
+        filtered = filtered.filter((item) => {
+          if (item.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+            return false;
+          }
+          if (dashboardDropdownCache.nombresVigentes && item.sujeto_pasivo) {
+            return !dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === item.sujeto_pasivo.toLowerCase());
+          }
+          return true;
+        });
+      }
 
       if (filters.folio) {
         const val = filters.folio.toLowerCase();
@@ -1020,11 +1135,7 @@ function renderPublicadas(container) {
               </div>
             </td>
             <td class="pl-2 pr-6 text-left whitespace-nowrap">
-              ${
-                item.id_solicitud_lobby
-                  ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_solicitud_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap">Ver Solicitud</a>`
-                  : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Solicitud</span>'
-              }
+              <button onclick="showAudienciaPublicadaDetailsModal(${item.id})" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap cursor-pointer">Ver Detalle</button>
             </td>
           </tr>
         `;
@@ -1074,7 +1185,7 @@ function renderPublicadas(container) {
               <span class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${delayInfo.badgeClass}">${escapeHtml(delayInfo.text)}</span>
             </td>
             <td class="pl-2 pr-6 py-4 align-middle text-left whitespace-nowrap">
-              ${item.id_lobby ? `<a href="https://www.leylobby.gob.cl/admin/solicitudes/${escapeHtmlAttr(item.id_lobby)}" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap">Ver Solicitud</a>` : '<span class="text-slate-500 text-xs whitespace-nowrap">Sin Enlace</span>'}
+              <button onclick="showSolicitudDetailsModal(${item.id}, true)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap cursor-pointer">Ver Detalle</button>
             </td>
           </tr>
         `;
@@ -1136,12 +1247,19 @@ function renderPublicadas(container) {
     <!-- CONTENEDOR FILTROS -->
     ${renderGlassCard(
       `
-      <div class="flex items-center justify-between border-b border-slate-800/60 pb-3">
-        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-2">
-          <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
-          Filtros
-        </h3>
-        <button onclick="clearFilters('publicadas')" class="text-[10px] text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+      <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3 gap-2">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+            Filtros
+          </h3>
+          ${renderVigenciaSelect({
+            id: "filter-publicadas-vigencia",
+            value: filters.vigencia,
+            onChange: "changePublicadasVigencia",
+          })}
+        </div>
+        <button onclick="clearFilters('publicadas')" class="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
           <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
         </button>
       </div>
@@ -1286,10 +1404,25 @@ function renderPublicadas(container) {
   `;
 }
 
+function isSujetoPasivoVigente(item) {
+  if (item.id_sujeto_lobby && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.size > 0) {
+    return activeSujetoIdsCache.has(item.id_sujeto_lobby);
+  }
+  const ft = (item.fecha_termino || '').trim().toLowerCase();
+  if (!ft || ft === '' || ft === '-' || ft === 'null' || ft.includes('indefin')) return true;
+  return false;
+}
+
 // RENDER: VISTA SUJETOS PASIVOS SPH
 function renderSujetosPasivos(container) {
   const search = paginationState.sujetos_pasivos.search.toLowerCase();
-  let filtered = dataStore.sujetos_pasivos;
+  const vigencia = paginationState.sujetos_pasivos.vigencia || 'todos';
+  let filtered = dataStore.sujetos_pasivos || [];
+  if (vigencia === 'vigentes') {
+    filtered = filtered.filter((item) => isSujetoPasivoVigente(item));
+  } else if (vigencia === 'no_vigentes') {
+    filtered = filtered.filter((item) => !isSujetoPasivoVigente(item));
+  }
   if (search) {
     filtered = filtered.filter((item) => {
       const nombre = (item.nombre || "").toLowerCase();
@@ -1319,7 +1452,7 @@ function renderSujetosPasivos(container) {
     rowsHtml = `<tr><td colspan="6" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de sujetos pasivos.</td></tr>`;
   } else {
     paginatedItems.forEach((item) => {
-      const isVigente = !item.fecha_termino;
+      const isVigente = isSujetoPasivoVigente(item);
       const statusBadge = isVigente
         ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status-enplazo">Vigente</span>`
         : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status-vencido">No Vigente</span>`;
@@ -1379,17 +1512,24 @@ function renderSujetosPasivos(container) {
 
     <!-- CONTENEDOR FILTROS Y TABLA -->
     <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
-      <div class="p-4 border-b border-slate-800/80 flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div class="w-full md:w-80">
-          ${renderSearchInput({
-            id: "search-sujetos",
-            fieldName: "search",
-            placeholder: "Buscar por Nombre, RUT o Cargo...",
-            value: paginationState.sujetos_pasivos.search,
-            icon: "search",
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800/80 flex flex-col md:flex-row gap-3 items-center justify-between">
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div class="w-full md:w-80">
+            ${renderSearchInput({
+              id: "search-sujetos",
+              fieldName: "search",
+              placeholder: "Buscar por Nombre, RUT o Cargo...",
+              value: paginationState.sujetos_pasivos.search,
+              icon: "search",
+            })}
+          </div>
+          ${renderVigenciaSelect({
+            id: "filter-sujetos-vigencia",
+            value: paginationState.sujetos_pasivos.vigencia,
+            onChange: "changeSujetosPasivosVigencia",
           })}
         </div>
-        <div class="text-xs text-slate-300" id="sujetos-counter">Mostrando ${totalItems} registros en total</div>
+        <div class="text-xs text-slate-500 dark:text-slate-300" id="sujetos-counter">Mostrando ${totalItems} registros en total</div>
       </div>
 
       <div class="overflow-x-auto">
@@ -1430,6 +1570,7 @@ function showSujetoDetailsModal(sujetoId) {
     if (!modal) return;
 
     modal.classList.remove("hidden");
+    modal.classList.add("backdrop-animate-in");
 
     // Buscar asesores técnicos asociados
     const users = dataStore.usuarios || [];
@@ -1460,7 +1601,7 @@ function showSujetoDetailsModal(sujetoId) {
                 </div>
                 <div class="truncate leading-none">
                   <p class="font-bold text-slate-800 dark:text-slate-200 text-[11px]">${escapeHtml(a.nombre)}</p>
-                  <p class="text-slate-400 dark:text-slate-500 text-[9.5px] mt-0.5">${escapeHtml(a.correo)}</p>
+                  <p class="text-slate-400 dark:text-slate-550 text-[9.5px] mt-0.5">${escapeHtml(a.correo)}</p>
                 </div>
               </div>
             `;
@@ -1470,7 +1611,7 @@ function showSujetoDetailsModal(sujetoId) {
     }
 
     modal.innerHTML = `
-      <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] font-sans text-left">
+      <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] font-sans text-left">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div class="flex items-center gap-2">
@@ -1572,6 +1713,445 @@ function showSujetoDetailsModal(sujetoId) {
   }
 }
 window.showSujetoDetailsModal = showSujetoDetailsModal;
+
+// MODAL: DETALLE DE SOLICITUD (SOLICITUDES Y PENDIENTES DE PUBLICACIÓN)
+function showSolicitudDetailsModal(idOrItem, isPending = false) {
+  try {
+    let item = null;
+    if (typeof idOrItem === 'object' && idOrItem !== null) {
+      item = idOrItem;
+    } else {
+      const id = idOrItem;
+      if (isPending) {
+        const list = dataStore.solicitudesPendientesPublicacion?.data || dataStore.solicitudesPendientesPublicacion || [];
+        item = list.find((s) => s.id == id);
+      }
+      if (!item) {
+        const list = dataStore.solicitudes?.data || dataStore.solicitudes || [];
+        item = list.find((s) => s.id == id);
+      }
+      if (!item && dataStore.solicitudesPendientesPublicacion) {
+        const list = dataStore.solicitudesPendientesPublicacion?.data || dataStore.solicitudesPendientesPublicacion || [];
+        item = list.find((s) => s.id == id);
+      }
+      if (!item && dataStore.solicitudesRawData) {
+        item = dataStore.solicitudesRawData.find((s) => s.id == id);
+      }
+      if (!item && dataStore.dashboardRawData) {
+        item = dataStore.dashboardRawData.find((s) => s.id == id);
+      }
+    }
+
+    if (!item) {
+      if (typeof showToast === 'function') {
+        showToast('No se encontró la información de la solicitud.', 'error');
+      }
+      return;
+    }
+
+    const modal = document.getElementById('modal-container');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('backdrop-animate-in');
+
+    const estado = item.estado || 'Ingresada';
+    const badgeData = getDeadlineStatusBadge(item.fecha_ingreso, item.fecha_respuesta, estado, item);
+
+    // Formateo de fecha y hora agendada (siempre con hora si está presente)
+    const agendadaParts = item.fecha_agendada ? item.fecha_agendada.split(' ') : [];
+    const agendadaDate = agendadaParts[0] ? formatDate(agendadaParts[0]) : '—';
+    const agendadaTime = agendadaParts[1] ? agendadaParts[1].substring(0, 5) : '';
+    const displayAgendada = (agendadaDate !== '—' && agendadaTime) ? `${agendadaDate} ${agendadaTime}` : agendadaDate;
+
+    if (isPending) {
+      // ══════════════════════════════════════════════════════════════════
+      // MODAL: AUDIENCIA PENDIENTE DE PUBLICACIÓN
+      // ══════════════════════════════════════════════════════════════════
+      const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
+      const horaInicio = item.hora_inicio || agendadaTime || (item.fecha_inicio ? (item.fecha_inicio.split(' ')[1] ? item.fecha_inicio.split(' ')[1].substring(0, 5) : '') : '') || '—';
+      const horaFin = item.hora_termino || item.hora_fin || (item.fecha_termino ? (item.fecha_termino.split(' ')[1] ? item.fecha_termino.split(' ')[1].substring(0, 5) : '') : '') || '—';
+
+      let ddlPubStatusText = '';
+      let ddlPubColorClass = 'text-emerald-500';
+      if (delayInfo.days > 0) {
+        ddlPubStatusText = `PFP (-${delayInfo.days}d)`;
+        ddlPubColorClass = 'text-rose-500';
+      } else {
+        ddlPubStatusText = 'PDP';
+        ddlPubColorClass = 'text-emerald-500';
+      }
+
+      modal.innerHTML = `
+        <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div class="flex items-center gap-2">
+              <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
+                <i data-lucide="clock" class="h-4.5 w-4.5"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Audiencia Pendiente</h3>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeData?.class || 'badge-status-otros'}">${escapeHtml(estado)}</span>
+                </div>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+
+          <!-- 1. Bloque de Tiempos y Plazos -->
+          <div class="space-y-3">
+            <div class="text-xs" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;">
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Ingreso</span>
+                <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_ingreso)}</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Agendada</span>
+                <span class="text-slate-700 dark:text-slate-200 font-semibold">${displayAgendada}</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">DDL Publicación</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(delayInfo.deadlineStr)}</span>
+                  <span class="text-[11px] font-bold ${ddlPubColorClass}">${ddlPubStatusText}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-xs pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50">
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Forma / Lugar</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold text-xs leading-relaxed break-words block">${escapeHtml(item.forma || 'Presencial')}${item.lugar || item.comuna ? ` — ${escapeHtml(item.lugar || item.comuna)}` : ''}</span>
+            </div>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <!-- 2. Sujeto Pasivo y Solicitante -->
+          <div class="space-y-3.5 text-xs">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Sujeto Pasivo (Autoridad / Funcionario)</span>
+              <p class="text-xs text-slate-800 dark:text-slate-100 flex items-baseline gap-1.5 flex-wrap">
+                <span class="font-bold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}</span>
+                ${(item.cargo_limpio || getCargoClean(item.cargo) || item.cargo) ? `<span class="text-slate-400 dark:text-slate-500">—</span><span class="text-slate-600 dark:text-slate-300 font-medium">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo) || item.cargo)}</span>` : ''}
+              </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;">
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Sujeto Activo (Lobbista/Gestor)</span>
+                <p class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(item.sujeto_activo || "Particular")}</p>
+                ${item.rut ? '<p class="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">RUN: ' + escapeHtml(item.rut) + "</p>" : ""}
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Representado</span>
+                <p class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(item.representado || item.sujeto_activo || "Particular")}</p>
+              </div>
+            </div>
+
+            <hr class="border-slate-200 dark:border-slate-800">
+
+            <!-- 3. Materia y Especificación -->
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-1">Materia</span>
+              <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || "Sin especificar")}</p>
+            </div>
+
+            ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-1">Especificación de la Materia</span><p class="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text max-h-36 overflow-y-auto custom-scrollbar">' + escapeHtml(item.especificacion_materia) + "</p></div>" : ""}
+          </div>
+
+          <!-- Footer -->
+          <div class="flex justify-end gap-3 pt-2">
+            ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ""}
+            <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      `;
+    } else {
+      // ══════════════════════════════════════════════════════════════════
+      // MODAL: SOLICITUD
+      // ══════════════════════════════════════════════════════════════════
+      let complianceText = '';
+      let complianceColorClass = 'text-emerald-500';
+      const hasRespuesta = item.fecha_respuesta && item.fecha_respuesta !== '-' && item.fecha_respuesta !== 'null' && item.fecha_respuesta !== '---';
+      
+      if (hasRespuesta) {
+        if (item.estado_cumplimiento_sh === 'FUERA_PLAZO' || (badgeData?.subtext && badgeData.subtext.toLowerCase().includes('fuera'))) {
+          const diasAtraso = item.dias_habiles_respuesta ? ` (-${item.dias_habiles_respuesta}d)` : (badgeData?.subtext?.match(/\(-?\d+d\)/)?.[0] ? ` ${badgeData.subtext.match(/\(-?\d+d\)/)[0]}` : '');
+          complianceText = `Fuera de plazo${diasAtraso}`;
+          complianceColorClass = 'text-rose-500';
+        } else {
+          complianceText = 'En plazo';
+          complianceColorClass = 'text-emerald-500';
+        }
+      } else if (estado.toLowerCase() === 'ingresada') {
+        if (badgeData?.class === 'badge-status-vencido') {
+          const atraso = item.dias_restantes_sh !== undefined ? ` (-${Math.abs(item.dias_restantes_sh)}d)` : (badgeData?.subtext?.match(/\(-?\d+d\)/)?.[0] ? ` ${badgeData.subtext.match(/\(-?\d+d\)/)[0]}` : '');
+          complianceText = `Fuera de plazo${atraso}`;
+          complianceColorClass = 'text-rose-500';
+        } else if (badgeData?.class === 'badge-status-enplazo') {
+          const diffDays = item.dias_restantes_sh !== undefined ? ` (${item.dias_restantes_sh}d)` : (badgeData?.subtext?.match(/\(\d+d\)/)?.[0] ? ` ${badgeData.subtext.match(/\(\d+d\)/)[0]}` : '');
+          complianceText = `En plazo${diffDays}`;
+          complianceColorClass = 'text-emerald-500';
+        }
+      }
+
+      modal.innerHTML = `
+        <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div class="flex items-center gap-2">
+              <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
+                <i data-lucide="file-text" class="h-4.5 w-4.5"></i>
+              </div>
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Solicitud</h3>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeData?.class || 'badge-status-otros'}">${escapeHtml(estado)}</span>
+                </div>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+
+          <!-- 1. Bloque Unificado de Tiempos y Plazos -->
+          <div class="text-xs" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem;">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Ingreso</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_ingreso)}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">DDL</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : calculateDeadline(item.fecha_ingreso)}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Respuesta</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_respuesta) || '—'}</span>
+                ${complianceText ? `<span class="text-[11px] font-bold ${complianceColorClass}">${complianceText}</span>` : ''}
+              </div>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Agendada</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${displayAgendada}</span>
+            </div>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <!-- 2. Sujeto Pasivo y Solicitante -->
+          <div class="space-y-3.5 text-xs">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Sujeto Pasivo (Autoridad / Funcionario)</span>
+              <p class="text-xs text-slate-800 dark:text-slate-100 flex items-baseline gap-1.5 flex-wrap">
+                <span class="font-bold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}</span>
+                ${(item.cargo_limpio || getCargoClean(item.cargo) || item.cargo) ? `<span class="text-slate-400 dark:text-slate-500">—</span><span class="text-slate-600 dark:text-slate-300 font-medium">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo) || item.cargo)}</span>` : ''}
+              </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;">
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Sujeto Activo (Lobbista/Gestor)</span>
+                <p class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(item.sujeto_activo || "Particular")}</p>
+                ${item.rut ? '<p class="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">RUN: ' + escapeHtml(item.rut) + "</p>" : ""}
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Representado</span>
+                <p class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(item.representado || item.sujeto_activo || "Particular")}</p>
+              </div>
+            </div>
+
+            <hr class="border-slate-200 dark:border-slate-800">
+
+            <!-- 3. Materia y Especificación -->
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-1">Materia</span>
+              <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || "Sin especificar")}</p>
+            </div>
+
+            ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-1">Especificación de la Materia</span><p class="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text max-h-36 overflow-y-auto custom-scrollbar">' + escapeHtml(item.especificacion_materia) + "</p></div>" : ""}
+          </div>
+
+          <!-- Footer -->
+          <div class="flex justify-end gap-3 pt-2">
+            ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ""}
+            <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    lucide.createIcons();
+  } catch (err) {
+    console.error('Error al abrir modal de detalle de solicitud:', err);
+  }
+}
+window.showSolicitudDetailsModal = showSolicitudDetailsModal;
+
+// MODAL: DETALLE DE AUDIENCIA PUBLICADA (HISTORIAL DE PUBLICADAS)
+function showAudienciaPublicadaDetailsModal(idOrItem) {
+  try {
+    let item = null;
+    if (typeof idOrItem === 'object' && idOrItem !== null) {
+      item = idOrItem;
+    } else {
+      const id = idOrItem;
+      const list = dataStore.publicadas?.data || dataStore.publicadas || [];
+      item = list.find((s) => s.id == id);
+      if (!item && dataStore.reportesRawData) {
+        item = dataStore.reportesRawData.find((s) => s.id == id);
+      }
+    }
+
+    if (!item) {
+      if (typeof showToast === 'function') {
+        showToast('No se encontró la información de la audiencia.', 'error');
+      }
+      return;
+    }
+
+    const modal = document.getElementById('modal-container');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('backdrop-animate-in');
+
+    const dateTimeParts = item.fecha_inicio ? item.fecha_inicio.split(" ") : [];
+    const formattedDate = dateTimeParts[0] ? formatDate(dateTimeParts[0]) : "-";
+    const horaInicio = dateTimeParts[1] ? dateTimeParts[1].substring(0, 5) : (item.hora_inicio || "—");
+
+    const terminoParts = item.fecha_termino ? item.fecha_termino.split(" ") : [];
+    const horaTermino = terminoParts[1] ? terminoParts[1].substring(0, 5) : (item.hora_termino || item.hora_fin || "—");
+    const duracion = item.duracion || "—";
+
+    const isFuera = (item.cumplimiento || "").toLowerCase().includes("fuera");
+    const cumplimientoColorClass = isFuera ? "text-rose-500" : "text-emerald-500";
+    const lobbyId = item.id_solicitud_lobby || item.id_lobby;
+
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 flex items-center justify-center shrink-0">
+              <i data-lucide="calendar-check" class="h-4.5 w-4.5"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Audiencia Publicada</h3>
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+            </div>
+          </div>
+          <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <!-- 1. Bloque Unificado de Tiempos y Plazos -->
+        <div class="space-y-3">
+          <!-- Fila 1: 3 columnas perfectamente alineadas -->
+          <div class="text-xs" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Realización</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(formattedDate)}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Publicación</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${formatDate(item.fecha_publicacion)}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Cumplimiento</span>
+              <div>
+                <span class="text-xs font-bold ${cumplimientoColorClass}">
+                  ${escapeHtml(item.cumplimiento || 'Publicada')}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fila 2: 3 columnas perfectamente alineadas con la Fila 1 -->
+          <div class="text-xs pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem;">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Hora de Inicio</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(horaInicio)}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Hora de Término</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(horaTermino)}</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Duración</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(duracion)}</span>
+            </div>
+          </div>
+
+          <!-- Fila 3: Forma / Lugar ancho completo -->
+          <div class="text-xs pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50">
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Forma / Lugar</span>
+            <span class="text-slate-700 dark:text-slate-200 font-semibold text-xs leading-relaxed break-words block">${escapeHtml(item.forma || 'Presencial')}${item.lugar || item.comuna ? ` — ${escapeHtml(item.lugar || item.comuna)}` : ''}</span>
+          </div>
+        </div>
+
+        <hr class="border-slate-200 dark:border-slate-800">
+
+        <!-- 2. Sujeto Pasivo y Solicitante -->
+        <div class="space-y-3.5 text-xs">
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Sujeto Pasivo (Autoridad / Funcionario)</span>
+            <p class="text-xs text-slate-800 dark:text-slate-100 flex items-baseline gap-1.5 flex-wrap">
+              <span class="font-bold text-sm text-slate-900 dark:text-slate-100">${escapeHtml(normalizeName(item.sujeto_pasivo) || 'Sin Nombre')}</span>
+              ${(item.cargo_limpio || getCargoClean(item.cargo) || item.cargo) ? `<span class="text-slate-400 dark:text-slate-500">—</span><span class="text-slate-600 dark:text-slate-300 font-medium">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo) || item.cargo)}</span>` : ''}
+            </p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;">
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Sujeto Activo (Lobbista/Gestor)</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(item.sujeto_activo || "Particular")}</p>
+              ${item.rut ? '<p class="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">RUN: ' + escapeHtml(item.rut) + "</p>" : ""}
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">Representado</span>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold">${escapeHtml(item.representado || item.sujeto_activo || "Particular")}</p>
+            </div>
+          </div>
+
+          <hr class="border-slate-200 dark:border-slate-800">
+
+          <!-- 3. Materia y Especificación -->
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-1">Materia</span>
+            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || "Sin especificar")}</p>
+          </div>
+
+          ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-1">Especificación de la Materia</span><p class="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text max-h-36 overflow-y-auto custom-scrollbar">' + escapeHtml(item.especificacion_materia) + "</p></div>" : ""}
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 pt-2">
+          ${lobbyId ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + lobbyId + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ""}
+          <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    `;
+
+    lucide.createIcons();
+  } catch (err) {
+    console.error('Error al abrir modal de audiencia publicada:', err);
+  }
+}
+window.showAudienciaPublicadaDetailsModal = showAudienciaPublicadaDetailsModal;
+
 function changeAdminTab(tabName) {
   activeAdminTab = tabName;
   const container = document.getElementById("main-content");
@@ -2655,28 +3235,30 @@ function renderReportes(container) {
       );
     }
 
-    // 4. Actualizar botones de exportación y checkboxes
+    // 4. Actualizar botones de exportación
     const exportBtnContainer = existingReportes.querySelector("#reportes-export-btn-container");
     if (exportBtnContainer) {
       exportBtnContainer.className = "flex items-center gap-2.5";
       exportBtnContainer.innerHTML = `
-        <div class="flex items-center gap-2 mr-1">
-          <label class="flex items-center gap-1 text-[10px] text-slate-550 dark:text-slate-300 font-bold cursor-pointer select-none">
-            <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-350 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" ${reportesFilters.soloVigentes ? 'checked' : ''}>
-            <span>Solo vigentes</span>
-          </label>
-          <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm">
-            <i data-lucide="files" class="h-3 w-3"></i>
-            Generación Masiva
-          </button>
-        </div>
+        <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer">
+          <i data-lucide="files" class="h-3.5 w-3.5"></i>
+          Generación Masiva
+        </button>
         
         <div class="h-4 w-[1px] bg-slate-200 dark:bg-slate-700/60 mx-1"></div>
 
         ${
           totalItems > 0
             ? `
-          <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+          <button onclick="exportReportToExcel()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
+            <i data-lucide="sheet" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
+            Exportar a Excel
+          </button>
+          <button onclick="exportReporteEjecutivoPDF()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
+            <i data-lucide="bar-chart-3" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"></i>
+            Reporte Ejecutivo PDF
+          </button>
+          <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
             <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
             Exportar PDF
           </button>
@@ -2698,11 +3280,18 @@ function renderReportes(container) {
       <!-- PANEL FILTROS AVANZADOS -->
       ${renderGlassCard(
         `
-        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
-            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
-            Filtros
-          </h3>
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3 gap-2">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+              <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+              Filtros
+            </h3>
+            ${renderVigenciaSelect({
+              id: "reportes-filter-vigencia",
+              value: reportesFilters.vigencia,
+              onChange: "changeReportesVigencia",
+            })}
+          </div>
           <button id="btn-reportes-clear" class="text-[10px] text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center gap-1 bg-transparent border-none cursor-pointer">
             <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
           </button>
@@ -2781,22 +3370,24 @@ function renderReportes(container) {
         <div class="p-4 border-b border-slate-200 dark:border-slate-800/80 flex justify-between items-center">
           <div class="text-xs text-slate-650 dark:text-slate-300 font-semibold" id="reportes-counter">${totalItems} registros coincidentes encontrados</div>
           <div id="reportes-export-btn-container" class="flex items-center gap-2.5">
-            <div class="flex items-center gap-2 mr-1">
-              <label class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-300 font-bold cursor-pointer select-none">
-                <input type="checkbox" id="batch-reportes-solo-vigentes" class="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-blue-500 focus:ring-blue-500/20" ${reportesFilters.soloVigentes ? 'checked' : ''}>
-                <span>Solo vigentes</span>
-              </label>
-              <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm">
-                <i data-lucide="files" class="h-3 w-3"></i>
-                Generación Masiva
-              </button>
-            </div>
+            <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer">
+              <i data-lucide="files" class="h-3.5 w-3.5"></i>
+              Generación Masiva
+            </button>
             
             <div class="h-4 w-[1px] bg-slate-200 dark:bg-slate-700/60 mx-1"></div>
 
             ${
               totalItems > 0
                 ? `
+              <button onclick="exportReportToExcel()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+                <i data-lucide="sheet" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
+                Exportar a Excel
+              </button>
+              <button onclick="exportReporteEjecutivoPDF()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
+                <i data-lucide="bar-chart-3" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"></i>
+                Reporte Ejecutivo PDF
+              </button>
               <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
                 <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
                 Exportar PDF
@@ -3760,6 +4351,27 @@ function drawCalendarBodyOnly() {
   detectCalendarConflicts(calendarEvents);
 
   let filtered = calendarEvents || [];
+  if (calendarFilters.vigencia === 'vigentes' || calendarFilters.soloVigentes === true) {
+    filtered = filtered.filter((e) => {
+      if (e.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(e.sujeto_pasivo_id)) {
+        return true;
+      }
+      if (dashboardDropdownCache.nombresVigentes && e.sujeto_pasivo) {
+        return dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === e.sujeto_pasivo.toLowerCase());
+      }
+      return false;
+    });
+  } else if (calendarFilters.vigencia === 'no_vigentes') {
+    filtered = filtered.filter((e) => {
+      if (e.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(e.sujeto_pasivo_id)) {
+        return false;
+      }
+      if (dashboardDropdownCache.nombresVigentes && e.sujeto_pasivo) {
+        return !dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === e.sujeto_pasivo.toLowerCase());
+      }
+      return true;
+    });
+  }
   if (calendarFilters.search) {
     const query = calendarFilters.search.toLowerCase().trim();
     filtered = filtered.filter(
@@ -3782,6 +4394,25 @@ function drawCalendarBodyOnly() {
   }
 }
 
+function drawCalendarGrid(container, events) {
+  const currentView = calendarViewMode;
+
+  container.innerHTML = "";
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "cal-grid-placeholder";
+
+  if (currentView === "month") {
+    drawMonthView(placeholder, events);
+  } else if (currentView === "week") {
+    drawWeekView(placeholder, events);
+  } else if (currentView === "day") {
+    drawDayView(placeholder, events);
+  }
+
+  container.appendChild(placeholder);
+}
+
 function drawMonthView(container, events) {
   const year = currentCalendarDate.getFullYear();
   const month = currentCalendarDate.getMonth();
@@ -3794,7 +4425,7 @@ function drawMonthView(container, events) {
   gridStartDate.setDate(gridStartDate.getDate() - prevMonthDaysCount);
 
   let html = `
-    <div class="grid grid-cols-7 gap-px calendar-grid-wrapper rounded-2xl overflow-hidden border shadow-xl">
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;" class="calendar-grid-wrapper rounded-2xl overflow-hidden border shadow-xl">
       <!-- Headers -->
       ${[
         "Lunes",
@@ -3807,7 +4438,7 @@ function drawMonthView(container, events) {
       ]
         .map(
           (day) => `
-        <div class="py-3 text-center text-[10px] font-bold uppercase tracking-wider calendar-header-cell border-b select-none">
+        <div class="py-2 text-center text-[10px] font-bold uppercase tracking-wider calendar-header-cell border-b select-none">
           ${day}
         </div>
       `,
@@ -3828,12 +4459,15 @@ function drawMonthView(container, events) {
       (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
     );
 
+    const visibleEvents = cellEvents.slice(0, 2);
+    const hiddenCount = cellEvents.length - visibleEvents.length;
+
     html += `
       <div onclick="selectCalendarDay('${tempDateStr}')" 
-           class="calendar-cell p-2 flex flex-col justify-between relative cursor-pointer ${
+           class="calendar-cell p-1.5 flex flex-col justify-between relative cursor-pointer ${
              isToday ? "ring-1 ring-brand-500/50" : ""
-           }">
-        <div class="flex justify-between items-center mb-1.5 select-none">
+           }" style="min-height: 86px; max-height: 96px; height: 90px;">
+        <div class="flex justify-between items-center mb-1 select-none">
           <span class="text-xs font-bold ${
             isToday
               ? "text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded-lg border border-brand-500/20"
@@ -3843,9 +4477,14 @@ function drawMonthView(container, events) {
           }" style="color: ${isToday ? "" : "var(--text-secondary)"}">
             ${tempDate.getDate()}
           </span>
+          ${
+            cellEvents.length > 0
+              ? `<span class="text-[8.5px] font-bold cal-badge-events px-1.5 py-0.2 rounded-full border">${cellEvents.length}</span>`
+              : ""
+          }
         </div>
-        <div class="flex-1 overflow-y-auto max-h-[68px] space-y-1 custom-scrollbar text-left pr-0.5">
-          ${cellEvents
+        <div class="flex-1 space-y-1 text-left overflow-hidden">
+          ${visibleEvents
             .map((e) => {
               const isPast =
                 e.fecha_agendada && e.fecha_agendada.split(" ")[0] < todayStr;
@@ -3856,22 +4495,32 @@ function drawMonthView(container, events) {
               const chipClass = isPast ? "cal-event-past" : "cal-event-future";
 
               return `
-              <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="p-2 rounded-lg cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${chipClass} font-medium flex flex-col gap-1 select-none border-l-[3px] ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-sm" : ""}"
+              <div onclick="event.stopPropagation(); showAgendaDetailsModal(${e.id})" 
+                   class="p-1 rounded-md cursor-pointer transition-all meeting-card-lift hover:-translate-y-px active:translate-y-0 ${chipClass} select-none border-l-2 ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30" : ""}"
                    title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${e.hasConflict ? `\n⚠️ ${escapeHtmlAttr(e.conflictDetails || "")}` : ""}">
-                <!-- Line 1: Time & Subject -->
-                <div class="flex items-center gap-1.5 min-w-0">
-                  <span class="font-mono text-[10px] font-bold shrink-0 opacity-80 ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
-                  <span class="truncate flex-1 text-left min-w-0 font-semibold text-[11px]" style="color: inherit">${escapeHtml(e.sujeto_pasivo)}</span>
+                <!-- Line 1: Time & Folio -->
+                <div class="flex items-center justify-between gap-1 leading-none mb-0.5">
+                  <span class="font-mono text-[9px] font-bold shrink-0 ${e.hasConflict ? "text-amber-500" : "text-brand-600 dark:text-brand-400"}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
+                  <span class="font-mono text-[7.5px] font-bold cal-folio-badge px-1 py-0.2 rounded truncate">F:${escapeHtml(e.folio_lobby || "s/f")}</span>
                 </div>
-                <!-- Line 2: Folio -->
-                <div class="text-[9.5px] opacity-75 font-mono text-left truncate pl-px">
-                  Folio: ${escapeHtml(e.folio_lobby || "s/f")}
+                <!-- Line 2: Sujeto Pasivo — Sujeto Activo -->
+                <div class="text-[9px] truncate leading-tight text-left">
+                  <span class="font-bold" style="color: inherit">${escapeHtml(e.sujeto_pasivo)}</span>
+                  <span class="opacity-70 font-normal"> — ${escapeHtml(e.sujeto_activo || e.representado || "Particular")}</span>
                 </div>
               </div>
             `;
             })
             .join("")}
+          ${
+            hiddenCount > 0
+              ? `
+            <div class="text-[8px] font-bold text-brand-600 dark:text-brand-400 hover:underline cursor-pointer select-none leading-none pt-0.5">
+              +${hiddenCount} más →
+            </div>
+          `
+              : ""
+          }
         </div>
       </div>
     `;
@@ -3903,7 +4552,7 @@ function drawWeekView(container, events) {
     "Domingo",
   ];
 
-  // 1. Pre-calcular todos los días y sus eventos
+  // 1. Pre-calcular todos los 7 días de la semana (Lunes a Domingo)
   const weekDays = [];
   const tempDate = new Date(monDate);
 
@@ -3913,7 +4562,6 @@ function drawWeekView(container, events) {
       (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
     );
     weekDays.push({
-      index: i,
       name: dayNames[i],
       date: tempDate.getDate(),
       dateStr: tempDateStr,
@@ -3923,31 +4571,25 @@ function drawWeekView(container, events) {
     tempDate.setDate(tempDate.getDate() + 1);
   }
 
-  // 2. Filtrar días a mostrar (Lunes a Viernes siempre se muestran; Sábado y Domingo solo si tienen eventos)
-  const visibleDays = weekDays.filter((day) => {
-    if (day.index < 5) return true; // Lunes a Viernes
-    return day.events.length > 0; // Sábado y Domingo
-  });
+  // 2. Grilla horizontal de 7 columnas contenida a la altura de la pantalla
+  let html = `<div class="w-full" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.5rem; height: calc(100vh - 275px); min-height: 520px;">`;
 
-  // 3. Determinar columnas del grid (el número de días visibles)
-  const colsCount = visibleDays.length;
-  let html = `<div class="grid grid-cols-1 md:grid-cols-${colsCount} gap-3.5" style="height: 600px;">`;
-
-  visibleDays.forEach((day) => {
+  weekDays.forEach((day) => {
     html += `
       <div class="cal-week-card glass-card flex flex-col rounded-2xl border ${
-        day.isToday ? "ring-1 ring-brand-500/40" : ""
-      } p-4" style="height: 600px; overflow: hidden;">
-        <div class="border-b pb-2 mb-3.5 text-center select-none" style="border-color: var(--border-ui);">
-          <p class="text-[10px] font-bold uppercase tracking-wider ${day.isToday ? "text-brand-400" : ""}" style="color: ${day.isToday ? "" : "var(--text-tertiary)"}">${day.name}</p>
-          <p class="text-lg font-bold mt-0.5" style="color: ${day.isToday ? "" : "var(--text-primary)"}">${day.date}</p>
+        day.isToday ? "ring-2 ring-brand-500/50 shadow-md shadow-brand-500/10" : ""
+      } p-3" style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="border-b pb-2 mb-2.5 text-center select-none shrink-0 ${day.isToday ? "bg-brand-500/10 rounded-xl pt-1" : ""}" style="border-color: var(--border-ui);">
+          <p class="text-[9.5px] font-bold uppercase tracking-wider ${day.isToday ? "text-brand-500 dark:text-brand-400" : ""}" style="color: ${day.isToday ? "" : "var(--text-tertiary)"}">${day.name}</p>
+          <p class="text-base font-extrabold mt-0.5" style="color: ${day.isToday ? "var(--brand-color)" : "var(--text-primary)"}">${day.date}</p>
+          ${day.isToday ? `<span class="inline-block text-[7.5px] font-bold uppercase px-1.5 py-0.2 bg-brand-500 text-white rounded-full mt-0.5">Hoy</span>` : ''}
         </div>
-        <div class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
           ${
             day.events.length === 0
               ? `
             <div class="h-full flex items-center justify-center py-20">
-              <p class="text-[10px] font-medium italic select-none" style="color: var(--cal-empty-text)">Sin reuniones</p>
+              <p class="text-[9.5px] font-medium italic select-none opacity-60" style="color: var(--cal-empty-text)">Sin reuniones</p>
             </div>
           `
               : day.events
@@ -3965,17 +4607,22 @@ function drawWeekView(container, events) {
 
                     return `
               <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="p-3 rounded-xl border cursor-pointer text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${chipClass} ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-sm" : ""}"
+                   class="p-2.5 rounded-xl border cursor-pointer text-left transition-all meeting-card-lift hover:-translate-y-0.5 active:translate-y-0 ${chipClass} ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-sm" : ""}"
                    title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${e.hasConflict ? `\n⚠️ ${escapeHtmlAttr(e.conflictDetails || "")}` : ""}">
-                <div class="flex items-center justify-between mb-1.5 select-none">
-                  <span class="text-[9px] font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
+                <!-- Fila 1: Hora + Folio -->
+                <div class="flex items-center justify-between mb-1 select-none">
+                  <span class="text-[9.5px] font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
                   <div class="flex gap-1 items-center">
-                    ${e.hasConflict ? `<span class="text-[7.5px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25 px-1 py-0.5 rounded shadow-sm select-none">⚠️ CHOQUE</span>` : ""}
-                    <span class="text-[8px] font-semibold cal-folio-badge px-1 py-0.5 rounded border">Folio ${e.folio_lobby || "s/f"}</span>
+                    ${e.hasConflict ? `<span class="text-[7px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25 px-1 py-0.5 rounded shadow-sm select-none">CHOQUE</span>` : ""}
+                    <span class="text-[8px] font-bold font-mono cal-folio-badge px-1.5 py-0.5 rounded border">Folio: ${escapeHtml(e.folio_lobby || "s/f")}</span>
                   </div>
                 </div>
-                <h4 class="text-xs font-bold truncate" style="color: var(--text-primary)" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
-                <p class="text-[9px] truncate mt-0.5" style="color: var(--text-tertiary)" title="${escapeHtmlAttr(e.sujeto_activo || "Lobbista")}">${escapeHtml(e.sujeto_activo || "Sin Lobbista")}</p>
+                <!-- Fila 2: Sujeto Pasivo -->
+                <h4 class="text-[11px] font-bold truncate" style="color: var(--text-primary)" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <!-- Fila 3: Sujeto Activo / Representado -->
+                <p class="text-[9px] truncate mt-0.5 font-medium" style="color: var(--text-tertiary)" title="${escapeHtmlAttr((e.sujeto_activo || "Sin Lobbista") + (e.representado ? " · " + e.representado : ""))}">
+                  ${escapeHtml(e.sujeto_activo || "Sin Lobbista")}${e.representado && e.representado !== e.sujeto_activo ? ` <span class="opacity-75">· ${escapeHtml(e.representado)}</span>` : ""}
+                </p>
               </div>
             `;
                   })
@@ -4000,28 +4647,36 @@ function drawDayView(container, events) {
   );
 
   let html = `
-    <div class="cal-day-card glass-card rounded-2xl border p-6 shadow-xl" style="min-height: 600px;">
-      <div class="border-b pb-4 mb-4 flex justify-between items-center select-none" style="border-color: var(--border-ui)">
-        <div class="text-left">
-          <h3 class="text-sm font-bold" style="color: var(--text-primary)">Reuniones del Día</h3>
-          <p class="text-xs" style="color: var(--text-tertiary)">${formatDate(activeDateStr)}</p>
+    <div class="cal-day-card glass-card rounded-2xl border p-5 shadow-xl flex flex-col" style="height: calc(100vh - 275px); min-height: 520px; overflow: hidden;">
+      <!-- Cabecera Superior Fija -->
+      <div class="border-b pb-3 mb-3 flex justify-between items-center select-none shrink-0" style="border-color: var(--border-ui)">
+        <div class="flex items-center gap-3 text-left">
+          <button onclick="calendarViewMode = 'week'; renderView();" class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer flex items-center gap-1.5">
+            <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+            <span>Volver a Semana</span>
+          </button>
+          <div>
+            <h3 class="text-sm font-bold" style="color: var(--text-primary)">Reuniones del Día</h3>
+            <p class="text-xs" style="color: var(--text-tertiary)">${formatDate(activeDateStr)}</p>
+          </div>
         </div>
-        <span class="px-2.5 py-1 rounded-lg text-xs font-bold cal-folio-badge border">
+        <span class="px-3 py-1 rounded-xl text-xs font-bold cal-folio-badge border">
           ${cellEvents.length} ${cellEvents.length === 1 ? "Reunión" : "Reuniones"}
         </span>
       </div>
       
-      <div>
+      <!-- Listado Interno con Scroll Propio (Sin Materia en Tarjetas) -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
         ${
           cellEvents.length === 0
             ? `
-          <div class="py-16 text-center select-none">
+          <div class="py-24 text-center select-none">
             <i data-lucide="calendar" class="h-10 w-10 mx-auto mb-3" style="color: var(--border-ui)"></i>
             <p class="text-xs italic" style="color: var(--cal-empty-text)">No hay reuniones programadas para este día.</p>
           </div>
         `
             : `
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
             ${cellEvents
               .map((e) => {
                 const isPast =
@@ -4033,15 +4688,15 @@ function drawDayView(container, events) {
 
                 return `
                 <div onclick="showAgendaDetailsModal(${e.id})" 
-                     class="p-4 rounded-xl border text-left cursor-pointer transition-all hover:-translate-y-px active:translate-y-0 ${isPast ? "cal-event-past" : "cal-event-future"} flex gap-3.5 items-start ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-md" : ""}">
+                     class="p-4 rounded-xl border text-left cursor-pointer transition-all meeting-card-lift hover:-translate-y-px active:translate-y-0 ${isPast ? "cal-event-past" : "cal-event-future"} flex gap-3.5 items-start ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-md" : ""}">
                   <div class="flex flex-col items-center shrink-0 w-14 select-none">
                     <span class="text-xs font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
                     <span class="text-[8px] font-semibold mt-1 uppercase tracking-wider" style="color: var(--text-tertiary)">Inicio</span>
                   </div>
                   <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5 mb-1 flex-wrap select-none">
+                    <div class="flex items-center gap-1.5 mb-1.5 flex-wrap select-none">
                       ${e.hasConflict ? `<span class="border border-amber-500/35 bg-amber-500/10 text-amber-500 text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shadow-sm">⚠️ CHOQUE DE HORARIO</span>` : ""}
-                      <span class="cal-folio-badge border text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Folio: ${e.folio_lobby || "Sin Folio"}</span>
+                      <span class="cal-folio-badge border text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Folio: ${escapeHtml(e.folio_lobby || "Sin Folio")}</span>
                     </div>
                     <h4 class="text-xs font-bold truncate" style="color: var(--text-primary)">${escapeHtml(e.sujeto_pasivo)}</h4>
                     <p class="text-[10px] font-semibold mt-0.5 truncate" style="color: var(--text-tertiary)">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
@@ -4067,10 +4722,6 @@ function drawDayView(container, events) {
                         <span class="font-medium truncate block" style="color: var(--text-secondary)" title="${escapeHtmlAttr(e.representado || "Particular")}">${escapeHtml(e.representado || "Particular")}</span>
                       </div>
                     </div>
-                    <div class="mt-2.5 pt-2" style="border-top: 1px solid var(--border-ui)">
-                      <span class="text-[8px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Especificación de la Materia</span>
-                      <p class="text-[10px] mt-0.5 leading-relaxed line-clamp-3" style="color: var(--text-tertiary)">${escapeHtml(e.especificacion_materia || e.materia || "Sin especificar")}</p>
-                    </div>
                   </div>
                 </div>
               `;
@@ -4082,9 +4733,8 @@ function drawDayView(container, events) {
       </div>
     </div>
   `;
-
   container.innerHTML = html;
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 }
 
 function showAgendaDetailsModal(eventId) {
@@ -4153,8 +4803,9 @@ function showAgendaDetailsModal(eventId) {
     }
 
     modal.classList.remove("hidden");
+    modal.classList.add("backdrop-animate-in");
     modal.innerHTML = `
-      <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+      <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div class="flex items-center gap-2">
@@ -4308,6 +4959,12 @@ function renderAgenda(container) {
         
         <!-- Controls grouped on the right -->
         <div class="flex items-center gap-3 shrink-0 flex-wrap justify-end w-full md:w-auto">
+          ${renderVigenciaSelect({
+            id: "calendar-filter-vigencia",
+            value: calendarFilters.vigencia,
+            onChange: "changeCalendarVigencia",
+          })}
+
           <!-- Navigation with Month/Year Quick Selectors -->
           <div class="flex items-center bg-slate-50 dark:bg-slate-950/40 p-1 px-2.5 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-2">
             <button onclick="navigateCalendar(-1)" class="h-6 w-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all cursor-pointer" title="Anterior">
@@ -4464,6 +5121,15 @@ function showCalendarSuggestions(val) {
   // Build unique suggestions from calendarEvents
   const sugSet = new Set();
   (calendarEvents || []).forEach((e) => {
+    if (calendarFilters.vigencia === 'vigentes' || calendarFilters.soloVigentes === true) {
+      const isVigente = (e.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(e.sujeto_pasivo_id)) ||
+                        (dashboardDropdownCache.nombresVigentes && e.sujeto_pasivo && dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === e.sujeto_pasivo.toLowerCase()));
+      if (!isVigente) return;
+    } else if (calendarFilters.vigencia === 'no_vigentes') {
+      const isVigente = (e.sujeto_pasivo_id && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.has(e.sujeto_pasivo_id)) ||
+                        (dashboardDropdownCache.nombresVigentes && e.sujeto_pasivo && dashboardDropdownCache.nombresVigentes.some(n => n.toLowerCase() === e.sujeto_pasivo.toLowerCase()));
+      if (isVigente) return;
+    }
     if (e.sujeto_pasivo) sugSet.add(e.sujeto_pasivo);
     if (e.cargo_limpio) sugSet.add(e.cargo_limpio);
     else if (e.cargo) {

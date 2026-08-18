@@ -21,7 +21,7 @@ let dataStore = {
 // Variables de estado del Calendario (Agenda)
 let currentCalendarDate = new Date();
 let calendarViewMode = 'month'; // 'month', 'week', 'day'
-let calendarFilters = { search: '' };
+let calendarFilters = { search: '', vigencia: 'todos' };
 let calendarEvents = [];
 
 // Referencias a los gráficos de Chart.js
@@ -126,7 +126,8 @@ let paginationState = {
       estado: '',
       relacionSujetoActivo: '',
       relacionRut: '',
-      relacionRepresentado: ''
+      relacionRepresentado: '',
+      vigencia: 'todos'
     }
   },
   publicadas: { 
@@ -140,10 +141,11 @@ let paginationState = {
       estado: '',
       relacionSujetoActivo: '',
       relacionRut: '',
-      relacionRepresentado: ''
+      relacionRepresentado: '',
+      vigencia: 'todos'
     }
   },
-  sujetos_pasivos: { page: 1, search: '' },
+  sujetos_pasivos: { page: 1, search: '', vigencia: 'todos' },
   reportes: { page: 1 },
   logs: { page: 1, filterType: 'all' }
 };
@@ -160,7 +162,7 @@ let dashboardFilters = {
   fechaTermino: '',
   nombre: '',
   cargo: '',
-  soloVigentes: true
+  vigencia: 'todos'
 };
 
 let reportesFilters = {
@@ -169,7 +171,7 @@ let reportesFilters = {
   fechaInicio: '',
   fechaTermino: '',
   estados: [],
-  soloVigentes: true
+  vigencia: 'todos'
 };
 
 let dashboardDropdownCache = {
@@ -757,7 +759,8 @@ function clearFilters(viewName) {
     estado: '',
     relacionSujetoActivo: '',
     relacionRut: '',
-    relacionRepresentado: ''
+    relacionRepresentado: '',
+    vigencia: 'todos'
   };
   paginationState[viewName].page = 1;
   if (viewName === 'solicitudes' || viewName === 'publicadas') {
@@ -776,9 +779,10 @@ function filtrarRelacionados(viewName, sujetoActivo, rut, representado) {
     cargo: '',
     sujetoActivoRepresentado: '',
     estado: '',
-    relacionSujetoActivo: sujetoActivo || '',
-    relacionRut: rut || '',
-    relacionRepresentado: (representado && representado.toLowerCase() !== 'particular') ? representado : ''
+    relacionSujetoActivo: (sujetoActivo && sujetoActivo !== 'null') ? sujetoActivo : '',
+    relacionRut: (rut && rut !== 'null') ? rut : '',
+    relacionRepresentado: (representado && representado !== 'null') ? representado : '',
+    vigencia: 'todos'
   };
   paginationState[viewName].page = 1;
   updateListView(viewName);
@@ -836,16 +840,18 @@ ${message}
 
   const persistent = options.persistent !== undefined ? options.persistent : isError;
 
-  toast.className = `flex items-center justify-between gap-3 px-4 py-3 rounded-lg shadow-lg text-sm transition-all duration-300 transform translate-y-2 opacity-0 glass-card border-l-4 ${
-    type === 'success' ? 'border-l-emerald-500 text-emerald-300' : 'border-l-rose-500 text-rose-300'
+  toast.className = `flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm toast-animate-in glass-card border ${
+    type === 'success' ? 'border-emerald-500/30 text-emerald-300' : 'border-rose-500/30 text-rose-300'
   }`;
+  toast.style.position = 'relative';
+  toast.style.overflow = 'hidden';
   
   const icon = type === 'success' ? 'check-circle' : 'alert-circle';
   
   let htmlContent = `
     <div class="flex items-center gap-3 pr-2">
-      <i data-lucide="${icon}" class="h-5 w-5 shrink-0"></i>
-      <span class="break-words text-left">${displayMessage}</span>
+      <i data-lucide="${icon}" class="h-5 w-5 shrink-0 ${type === 'success' ? 'text-emerald-400' : 'text-rose-400'}"></i>
+      <span class="break-words text-left font-medium">${displayMessage}</span>
     </div>
     <div class="flex items-center gap-2 shrink-0">
   `;
@@ -862,7 +868,7 @@ ${message}
 
   if (persistent) {
     htmlContent += `
-      <button onclick="const t = this.closest('.transform'); t.classList.add('translate-y-2', 'opacity-0'); setTimeout(() => t.remove(), 300);" 
+      <button onclick="const t = this.closest('.toast-animate-in, div'); t.classList.remove('toast-animate-in'); t.classList.add('toast-animate-out'); setTimeout(() => t.remove(), 190);" 
               class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center">
         <i data-lucide="x" class="h-4 w-4"></i>
       </button>
@@ -871,23 +877,27 @@ ${message}
 
   htmlContent += `</div>`;
 
+  if (!persistent) {
+    htmlContent += `
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; width: 100%; height: 3px; overflow: hidden; pointer-events: none;">
+        <div class="toast-progress-bar" style="height: 100%; background-color: ${type === 'success' ? '#10b981' : '#f43f5e'};"></div>
+      </div>
+    `;
+  }
+
   toast.innerHTML = htmlContent;
   container.appendChild(toast);
   lucide.createIcons();
-  
-  // Animación de entrada
-  setTimeout(() => {
-    toast.classList.remove('translate-y-2', 'opacity-0');
-  }, 50);
 
-  // Eliminación automática
+  // Eliminación automática con salida animada suave
   if (!persistent) {
     setTimeout(() => {
       if (toast.parentNode) {
-        toast.classList.add('translate-y-2', 'opacity-0');
-        setTimeout(() => toast.remove(), 300);
+        toast.classList.remove('toast-animate-in');
+        toast.classList.add('toast-animate-out');
+        setTimeout(() => toast.remove(), 190);
       }
-    }, 4000);
+    }, 3800);
   }
 }
 
@@ -997,6 +1007,7 @@ async function switchView(viewName) {
         if (!dataStore.dashboardRawData || dataStore.dashboardRawData.length === 0) {
           await fetchDashboardData(signal);
         }
+        await fetchActiveSujetoIds(signal);
         await fetchPaginatedList(viewName, signal);
       } else if (viewName === 'alertas') {
         await fetchAlertas(signal);
@@ -1139,7 +1150,8 @@ async function fetchPaginatedList(viewName, signal) {
       estado: state.filters.estado || '',
       relacionSujetoActivo: state.filters.relacionSujetoActivo || '',
       relacionRut: state.filters.relacionRut || '',
-      relacionRepresentado: state.filters.relacionRepresentado || ''
+      relacionRepresentado: state.filters.relacionRepresentado || '',
+      vigencia: state.filters.vigencia || 'todos'
     });
     
     const res = await fetch(`/api/solicitudes?${params.toString()}`, { signal });
@@ -1159,7 +1171,8 @@ async function fetchPaginatedList(viewName, signal) {
       estado: state.filters.estado || '',
       relacionSujetoActivo: state.filters.relacionSujetoActivo || '',
       relacionRut: state.filters.relacionRut || '',
-      relacionRepresentado: state.filters.relacionRepresentado || ''
+      relacionRepresentado: state.filters.relacionRepresentado || '',
+      vigencia: state.filters.vigencia || 'todos'
     });
     
     if (subTab === 'historial') {
@@ -1395,12 +1408,8 @@ function showDashboardSuggestions(fieldName) {
 
   let list;
   if (fieldName === 'nombre') {
-    if (idPrefix === 'report-filter-') {
-      // En reportes: si hay texto escrito → todos los nombres (predictivo); si está vacío → solo vigentes
-      const typedVal = (input ? input.value.trim() : '');
-      list = (typedVal.length > 0)
-        ? dashboardDropdownCache.nombres
-        : dashboardDropdownCache.nombresVigentes;
+    if (filters && (filters.vigencia === 'vigentes' || filters.soloVigentes === true)) {
+      list = dashboardDropdownCache.nombresVigentes;
     } else {
       list = dashboardDropdownCache.nombres;
     }
@@ -1616,8 +1625,8 @@ function hideDashboardSuggestions(fieldName) {
           triggerRenderOrFetch();
         }
       } else {
-        // Buscar si existe coincidencia exacta (insensible a mayúsculas) o comodín Todos en reportes
-        const isWildcardAllowed = ((currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes')) && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
+        const isReportes = (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'));
+        const isWildcardAllowed = (isReportes && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
         const matchedItem = isWildcardAllowed ? 'Todos' : list.find(item => item.toLowerCase() === val.toLowerCase());
         if (matchedItem) {
           if (filters[fieldName] !== matchedItem) {
@@ -1625,7 +1634,7 @@ function hideDashboardSuggestions(fieldName) {
               filters.cargo = '';
               
               // Si estamos en vistas con bloqueo reactivo, forzar desbloqueo de cargo en DOM
-               const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
+              const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
               if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
                 cargoInput.disabled = false;
                 cargoInput.placeholder = 'Escribir cargo...';
@@ -1643,8 +1652,21 @@ function hideDashboardSuggestions(fieldName) {
             input.value = matchedItem;
           }
           triggerRenderOrFetch();
+        } else if (isReportes) {
+          // En reportes se permite la búsqueda libre / parcial de texto sin rechazar la entrada
+          filters[fieldName] = val;
+          if (fieldName === 'nombre') {
+            const cargoInput = document.getElementById(`${idPrefix}cargo`);
+            if (cargoInput) {
+              cargoInput.disabled = false;
+              cargoInput.placeholder = 'Escribir cargo...';
+              cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
+              cargoInput.classList.add('text-slate-200');
+            }
+          }
+          triggerRenderOrFetch();
         } else {
-          // Si no existe, rechazar la entrada y volver al valor anterior
+          // Si no existe y no estamos en reportes, rechazar la entrada y volver al valor anterior
           input.value = filters[fieldName] || '';
           showToast(`El ${fieldName === 'nombre' ? 'nombre' : (fieldName === 'cargo' ? 'cargo' : (fieldName === 'sujetoActivoRepresentado' ? 'sujeto activo/representado' : 'año'))} ingresado no existe en el sistema.`, 'error');
           triggerRenderOrFetch();
@@ -1825,19 +1847,59 @@ function clearDashboardFilters() {
     fechaTermino: '',
     nombre: '',
     cargo: '',
-    soloVigentes: true
+    vigencia: 'todos'
   };
   const main = document.getElementById('main-content');
   if (main) main.innerHTML = ''; // Fuerza re-renderizado completo de los filtros
   renderView();
 }
 
-window.toggleDashboardSoloVigentes = function(checked) {
-  dashboardFilters.soloVigentes = checked;
+window.changeDashboardVigencia = function(val) {
+  dashboardFilters.vigencia = val;
   renderView(true);
 };
 
-// Manejar cambios en filtros de reportes con debounce y mantención de foco
+window.changeSolicitudesVigencia = function(val) {
+  paginationState.solicitudes.filters.vigencia = val;
+  paginationState.solicitudes.page = 1;
+  updateListView('solicitudes');
+};
+
+window.changePublicadasVigencia = function(val) {
+  paginationState.publicadas.filters.vigencia = val;
+  paginationState.publicadas.page = 1;
+  updateListView('publicadas');
+};
+
+window.changeCalendarVigencia = function(val) {
+  calendarFilters.vigencia = val;
+  if (typeof drawCalendarBodyOnly === 'function') {
+    drawCalendarBodyOnly();
+  } else {
+    renderView();
+  }
+};
+
+window.changeSujetosPasivosVigencia = function(val) {
+  paginationState.sujetos_pasivos.vigencia = val;
+  paginationState.sujetos_pasivos.page = 1;
+  renderView();
+};
+
+window.changeReportesVigencia = function(val) {
+  reportesFilters.vigencia = val;
+  paginationState.reportes.page = 1;
+  debouncedReportesRender();
+};
+
+// Aliases de retrocompatibilidad
+window.toggleDashboardSoloVigentes = (c) => window.changeDashboardVigencia(c ? 'vigentes' : 'todos');
+window.toggleSolicitudesSoloVigentes = (c) => window.changeSolicitudesVigencia(c ? 'vigentes' : 'todos');
+window.togglePublicadasSoloVigentes = (c) => window.changePublicadasVigencia(c ? 'vigentes' : 'todos');
+window.toggleCalendarSoloVigentes = (c) => window.changeCalendarVigencia(c ? 'vigentes' : 'todos');
+window.toggleSujetosPasivosSoloVigentes = (c) => window.changeSujetosPasivosVigencia(c ? 'vigentes' : 'todos');
+window.toggleReportesSoloVigentes = (c) => window.changeReportesVigencia(c ? 'vigentes' : 'todos');
+
 const debouncedReportesRender = debounce((activeInputId) => {
   window.activeInputId = activeInputId;
   renderView();
@@ -1850,11 +1912,35 @@ const debouncedReportesRender = debounce((activeInputId) => {
         const len = input.value.length;
         input.setSelectionRange(len, len);
       }
+      if (input.dataset && input.dataset.autocomplete === 'true') {
+        const fieldName = input.dataset.field;
+        if (fieldName) {
+          showDashboardSuggestions(fieldName);
+        }
+      }
     }
   }
 }, 250);
 
 
+
+function updateReporteEstadoPillStyle(checkbox) {
+  if (!checkbox) return;
+  const label = checkbox.closest('label');
+  if (!label) return;
+  const isChecked = checkbox.checked;
+  
+  const activeClasses = ['border-brand-500', 'bg-blue-500/10', 'text-blue-600', 'dark:text-blue-400', 'shadow-sm', 'shadow-brand-500/20'];
+  const inactiveClasses = ['text-slate-500', 'dark:text-slate-300', 'border-slate-200', 'dark:border-slate-800/80', 'bg-slate-100/40', 'dark:bg-slate-900/40'];
+
+  if (isChecked) {
+    inactiveClasses.forEach(c => label.classList.remove(c));
+    activeClasses.forEach(c => label.classList.add(c));
+  } else {
+    activeClasses.forEach(c => label.classList.remove(c));
+    inactiveClasses.forEach(c => label.classList.add(c));
+  }
+}
 
 function handleReportesEstadoToggle(estado, checked) {
   paginationState.reportes.page = 1;
@@ -1876,7 +1962,7 @@ function clearReportesFilters() {
     fechaInicio: '',
     fechaTermino: '',
     estados: [],
-    soloVigentes: true
+    vigencia: 'todos'
   };
   const main = document.getElementById('main-content');
   if (main) main.innerHTML = ''; // Fuerza re-renderizado completo de los filtros
@@ -1888,6 +1974,13 @@ function clearReportesFilters() {
 function renderView(forceAnimateCards = false) {
   const main = document.getElementById('main-content');
   if (!main) return;
+
+  if (window.isSwitchingView) {
+    main.classList.remove('view-transition');
+    void main.offsetWidth; // trigger reflow
+    main.classList.add('view-transition');
+    window.isSwitchingView = false;
+  }
   
   let isPartialUpdate = false;
   switch (currentView) {
@@ -2131,14 +2224,44 @@ function deleteRecord(viewName, id) {
   );
 }
 
-// Cerrar modal
+// Cerrar modal con animación de salida suave
 function closeModal() {
   const modal = document.getElementById('modal-container');
-  if (modal) {
-    modal.classList.add('hidden');
-    modal.innerHTML = '';
+  if (modal && !modal.classList.contains('hidden')) {
+    const card = modal.querySelector('.glass-card');
+    if (card) {
+      card.classList.remove('modal-animate-in');
+      card.classList.add('modal-animate-out');
+      modal.classList.add('backdrop-animate-out');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('backdrop-animate-out');
+        modal.innerHTML = '';
+      }, 130);
+    } else {
+      modal.classList.add('hidden');
+      modal.innerHTML = '';
+    }
   }
 }
+window.closeModal = closeModal;
+
+// Cerrar modal al presionar Escape o al hacer clic fuera del contenido
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('modal-container');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('modal-container');
+  if (modal && !modal.classList.contains('hidden') && e.target === modal) {
+    closeModal();
+  }
+});
 
 /**
  * Abre un modal de confirmación con estética premium integrada
@@ -2150,9 +2273,10 @@ function openConfirmModal(title, message, onConfirm) {
   const modal = document.getElementById('modal-container');
   if (!modal) return;
   modal.classList.remove('hidden');
+  modal.classList.add('backdrop-animate-in');
 
   modal.innerHTML = `
-    <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800">
+    <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800">
       <!-- Icono de advertencia premium -->
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 flex items-center justify-center shrink-0">
@@ -2719,11 +2843,9 @@ document.addEventListener('change', (e) => {
       if (isComplete) debouncedReportesRender();
     }
   } else if (target.classList.contains('report-estado-checkbox')) {
+    updateReporteEstadoPillStyle(target);
     const estado = target.getAttribute('data-estado');
     handleReportesEstadoToggle(estado, target.checked);
-  } else if (target.id === 'batch-reportes-solo-vigentes') {
-    reportesFilters.soloVigentes = target.checked;
-    debouncedReportesRender();
   }
 });
 
@@ -2737,7 +2859,7 @@ const getCargoAbbreviated = (cargoText) => {
   if (clean.includes('compras públicas') || clean.includes('compras publicas')) return 'COMP';
   if (clean.includes('smapa')) return 'SMAPA';
   if (clean.includes('salud municipal') || clean.includes('disam')) return 'DISAM';
-  if (clean.includes('inspección') || clean.includes('inspeccion')) return 'INS';
+  if (clean.includes('inspección') || clean.includes('inspeccion')) return 'INSP';
   if (clean.includes('riesgo, desastres') || clean.includes('riesgo desastres') || clean.includes('drde')) return 'DRDE';
   if (clean.includes('tránsito') || clean.includes('transito') || clean.includes('dtt')) return 'DTT';
   if (clean.includes('operaciones')) return 'OPS';
@@ -2753,7 +2875,9 @@ const getCargoAbbreviated = (cargoText) => {
   if (clean.includes('control')) return 'CTRL';
   if (clean.includes('secretaria municipal') || clean.includes('secretario municipal')) return 'SECMUN';
   if (clean.includes('concejal') || clean.includes('concejala')) return 'CON';
-  if (clean.includes('alcalde') || clean.includes('alcaldesa') || clean.includes('gabinete alcaldía') || clean.includes('gabinete alcaldia') || clean.includes('comunicaciones alcaldía') || clean.includes('comunicaciones alcaldia') || clean.includes('asistente alcaldía') || clean.includes('asistente alcaldia')) return 'ALC';
+  if (clean.includes('gabinete alcaldía') || clean.includes('gabinete alcaldia') || clean.includes('asistente alcaldía') || clean.includes('asistente alcaldia') || clean.includes('jefe de gabinete') || clean.includes('jefa de gabinete')) return 'JGAB';
+  if (clean.includes('comunicaciones alcaldía') || clean.includes('comunicaciones alcaldia') || clean.includes('encargado de comunicaciones') || clean.includes('encargada de comunicaciones') || clean.includes('comunicaciones')) return 'COMS';
+  if (clean.includes('alcalde') || clean.includes('alcaldesa')) return 'ALC';
   if (clean.includes('administrador municipal') || clean.includes('administradora municipal')) return 'ADM';
   if (clean.includes('rentas')) return 'REN';
 
@@ -2766,7 +2890,7 @@ const sanitizeNombreForFilename = (name) => {
   const normalized = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return normalized
     .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+.map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join('');
 };
 
@@ -2779,6 +2903,280 @@ function generateLocalReportCode() {
   return `RAP${yy}${mm}${dd}`;
 }
 
+// Función compartida para construir el HTML de impresión PDF oficial del Municipio
+function buildReportPDFHtml({ processedData, filtersSnapshot, sujetoPasivoNombre, sujetoPasivoCargo, codigoReporte = '' }) {
+  const isOverdueItem = (item) => {
+    const mainCode = (item.plazo || '').split(' ')[0].toUpperCase();
+    return mainCode === 'FDP' || mainCode === 'RFP';
+  };
+  const isFdpItem = (item) => (item.plazo || '').split(' ')[0].toUpperCase() === 'FDP';
+  const isDdpItem = (item) => (item.plazo || '').split(' ')[0].toUpperCase() === 'DDP';
+
+  const totalItems = processedData.length;
+  const overdueCount = processedData.filter(isFdpItem).length;
+  const compliantCount = processedData.filter(isDdpItem).length;
+
+  // Contadores por los 7 ESTADOS INDIVIDUALES
+  const countIngresada = processedData.filter(i => (i.estado || '').toLowerCase() === 'ingresada').length;
+  const countAceptada = processedData.filter(i => (i.estado || '').toLowerCase() === 'aceptada').length;
+  const countRechazada = processedData.filter(i => (i.estado || '').toLowerCase() === 'rechazada').length;
+  const countPendientePub = processedData.filter(i => (i.estado || '').toLowerCase() === 'pendiente de publicación').length;
+  const countSuspendida = processedData.filter(i => (i.estado || '').toLowerCase() === 'suspendida').length;
+  const countCancelada = processedData.filter(i => (i.estado || '').toLowerCase() === 'cancelada').length;
+  const countEncomendada = processedData.filter(i => (i.estado || '').toLowerCase() === 'encomendada').length;
+
+  const rowsArray = processedData.map((item, idx) => {
+    let stateColor = '#334155';
+    let stateBg = '#f8fafc';
+    let stateBorder = '#e2e8f0';
+    const stateLower = (item.estado || '').toLowerCase();
+    
+    if (stateLower === 'ingresada') {
+      stateColor = '#475569'; stateBg = '#f8fafc'; stateBorder = '#e2e8f0';
+    } else if (stateLower === 'aceptada') {
+      stateColor = '#0369a1'; stateBg = '#f0f9ff'; stateBorder = '#bae6fd';
+    } else if (stateLower === 'pendiente de publicación') {
+      stateColor = '#5b21b6'; stateBg = '#f5f3ff'; stateBorder = '#ddd6fe';
+    } else if (stateLower === 'rechazada') {
+      stateColor = '#be123c'; stateBg = '#fff1f2'; stateBorder = '#fecdd3';
+    } else if (stateLower === 'suspendida') {
+      stateColor = '#b45309'; stateBg = '#fef3c7'; stateBorder = '#fde68a';
+    } else if (stateLower === 'cancelada') {
+      stateColor = '#c2410c'; stateBg = '#fff7ed'; stateBorder = '#ffedd5';
+    } else if (stateLower === 'encomendada') {
+      stateColor = '#86198f'; stateBg = '#fdf4ff'; stateBorder = '#f5d0fe';
+    }
+
+    const isOverdue = isOverdueItem(item);
+    const plazoColor = isOverdue ? '#be123c' : '#166534';
+    const plazoBg   = isOverdue ? '#fff1f2' : '#f0fdf4';
+    const plazoBorder = isOverdue ? '#fecdd3' : '#bbf7d0';
+
+    const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
+    let mainCode = item.plazo;
+    let days = '';
+    if (hasDays) {
+      const parts = item.plazo.split(' ');
+      mainCode = parts[0];
+      days = parts[1].replace(/[()]/g, '');
+    }
+
+    const showTwoLine = hasDays && (mainCode === 'FDP' || mainCode === 'RFP');
+    const plazoBadgeHtml = showTwoLine
+      ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; white-space: normal;">${mainCode}<br><span style="font-size: 6px; font-weight: 500;">${days}</span></span>`
+      : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; text-transform: uppercase; white-space: nowrap;">${mainCode}</span>`;
+
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+
+    return `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 7.5px; background: ${rowBg};">
+        <td style="padding: 8px 10px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${item.index}</td>
+        <td style="padding: 8px 10px; font-weight: 700; color: #0f172a; font-family: monospace; border-bottom: 1px solid #e2e8f0;">${item.folio}</td>
+        <td style="padding: 8px 10px; color: #1e293b; font-weight: 500; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">${item.cargo}</td>
+        <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
+          <div style="font-weight: 600; color: #334155;">${item.fechaIngreso}</div>
+          ${item.fechaLimiteRespuesta ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimiteRespuesta}</div>` : ''}
+        </td>
+        <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
+          <div style="font-weight: 600; color: #334155;">${item.fechaAgendada}</div>
+          ${item.fechaLimitePublicacion ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimitePublicacion}</div>` : ''}
+        </td>
+        <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+          ${item.estado === 'Pendiente de publicación'
+            ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-align: center; line-height: 1.2;">PENDIENTE DE PUBLICACIÓN</span>`
+            : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-transform: uppercase; white-space: nowrap; line-height: 1.2;">${item.estado}</span>`
+          }
+        </td>
+        <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+          ${plazoBadgeHtml}
+        </td>
+      </tr>
+    `;
+  });
+
+  const rfechas = `${filtersSnapshot.fechaInicio ? `Desde: ${filtersSnapshot.fechaInicio}` : ''} ${filtersSnapshot.fechaTermino ? `Hasta: ${filtersSnapshot.fechaTermino}` : ''}`;
+  const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
+  const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+  const displayNombre = sujetoPasivoNombre || normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos';
+  const displayCargo = sujetoPasivoCargo || filtersSnapshot.cargo || 'Todos los Cargos';
+
+  return `
+    <style>
+      @page {
+        size: portrait;
+        margin-top: 22mm;
+        margin-bottom: 20mm;
+        margin-left: 15mm;
+        margin-right: 15mm;
+        
+        @top-left {
+          content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Sujeto Pasivo: ${displayNombre}";
+          font-family: 'Inter', sans-serif;
+          font-size: 8px;
+          font-weight: 800;
+          color: #0f172a;
+          padding-bottom: 6px;
+          border-bottom: 1.5px solid #334155;
+        }
+        @top-right {
+          content: "Generado el ${generadoFechaHora}";
+          font-family: monospace;
+          font-size: 7.5px;
+          font-weight: 700;
+          color: #64748b;
+          padding-bottom: 6px;
+          border-bottom: 1.5px solid #334155;
+        }
+        @bottom-right {
+          content: "Página " counter(page) " de " counter(pages);
+          font-family: monospace;
+          font-size: 8.5px;
+          font-weight: 700;
+          color: #64748b;
+        }
+      }
+      @page :first {
+        margin-top: 15mm;
+        @top-left { content: none; }
+        @top-right { content: none; }
+      }
+    </style>
+    <div style="font-family: 'Inter', sans-serif;">
+      <div class="municipal-header-p1">
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
+          <tr>
+            <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
+              <table style="border-collapse: collapse; border: none;">
+                <tr>
+                  <td style="padding-right: 12px; vertical-align: middle; border: none;">
+                    <img src="/logo_secum.png" style="height: 52px; width: auto; display: block;" />
+                  </td>
+                  <td style="vertical-align: middle; border: none;">
+                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Reporte de Solicitudes de Audiencia</div>
+                    <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td style="vertical-align: middle; text-align: right; border: none; padding: 0;">
+              <div style="font-size: 9px; font-weight: 700; color: #475569; font-family: monospace;">${generadoFechaHora}</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
+        <div style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${displayNombre}</div>
+        <div style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${displayCargo}</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #475569; margin-top: 6px;">
+          <tr>
+            <td style="padding: 0; border: none; width: 50%;"><strong>Período:</strong> ${rfechasStr}</td>
+            <td style="padding: 0; border: none; width: 50%;"><strong>Estados:</strong> ${filtersSnapshot.estados.length > 0 ? filtersSnapshot.estados.join(', ') : 'Todos'}</td>
+          </tr>
+        </table>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
+        <tr>
+          <td style="width: 33.3%; padding-right: 8px; border: none;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+              <div style="font-size: 7.5px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
+              <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalItems}</div>
+              <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #cbd5e1; font-weight: 900; line-height: 1; user-select: none;">#</div>
+            </div>
+          </td>
+          <td style="width: 33.3%; padding-left: 4px; padding-right: 4px; border: none;">
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+              <div style="font-size: 7.5px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
+              <div style="font-size: 20px; font-weight: 800; color: #14532d; margin-top: 2px;">${compliantCount}</div>
+              <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #bbf7d0; font-weight: 900; line-height: 1; user-select: none;">&#10003;</div>
+            </div>
+          </td>
+          <td style="width: 33.3%; padding-left: 8px; border: none;">
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
+              <div style="font-size: 7.5px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
+              <div style="font-size: 20px; font-weight: 800; color: #9f1239; margin-top: 2px;">${overdueCount}</div>
+              <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fecdd3; font-weight: 900; line-height: 1; user-select: none;">!</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+        <tr>
+          <td style="width: 14.28%; padding-right: 4px; border: none;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em;">Ingresadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #334155; margin-top: 1px;">${countIngresada}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-right: 4px; border: none;">
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.03em;">Aceptadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #075985; margin-top: 1px;">${countAceptada}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-right: 4px; border: none;">
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.03em;">Rechazadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #9f1239; margin-top: 1px;">${countRechazada}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-right: 4px; border: none;">
+            <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #5b21b6; text-transform: uppercase; letter-spacing: 0.03em;">Pend. Pub.</div>
+              <div style="font-size: 14px; font-weight: 800; color: #4c1d95; margin-top: 1px;">${countPendientePub}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-right: 4px; border: none;">
+            <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.03em;">Suspendidas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #92400e; margin-top: 1px;">${countSuspendida}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-right: 4px; border: none;">
+            <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.03em;">Canceladas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #9a3412; margin-top: 1px;">${countCancelada}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; border: none;">
+            <div style="background: #fdf4ff; border: 1px solid #f5d0fe; border-radius: 8px; padding: 6px 8px; box-sizing: border-box;">
+              <div style="font-size: 6px; font-weight: 700; color: #86198f; text-transform: uppercase; letter-spacing: 0.03em;">Encomend.</div>
+              <div style="font-size: 14px; font-weight: 800; color: #701a75; margin-top: 1px;">${countEncomendada}</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 7.5px;">
+              <th style="padding: 10px; width: 30px; border-bottom: 1px solid #e2e8f0;">#</th>
+              <th style="padding: 10px; width: 95px; border-bottom: 1px solid #e2e8f0;">Folio</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Cargo</th>
+              <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
+                <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Ingreso</div>
+                <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Respuesta</div>
+              </th>
+              <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
+                <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Agenda</div>
+                <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Publicación</div>
+              </th>
+              <th style="padding: 10px; width: 100px; border-bottom: 1px solid #e2e8f0;">Estado</th>
+              <th style="padding: 10px; width: 75px; border-bottom: 1px solid #e2e8f0;">Plazo / Retraso</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsArray.join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 // Función para exportar el reporte actual a un archivo PDF (Orientación Vertical - Portrait) usando impresión nativa del navegador
 async function exportReportToPDF() {
   if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
@@ -2789,317 +3187,36 @@ async function exportReportToPDF() {
   showToast('Preparando vista de impresión...');
 
   const codigoReporte = generateLocalReportCode();
-
-  // Snapshot inmutable de filtros para evitar que cambios concurrentes alteren el PDF
   const filtersSnapshot = {
     nombre: reportesFilters.nombre || '',
     cargo: reportesFilters.cargo || '',
     fechaInicio: reportesFilters.fechaInicio || '',
     fechaTermino: reportesFilters.fechaTermino || '',
     estados: [...(reportesFilters.estados || [])],
+    vigencia: reportesFilters.vigencia || 'todos',
     soloVigentes: !!reportesFilters.soloVigentes
   };
 
-  const originalTitle = document.title;
-
   try {
     const processedData = processReportData(dataStore.reportesRawData, filtersSnapshot);
-    const totalItems = processedData.length;
-
-    if (totalItems === 0) {
+    if (processedData.length === 0) {
       showToast('No hay registros coincidentes para exportar.', 'error');
       return;
     }
 
-    // Identificar si una solicitud está fuera de plazo usando los códigos estandarizados
-    const isOverdueItem = (item) => {
-      const mainCode = (item.plazo || '').split(' ')[0].toUpperCase();
-      return mainCode === 'FDP' || mainCode === 'RFP';
-    };
-
-    // Identificar si una solicitud es FDP (Fuera de plazo)
-    const isFdpItem = (item) => {
-      const mainCode = (item.plazo || '').split(' ')[0].toUpperCase();
-      return mainCode === 'FDP';
-    };
-
-    // Identificar si una solicitud es DDP (Dentro de plazo)
-    const isDdpItem = (item) => {
-      const mainCode = (item.plazo || '').split(' ')[0].toUpperCase();
-      return mainCode === 'DDP';
-    };
-
-    // Calcular estadísticas de plazo
-    const overdueCount = processedData.filter(isFdpItem).length;
-    const compliantCount = processedData.filter(isDdpItem).length;
-
-    // Calcular contadores por estado para la segunda fila de KPIs
-    const countIngresada = processedData.filter(i => (i.estado || '').toLowerCase() === 'ingresada').length;
-    const countAceptada = processedData.filter(i => (i.estado || '').toLowerCase() === 'aceptada').length;
-    const countPendientePub = processedData.filter(i => (i.estado || '').toLowerCase() === 'pendiente de publicación').length;
-    const countRechazada = processedData.filter(i => (i.estado || '').toLowerCase() === 'rechazada').length;
-    const countOtras = processedData.filter(i => {
-      const est = (i.estado || '').toLowerCase();
-      return est === 'cancelada' || est === 'suspendida' || est === 'encomendada';
-    }).length;
-
-    const rowsArray = processedData.map((item, idx) => {
-      let stateColor = '#334155';
-      let stateBg = '#f1f5f9';
-      let stateBorder = '#e2e8f0';
-      const stateLower = (item.estado || '').toLowerCase();
-      if (stateLower === 'aceptada') { stateColor = '#166534'; stateBg = '#f0fdf4'; stateBorder = '#bbf7d0'; }
-      else if (stateLower === 'pendiente de publicación') { stateColor = '#075985'; stateBg = '#f0f9ff'; stateBorder = '#bae6fd'; }
-      else if (stateLower === 'rechazada') { stateColor = '#991b1b'; stateBg = '#fef2f2'; stateBorder = '#fecaca'; }
-      else if (stateLower === 'cancelada' || stateLower === 'suspendida') { stateColor = '#9a3412'; stateBg = '#fffbeb'; stateBorder = '#fed7aa'; }
-
-      const isOverdue = isOverdueItem(item);
-      // Paleta Liquid Lavender para estados de solicitud
-      if (stateLower === 'ingresada') {
-        stateColor = '#475569'; stateBg = '#f8fafc'; stateBorder = '#e2e8f0';
-      } else if (stateLower === 'aceptada') {
-        stateColor = '#0369a1'; stateBg = '#f0f9ff'; stateBorder = '#bae6fd';
-      } else if (stateLower === 'pendiente de publicación') {
-        stateColor = '#7c3aed'; stateBg = '#f5f3ff'; stateBorder = '#ddd6fe';
-      } else if (stateLower === 'rechazada') {
-        stateColor = '#be123c'; stateBg = '#fff1f2'; stateBorder = '#fecdd3';
-      } else if (stateLower === 'cancelada' || stateLower === 'suspendida' || stateLower === 'encomendada') {
-        stateColor = '#b45309'; stateBg = '#fffbeb'; stateBorder = '#fde68a';
-      }
-      // Colores plazo Liquid Lavender: FDP = rosa/fucsia, DDP = indigo suave
-      const plazoColor = isOverdue ? '#be123c' : '#4338ca';
-      const plazoBg   = isOverdue ? '#fff1f2' : '#eef2ff';
-      const plazoBorder = isOverdue ? '#fecdd3' : '#c7d2fe';
-
-      const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
-      let mainCode = item.plazo;
-      let days = '';
-      if (hasDays) {
-        const parts = item.plazo.split(' ');
-        mainCode = parts[0];
-        days = parts[1].replace(/[()]/g, '');
-      }
-
-      const showTwoLine = hasDays && (mainCode === 'FDP' || mainCode === 'RFP');
-      const plazoBadgeHtml = showTwoLine
-        ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; white-space: normal;">${mainCode}<br><span style="font-size: 6px; font-weight: 500;">${days}</span></span>`
-        : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${plazoBorder}; border-radius: 6px; font-size: 7px; font-weight: 800; color: ${plazoColor}; background: ${plazoBg}; text-align: center; min-width: 42px; line-height: 1.3; text-transform: uppercase; white-space: nowrap;">${mainCode}</span>`;
-
-      const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-
-      return `
-        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 7.5px; background: ${rowBg};">
-          <td style="padding: 8px 10px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0;">${item.index}</td>
-          <td style="padding: 8px 10px; font-weight: 700; color: #0f172a; font-family: monospace; border-bottom: 1px solid #e2e8f0;">${item.folio}</td>
-          <td style="padding: 8px 10px; color: #1e293b; font-weight: 500; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">${item.cargo}</td>
-          <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
-            <div style="font-weight: 600; color: #334155;">${item.fechaIngreso}</div>
-            ${item.fechaLimiteRespuesta ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimiteRespuesta}</div>` : ''}
-          </td>
-          <td style="padding: 8px 10px; color: #475569; border-bottom: 1px solid #e2e8f0; line-height: 1.3;">
-            <div style="font-weight: 600; color: #334155;">${item.fechaAgendada}</div>
-            ${item.fechaLimitePublicacion ? `<div style="font-size: 6.5px; color: #94a3b8; margin-top: 1px;">${item.fechaLimitePublicacion}</div>` : ''}
-          </td>
-          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
-            ${item.estado === 'Pendiente de publicación'
-              ? `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-align: center; line-height: 1.2;">PENDIENTE DE PUBLICACIÓN</span>`
-              : `<span style="display: inline-block; padding: 3px 6px; border: 1px solid ${stateBorder}; border-radius: 6px; font-size: 6.5px; font-weight: 700; color: ${stateColor}; background: ${stateBg}; text-transform: uppercase; white-space: nowrap; line-height: 1.2;">${item.estado}</span>`
-            }
-          </td>
-          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
-            ${plazoBadgeHtml}
-          </td>
-        </tr>
-      `;
-    });
-
-    const rfechas = `${filtersSnapshot.fechaInicio ? `Desde: ${filtersSnapshot.fechaInicio}` : ''} ${filtersSnapshot.fechaTermino ? `Hasta: ${filtersSnapshot.fechaTermino}` : ''}`;
-    const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
-    const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
-
-    const htmlContent = `
-      <style>
-        @page {
-          size: portrait;
-          margin-top: 22mm;
-          margin-bottom: 20mm;
-          margin-left: 15mm;
-          margin-right: 15mm;
-          
-          @top-left {
-            content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos'}";
-            font-family: 'Inter', sans-serif;
-            font-size: 8px;
-            font-weight: 800;
-            color: #0f172a;
-            padding-bottom: 6px;
-            border-bottom: 1.5px solid #334155;
-          }
-          @top-right {
-            content: "Generado el ${generadoFechaHora}";
-            font-family: monospace;
-            font-size: 7.5px;
-            font-weight: 700;
-            color: #64748b;
-            padding-bottom: 6px;
-            border-bottom: 1.5px solid #334155;
-          }
-          @bottom-right {
-            content: "Página " counter(page) " de " counter(pages);
-            font-family: monospace;
-            font-size: 8.5px;
-            font-weight: 700;
-            color: #64748b;
-          }
-        }
-        @page :first {
-          margin-top: 15mm;
-          @top-left { content: none; }
-          @top-right { content: none; }
-        }
-      </style>
-      <div class="print-report-flow" style="font-family: 'Inter', sans-serif;">
-        <div class="municipal-header-p1">
-          <!-- Encabezado Municipal (Página 1) -->
-          <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
-            <tr>
-              <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
-                <table style="border-collapse: collapse; border: none;">
-                  <tr>
-                    <td style="padding-right: 12px; vertical-align: middle; border: none;">
-                      <img src="/logo_secum.png" style="height: 52px; width: auto; display: block;" />
-                    </td>
-                    <td style="vertical-align: middle; border: none;">
-                      <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Reporte de Solicitudes de Audiencia</div>
-                      <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="vertical-align: middle; text-align: right; border: none; padding: 0;">
-                <div style="font-size: 9px; font-weight: 700; color: #475569; font-family: monospace;">${generadoFechaHora}</div>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
-          <div style="font-size: 12px; font-weight: 800; color: #5b21b6; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos'}</div>
-          <div style="font-size: 10px; font-weight: 700; color: #7c3aed; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${filtersSnapshot.cargo || 'Todos los Cargos'}</div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #6d28d9; margin-top: 6px;">
-            <tr>
-              <td style="padding: 0; border: none; width: 50%;"><strong>Período:</strong> ${rfechasStr}</td>
-              <td style="padding: 0; border: none; width: 50%;"><strong>Estados:</strong> ${filtersSnapshot.estados.length > 0 ? filtersSnapshot.estados.join(', ') : 'Todos'}</td>
-            </tr>
-          </table>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px;">
-          <tr>
-            <td style="width: 33.3%; padding-right: 8px; border: none;">
-              <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
-                <div style="font-size: 20px; font-weight: 800; color: #4c1d95; margin-top: 2px;">${totalItems}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #ddd6fe; font-weight: 900; line-height: 1; user-select: none;">#</div>
-              </div>
-            </td>
-            <td style="width: 33.3%; padding-left: 4px; padding-right: 4px; border: none;">
-              <div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #4338ca; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #3730a3; margin-top: 2px;">${compliantCount}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #c7d2fe; font-weight: 900; line-height: 1; user-select: none;">&#10003;</div>
-              </div>
-            </td>
-            <td style="width: 33.3%; padding-left: 8px; border: none;">
-              <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #9f1239; margin-top: 2px;">${overdueCount}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fecdd3; font-weight: 900; line-height: 1; user-select: none;">!</div>
-              </div>
-            </td>
-          </tr>
-        </table>
-
-        <!-- KPIs Fila 2: Estados de solicitud -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-          <tr>
-            <td style="width: 20%; padding-right: 6px; border: none;">
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
-                <div style="font-size: 6.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Ingresadas</div>
-                <div style="font-size: 16px; font-weight: 800; color: #334155; margin-top: 1px;">${countIngresada}</div>
-              </div>
-            </td>
-            <td style="width: 20%; padding-right: 6px; border: none;">
-              <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
-                <div style="font-size: 6.5px; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.05em;">Aceptadas</div>
-                <div style="font-size: 16px; font-weight: 800; color: #075985; margin-top: 1px;">${countAceptada}</div>
-              </div>
-            </td>
-            <td style="width: 20%; padding-right: 6px; border: none;">
-              <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
-                <div style="font-size: 6.5px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.05em;">Pend. Publicación</div>
-                <div style="font-size: 16px; font-weight: 800; color: #5b21b6; margin-top: 1px;">${countPendientePub}</div>
-              </div>
-            </td>
-            <td style="width: 20%; padding-right: 6px; border: none;">
-              <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
-                <div style="font-size: 6.5px; font-weight: 700; color: #be123c; text-transform: uppercase; letter-spacing: 0.05em;">Rechazadas</div>
-                <div style="font-size: 16px; font-weight: 800; color: #9f1239; margin-top: 1px;">${countRechazada}</div>
-              </div>
-            </td>
-            <td style="width: 20%; border: none;">
-              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; box-sizing: border-box;">
-                <div style="font-size: 6.5px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.05em;">Cancel./Susp.</div>
-                <div style="font-size: 16px; font-weight: 800; color: #92400e; margin-top: 1px;">${countOtras}</div>
-              </div>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Tabla Única Vectorial -->
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
-            <thead>
-              <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 7.5px;">
-                <th style="padding: 10px; width: 30px; border-bottom: 1px solid #e2e8f0;">#</th>
-                <th style="padding: 10px; width: 95px; border-bottom: 1px solid #e2e8f0;">Folio</th>
-                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Cargo</th>
-                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
-                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Ingreso</div>
-                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Respuesta</div>
-                </th>
-                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
-                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Agenda</div>
-                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Publicación</div>
-                </th>
-                <th style="padding: 10px; width: 100px; border-bottom: 1px solid #e2e8f0;">Estado</th>
-                <th style="padding: 10px; width: 75px; border-bottom: 1px solid #e2e8f0;">Plazo / Retraso</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsArray.join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-
-    // Generar nombre de archivo dinámico sugerido para el PDF
+    const htmlContent = buildReportPDFHtml({ processedData, filtersSnapshot, codigoReporte });
     const cargoAbbr = getCargoAbbreviated(filtersSnapshot.cargo || 'TODOS');
     const sanitizedNombre = sanitizeNombreForFilename(filtersSnapshot.nombre || 'Todos');
     const defaultName = `${codigoReporte}_${cargoAbbr}_${sanitizedNombre}.pdf`;
 
-    // 1. Solicitar ruta nativa de guardado
     const saveResult = await window.api.selectSavePath({ defaultName });
     if (saveResult.cancelled || !saveResult.filePath) {
       showToast('Guardado de reporte cancelado.', 'info');
       return;
     }
-    const targetPath = saveResult.filePath;
 
-    // 2. Generar el PDF de forma silenciosa
     showToast('Generando reporte PDF...');
-    const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath: targetPath });
+    const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath: saveResult.filePath });
 
     if (silentResult && silentResult.success) {
       showToast(`Reporte ${codigoReporte} guardado correctamente.`, 'success');
@@ -3109,18 +3226,464 @@ async function exportReportToPDF() {
         body: {
           code: 'INFO-REP-501',
           message: 'Reporte PDF generado (Individual)',
-          details: `Archivo: ${defaultName} | Destino: ${targetPath} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
+          details: `Archivo: ${defaultName} | Destino: ${saveResult.filePath} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
           severity: 'info'
         }
       }).catch(err => console.error('Error al registrar log de reporte:', err));
     } else {
       showToast('No se pudo generar el archivo PDF.', 'error');
-      console.error('Error generando PDF individual:', silentResult ? silentResult.error : 'Desconocido');
+    }
+  } catch (err) {
+    console.error('Error al exportar reporte a PDF:', err);
+    showToast('Error al generar el reporte PDF.', 'error');
+  }
+}
+
+// Función para exportar la selección de reportes directamente a Excel (.xlsx)
+async function exportReportToExcel() {
+  if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
+    showToast('No hay datos para exportar.', 'error');
+    return;
+  }
+
+  showToast('Generando planilla Excel...');
+
+  const filtersSnapshot = {
+    nombre: reportesFilters.nombre || '',
+    cargo: reportesFilters.cargo || '',
+    fechaInicio: reportesFilters.fechaInicio || '',
+    fechaTermino: reportesFilters.fechaTermino || '',
+    estados: [...(reportesFilters.estados || [])],
+    vigencia: reportesFilters.vigencia || 'todos',
+    soloVigentes: !!reportesFilters.soloVigentes
+  };
+
+  const processedData = processReportData(dataStore.reportesRawData, filtersSnapshot);
+  if (processedData.length === 0) {
+    showToast('No hay registros coincidentes para exportar.', 'error');
+    return;
+  }
+
+  const dateFormatted = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const hasSpecificNombre = filtersSnapshot.nombre && filtersSnapshot.nombre.toUpperCase() !== 'TODOS' && filtersSnapshot.nombre.trim() !== '';
+  const sanitizedNombre = hasSpecificNombre ? sanitizeNombreForFilename(filtersSnapshot.nombre) : '';
+  const fileName = sanitizedNombre
+    ? `MU163-RAP${dateFormatted}_${sanitizedNombre}.xlsx`
+    : `MU163-RAP${dateFormatted}.xlsx`;
+
+  // Matriz exacta con las 12 columnas aprobadas
+  const excelData = processedData.map((item) => {
+    const isFdp = (item.plazo || '').split(' ')[0].toUpperCase() === 'FDP' || (item.plazo || '').toLowerCase().includes('fuera');
+    const plazoText = (!item.plazo || item.plazo === '---') ? '---' : (isFdp ? 'Fuera de plazo' : 'En plazo');
+
+    return {
+      '# Correlativo': item.index,
+      'Folio Lobby': item.folio,
+      'Fecha Ingreso': item.fechaIngreso,
+      'Fecha Agendada': item.fechaAgendada || '---',
+      'Sujeto Pasivo': item.sujetoPasivo || normalizeName(filtersSnapshot.nombre) || '---',
+      'Cargo': item.cargo,
+      'Sujeto Activo / Gestor de Interés': item.sujetoActivo || '---',
+      'Representado': item.representado || '---',
+      'Materia': item.materia || '---',
+      'Especificación de Materia': item.especificacionMateria || '---',
+      'Estado': item.estado,
+      'Plazo': plazoText
+    };
+  });
+
+  try {
+    const saveResult = await window.api.selectSavePath({
+      title: 'Guardar Planilla Excel',
+      defaultName: fileName,
+      filters: [{ name: 'Planilla Excel', extensions: ['xlsx'] }]
+    });
+
+    if (saveResult.cancelled || !saveResult.filePath) {
+      showToast('Guardado de Excel cancelado.', 'info');
+      return;
     }
 
+    const exportResult = await window.api.generateExcelFile({
+      data: excelData,
+      sheetName: 'Reporte Lobby',
+      filePath: saveResult.filePath
+    });
+
+    if (exportResult && exportResult.success) {
+      showToast(`Planilla Excel guardada exitosamente: ${fileName}`, 'success');
+
+      window.api.invokeRoute({
+        url: '/api/log',
+        method: 'POST',
+        body: {
+          code: 'INFO-REP-502',
+          message: 'Reporte Excel generado',
+          details: `Archivo: ${fileName} | Destino: ${saveResult.filePath} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
+          severity: 'info'
+        }
+      }).catch(err => console.error('Error al registrar log de Excel:', err));
+    } else {
+      showToast(`No se pudo generar la planilla Excel: ${exportResult ? exportResult.error : 'Error desconocido'}`, 'error');
+    }
   } catch (err) {
-    console.error(err);
-    showToast('Error al generar el reporte PDF.', 'error');
+    console.error('Error al exportar a Excel:', err);
+    showToast(`Error al procesar exportación a Excel: ${err.message}`, 'error');
+  }
+}
+
+// Función para generar el Reporte Ejecutivo PDF (Resumen Gerencial Nominativo por Sujeto Pasivo)
+async function exportReporteEjecutivoPDF() {
+  if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
+    showToast('No hay datos para exportar.', 'error');
+    return;
+  }
+
+  showToast('Generando Reporte Ejecutivo PDF...');
+
+  const filtersSnapshot = {
+    nombre: reportesFilters.nombre || '',
+    cargo: reportesFilters.cargo || '',
+    fechaInicio: reportesFilters.fechaInicio || '',
+    fechaTermino: reportesFilters.fechaTermino || '',
+    estados: [...(reportesFilters.estados || [])],
+    vigencia: reportesFilters.vigencia || 'todos',
+    soloVigentes: !!reportesFilters.soloVigentes
+  };
+
+  const processedData = processReportData(dataStore.reportesRawData, filtersSnapshot);
+  if (processedData.length === 0) {
+    showToast('No hay registros coincidentes para exportar.', 'error');
+    return;
+  }
+
+  const isFdpItem = (item) => (item.plazo || '').split(' ')[0].toUpperCase() === 'FDP';
+  const isDdpItem = (item) => (item.plazo || '').split(' ')[0].toUpperCase() === 'DDP';
+
+  const totalItems = processedData.length;
+  const compliantCount = processedData.filter(isDdpItem).length;
+  const overdueCount = processedData.filter(isFdpItem).length;
+
+  const publicadasArray = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+  const publicadosFolios = new Set(publicadasArray.map(p => p.folio_lobby).filter(Boolean));
+  const publicadasCount = processedData.filter(i => publicadosFolios.has(i.folio_lobby)).length;
+
+  const compliantPercent = totalItems > 0 ? ((compliantCount / totalItems) * 100).toFixed(1) : '0.0';
+  const overduePercent = totalItems > 0 ? ((overdueCount / totalItems) * 100).toFixed(1) : '0.0';
+
+  const sujetoGroups = {};
+  processedData.forEach(item => {
+    const name = (item.sujetoPasivo || item.sujeto_pasivo || 'Sin Nombre').trim();
+    const cargo = (item.cargo || 'Sin Cargo').trim();
+    const key = `${name}|||${cargo}`;
+    if (!sujetoGroups[key]) {
+      sujetoGroups[key] = {
+        name,
+        cargo,
+        total: 0,
+        ingresada: 0,
+        aceptada: 0,
+        rechazada: 0,
+        suspendida: 0,
+        cancelada: 0,
+        encomendada: 0,
+        pendientePub: 0,
+        enPlazo: 0,
+        fueraPlazo: 0
+      };
+    }
+
+    const g = sujetoGroups[key];
+    g.total += 1;
+
+    const estLower = (item.estado || '').toLowerCase();
+    if (estLower === 'ingresada') g.ingresada += 1;
+    else if (estLower === 'aceptada') g.aceptada += 1;
+    else if (estLower === 'rechazada') g.rechazada += 1;
+    else if (estLower === 'suspendida') g.suspendida += 1;
+    else if (estLower === 'cancelada') g.cancelada += 1;
+    else if (estLower === 'encomendada') g.encomendada += 1;
+    else if (estLower === 'pendiente de publicación') g.pendientePub += 1;
+
+    if (isFdpItem(item)) g.fueraPlazo += 1;
+    else g.enPlazo += 1;
+  });
+
+  const cargoPriorityOrder = ['ALC', 'CON', 'DOM', 'SECMUN', 'CE'];
+  const sortedKeys = Object.keys(sujetoGroups).sort((keyA, keyB) => {
+    const [nameA, cargoA] = keyA.split('|||');
+    const [nameB, cargoB] = keyB.split('|||');
+
+    const codeA = getCargoAbbreviated(cargoA);
+    const codeB = getCargoAbbreviated(cargoB);
+
+    const idxA = cargoPriorityOrder.indexOf(codeA);
+    const idxB = cargoPriorityOrder.indexOf(codeB);
+
+    const prioA = idxA !== -1 ? idxA : 999;
+    const prioB = idxB !== -1 ? idxB : 999;
+
+    if (prioA !== prioB) return prioA - prioB;
+    if (codeA !== codeB) return codeA.localeCompare(codeB);
+    return nameA.localeCompare(nameB);
+  });
+
+  let sumTotal = 0, sumIng = 0, sumAcep = 0, sumRech = 0, sumSusp = 0, sumCanc = 0, sumEnc = 0, sumPend = 0, sumDdp = 0, sumFdp = 0;
+
+  const tableRowsHtml = sortedKeys.map((key, idx) => {
+    const g = sujetoGroups[key];
+    sumTotal += g.total;
+    sumIng += g.ingresada;
+    sumAcep += g.aceptada;
+    sumRech += g.rechazada;
+    sumSusp += g.suspendida;
+    sumCanc += g.cancelada;
+    sumEnc += g.encomendada;
+    sumPend += g.pendientePub;
+    sumDdp += g.enPlazo;
+    sumFdp += g.fueraPlazo;
+
+    const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+    const code = getCargoAbbreviated(g.cargo);
+
+    return `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 7.5px; background: ${rowBg};">
+        <td style="padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle;">
+          <div style="font-size: 7.5px; font-weight: 700; color: #0f172a; line-height: 1.2;">${g.name}</div>
+          <div style="font-size: 6.5px; font-weight: 600; color: #475569; margin-top: 1.5px; line-height: 1.2;">
+            ${g.cargo} <span style="font-size: 6px; font-weight: 700; color: #64748b; background: #e2e8f0; padding: 1px 4px; border-radius: 3px; margin-left: 2px;">${code}</span>
+          </div>
+        </td>
+        <td style="padding: 7px 8px; font-weight: 800; color: #0f172a; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.total}</td>
+        <td style="padding: 7px 8px; color: #475569; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.ingresada}</td>
+        <td style="padding: 7px 8px; color: #075985; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.aceptada}</td>
+        <td style="padding: 7px 8px; color: #be123c; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.rechazada}</td>
+        <td style="padding: 7px 8px; color: #b45309; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.suspendida}</td>
+        <td style="padding: 7px 8px; color: #c2410c; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.cancelada}</td>
+        <td style="padding: 7px 8px; color: #86198f; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.encomendada}</td>
+        <td style="padding: 7px 8px; color: #5b21b6; text-align: center; border-bottom: 1px solid #e2e8f0;">${g.pendientePub}</td>
+        <td style="padding: 7px 8px; font-weight: 700; color: #166534; text-align: center; border-bottom: 1px solid #e2e8f0; background: #f0fdf4;">${g.enPlazo}</td>
+        <td style="padding: 7px 8px; font-weight: 700; color: #be123c; text-align: center; border-bottom: 1px solid #e2e8f0; background: #fff1f2;">${g.fueraPlazo}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const rfechas = `${filtersSnapshot.fechaInicio ? `Desde: ${filtersSnapshot.fechaInicio}` : ''} ${filtersSnapshot.fechaTermino ? `Hasta: ${filtersSnapshot.fechaTermino}` : ''}`;
+  const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
+  const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+
+  const htmlContent = `
+    <style>
+      @page {
+        size: portrait;
+        margin-top: 20mm;
+        margin-bottom: 18mm;
+        margin-left: 15mm;
+        margin-right: 15mm;
+        
+        @top-left {
+          content: "Informe Ejecutivo de Gestión (Ley N° 20.730 de Lobby) — Municipalidad de Maipú";
+          font-family: 'Inter', sans-serif;
+          font-size: 8px;
+          font-weight: 800;
+          color: #0f172a;
+          padding-bottom: 6px;
+          border-bottom: 1.5px solid #334155;
+        }
+        @top-right {
+          content: "Generado el ${generadoFechaHora}";
+          font-family: monospace;
+          font-size: 7.5px;
+          font-weight: 700;
+          color: #64748b;
+          padding-bottom: 6px;
+          border-bottom: 1.5px solid #334155;
+        }
+        @bottom-right {
+          content: "Página " counter(page) " de " counter(pages);
+          font-family: monospace;
+          font-size: 8.5px;
+          font-weight: 700;
+          color: #64748b;
+        }
+      }
+      @page :first {
+        margin-top: 14mm;
+        @top-left { content: none; }
+        @top-right { content: none; }
+      }
+    </style>
+    <div style="font-family: 'Inter', sans-serif;">
+      <div class="municipal-header-p1">
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 12px;">
+          <tr>
+            <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
+              <table style="border-collapse: collapse; border: none;">
+                <tr>
+                  <td style="padding-right: 12px; vertical-align: middle; border: none;">
+                    <img src="/logo_secum.png" style="height: 48px; width: auto; display: block;" />
+                  </td>
+                  <td style="vertical-align: middle; border: none;">
+                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Informe Ejecutivo de Gestión — Ley de Lobby</div>
+                    <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Síntesis gerencial de cumplimiento normativo y audiencias</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+            <td style="vertical-align: middle; text-align: right; border: none; padding: 0;">
+              <div style="font-size: 9px; font-weight: 700; color: #475569; font-family: monospace;">${generadoFechaHora}</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 12px; box-sizing: border-box; width: 100%;">
+        <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase;">Período Evaluado: ${rfechasStr}</div>
+        <div style="font-size: 8.5px; color: #475569; margin-top: 2px;">Filtros: ${filtersSnapshot.nombre ? `Sujeto: ${filtersSnapshot.nombre} | ` : ''}${filtersSnapshot.cargo ? `Cargo: ${filtersSnapshot.cargo} | ` : ''}Estados: ${filtersSnapshot.estados.length > 0 ? filtersSnapshot.estados.join(', ') : 'Todos'}</div>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+        <tr>
+          <td style="width: 25%; padding-right: 6px; border: none;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; text-align: left;">
+              <div style="font-size: 7px; font-weight: 700; color: #475569; text-transform: uppercase;">Total Solicitudes</div>
+              <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 1px;">${totalItems}</div>
+            </div>
+          </td>
+          <td style="width: 25%; padding-right: 6px; border: none;">
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 10px; text-align: left;">
+              <div style="font-size: 7px; font-weight: 700; color: #166534; text-transform: uppercase;">En Plazo Legal</div>
+              <div style="font-size: 18px; font-weight: 800; color: #14532d; margin-top: 1px;">${compliantCount} <span style="font-size: 9px; font-weight: 600;">(${compliantPercent}%)</span></div>
+            </div>
+          </td>
+          <td style="width: 25%; padding-right: 6px; border: none;">
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 8px 10px; text-align: left;">
+              <div style="font-size: 7px; font-weight: 700; color: #be123c; text-transform: uppercase;">Fuera de Plazo</div>
+              <div style="font-size: 18px; font-weight: 800; color: #9f1239; margin-top: 1px;">${overdueCount} <span style="font-size: 9px; font-weight: 600;">(${overduePercent}%)</span></div>
+            </div>
+          </td>
+          <td style="width: 25%; border: none;">
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 8px 10px; text-align: left;">
+              <div style="font-size: 7px; font-weight: 700; color: #0369a1; text-transform: uppercase;">Audiencias Publicadas</div>
+              <div style="font-size: 18px; font-weight: 800; color: #075985; margin-top: 1px;">${publicadasCount}</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <div style="font-size: 8.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 6px;">Totales Municipales por Estado de Solicitud</div>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+        <tr>
+          <td style="width: 14.28%; padding-right: 3px; border: none;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #475569; text-transform: uppercase;">Ingresadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 1px;">${sumIng}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-left: 2px; padding-right: 3px; border: none;">
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #0369a1; text-transform: uppercase;">Aceptadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #075985; margin-top: 1px;">${sumAcep}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-left: 2px; padding-right: 3px; border: none;">
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #be123c; text-transform: uppercase;">Rechazadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #9f1239; margin-top: 1px;">${sumRech}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-left: 2px; padding-right: 3px; border: none;">
+            <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #6d28d9; text-transform: uppercase;">Pend. Pub.</div>
+              <div style="font-size: 14px; font-weight: 800; color: #5b21b6; margin-top: 1px;">${sumPend}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-left: 2px; padding-right: 3px; border: none;">
+            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #b45309; text-transform: uppercase;">Suspendidas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #92400e; margin-top: 1px;">${sumSusp}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-left: 2px; padding-right: 3px; border: none;">
+            <div style="background: #fff7ed; border: 1px solid #ffedd5; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #c2410c; text-transform: uppercase;">Canceladas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #9a3412; margin-top: 1px;">${sumCanc}</div>
+            </div>
+          </td>
+          <td style="width: 14.28%; padding-left: 2px; border: none;">
+            <div style="background: #fdf4ff; border: 1px solid #f5d0fe; border-radius: 6px; padding: 6px 4px; text-align: center;">
+              <div style="font-size: 6.5px; font-weight: 700; color: #86198f; text-transform: uppercase;">Encomendadas</div>
+              <div style="font-size: 14px; font-weight: 800; color: #701a75; margin-top: 1px;">${sumEnc}</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <div style="font-size: 8.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 6px;">Resumen Nominativo por Sujeto Pasivo (Orden Jerárquico)</div>
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 7px; text-transform: uppercase;">
+              <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Sujeto Pasivo (Nombre y Cargo)</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Total</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Ing.</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Acep.</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Rech.</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Susp.</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Canc.</th>
+              <th style="padding: 8px; width: 35px; text-align: center; border-bottom: 1px solid #e2e8f0;">Enc.</th>
+              <th style="padding: 8px; width: 45px; text-align: center; border-bottom: 1px solid #e2e8f0;">Pend.Pub.</th>
+              <th style="padding: 8px; width: 40px; text-align: center; border-bottom: 1px solid #e2e8f0; background: #f0fdf4;">En Plazo</th>
+              <th style="padding: 8px; width: 40px; text-align: center; border-bottom: 1px solid #e2e8f0; background: #fff1f2;">Fuera Plazo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRowsHtml}
+            <tr style="background: #0f172a; color: white; font-weight: 800; font-size: 7.5px; page-break-inside: avoid;">
+              <td style="padding: 8px;">TOTALES MUNICIPALES CONSOLIDADOS</td>
+              <td style="padding: 8px; text-align: center;">${sumTotal}</td>
+              <td style="padding: 8px; text-align: center;">${sumIng}</td>
+              <td style="padding: 8px; text-align: center;">${sumAcep}</td>
+              <td style="padding: 8px; text-align: center;">${sumRech}</td>
+              <td style="padding: 8px; text-align: center;">${sumSusp}</td>
+              <td style="padding: 8px; text-align: center;">${sumCanc}</td>
+              <td style="padding: 8px; text-align: center;">${sumEnc}</td>
+              <td style="padding: 8px; text-align: center;">${sumPend}</td>
+              <td style="padding: 8px; text-align: center; background: #166534;">${sumDdp}</td>
+              <td style="padding: 8px; text-align: center; background: #be123c;">${sumFdp}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  const dateFormatted = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const defaultName = `MU163-RAPEJECUTIVO_${dateFormatted}.pdf`;
+
+  const saveResult = await window.api.selectSavePath({ defaultName });
+  if (saveResult.cancelled || !saveResult.filePath) {
+    showToast('Guardado de Reporte Ejecutivo cancelado.', 'info');
+    return;
+  }
+
+  showToast('Generando Reporte Ejecutivo PDF...');
+  const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath: saveResult.filePath });
+
+  if (silentResult && silentResult.success) {
+    showToast(`Reporte Ejecutivo PDF guardado correctamente.`, 'success');
+    window.api.invokeRoute({
+      url: '/api/log',
+      method: 'POST',
+      body: {
+        code: 'INFO-REP-503',
+        message: 'Reporte Ejecutivo PDF generado',
+        details: `Archivo: ${defaultName} | Destino: ${saveResult.filePath} | Por: ${currentUser ? currentUser.correo : 'Desconocido'}`,
+        severity: 'info'
+      }
+    }).catch(err => console.error('Error al registrar log:', err));
+  } else {
+    showToast('No se pudo generar el Reporte Ejecutivo PDF.', 'error');
   }
 }
 
@@ -3190,8 +3753,10 @@ function triggerImport() {
               showToast('✓ Base de datos sincronizada localmente.', 'success');
             }
             
-            // Abrir automáticamente el modal detallado
-            openSyncDetailsModal(stats, 'Sincronización recién completada');
+            // Abrir modal de resumen ejecutivo de importación (Nivel 1)
+            window._lastSyncStats = stats;
+            window._lastSyncDateStr = 'Sincronización recién completada';
+            openSyncSummaryModal(stats, 'Sincronización recién completada');
             
             fetchAlertas();
             fetchSyncHistory(); // Refrescar el historial de administración
@@ -3475,10 +4040,125 @@ window.filterLogsByType = function (type) {
 // MODAL DE AUDITORÍA Y DETALLE DE CAMBIOS DE IMPORTACIÓN
 // ============================================================================
 
-function openSyncDetailsModal(statsObj, dateStr) {
+// ============================================================================
+// MODAL DE RESUMEN EJECUTIVO DE IMPORTACIÓN (NIVEL 1)
+// ============================================================================
+
+function openSyncSummaryModal(statsObj, dateStr) {
   const modal = document.getElementById('modal-container');
   if (!modal) return;
   modal.classList.remove('hidden');
+
+  window._activeSyncStats = statsObj;
+  window._activeSyncDateStr = dateStr;
+
+  const inserts = (statsObj.sh?.inserts || 0) + (statsObj.ph?.inserts || 0) + (statsObj.sph?.inserts || 0);
+  const updates = (statsObj.sh?.updates || 0) + (statsObj.ph?.updates || 0) + (statsObj.sph?.updates || 0);
+  const deletes = (statsObj.sh?.deletes || 0) + (statsObj.ph?.deletes || 0) + (statsObj.sph?.deletes || 0);
+  const skipped = (statsObj.sh?.skipped || 0) + (statsObj.ph?.skipped || 0) + (statsObj.sph?.skipped || 0);
+  const totalChanges = inserts + updates + deletes;
+
+  let spStatusHtml = '';
+  if (statsObj.sharepoint && statsObj.sharepoint.uploaded) {
+    spStatusHtml = `
+      <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
+        <i data-lucide="cloud-check" class="h-4 w-4 text-emerald-500 shrink-0"></i>
+        <span>Base de datos respaldada y sincronizada en SharePoint con éxito.</span>
+      </div>
+    `;
+  } else if (statsObj.sharepoint && statsObj.sharepoint.error && statsObj.sharepoint.error.startsWith('Omitido')) {
+    spStatusHtml = `
+      <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium">
+        <i data-lucide="cloud-off" class="h-4 w-4 text-amber-500 shrink-0"></i>
+        <span>Base de datos guardada localmente (subida a SharePoint omitida).</span>
+      </div>
+    `;
+  } else if (statsObj.sharepoint && statsObj.sharepoint.error) {
+    spStatusHtml = `
+      <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-xs font-medium">
+        <i data-lucide="alert-triangle" class="h-4 w-4 text-rose-500 shrink-0"></i>
+        <span>Guardado localmente. Error SharePoint: ${statsObj.sharepoint.error}</span>
+      </div>
+    `;
+  } else {
+    spStatusHtml = `
+      <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-slate-400 text-xs font-medium">
+        <i data-lucide="database" class="h-4 w-4 text-brand-500 shrink-0"></i>
+        <span>Base de datos local actualizada correctamente.</span>
+      </div>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-3">
+          <div class="h-11 w-11 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+            <i data-lucide="check-circle-2" class="h-6 w-6"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">¡Importación Completada!</h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${dateStr}</p>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <!-- KPI Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Creados</span>
+          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">+${inserts}</span>
+        </div>
+        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Modificados</span>
+          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">${updates}</span>
+        </div>
+        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Eliminados</span>
+          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">${deletes}</span>
+        </div>
+        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sin cambio</span>
+          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">${skipped.toLocaleString('es-CL')}</span>
+        </div>
+      </div>
+
+      <!-- SharePoint Status -->
+      ${spStatusHtml}
+
+      <!-- Footer Buttons -->
+      <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        ${totalChanges > 0 ? `
+          <button onclick="openSyncDetailsModal(window._activeSyncStats, window._activeSyncDateStr, true)" class="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer transition-all">
+            <i data-lucide="eye" class="h-4 w-4 text-brand-500"></i>
+            <span>Ver desglose detallado</span>
+          </button>
+        ` : `<div></div>`}
+        <button onclick="closeModal()" class="px-6 py-2.5 rounded-xl text-xs font-bold btn-primary text-white cursor-pointer shadow-lg shadow-brand-500/20">
+          Entendido
+        </button>
+      </div>
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// ============================================================================
+// MODAL DE AUDITORÍA Y DETALLE DE CAMBIOS (NIVEL 2)
+// ============================================================================
+
+function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  window._activeSyncStats = statsObj;
+  window._activeSyncDateStr = dateStr;
 
   const inserts = [];
   const updates = [];
@@ -3506,144 +4186,150 @@ function openSyncDetailsModal(statsObj, dateStr) {
     });
   }
 
+  // Selección inteligente de pestaña inicial
+  let defaultTab = 'agregados';
+  if (inserts.length === 0 && updates.length > 0) {
+    defaultTab = 'modificados';
+  } else if (inserts.length === 0 && updates.length === 0 && deletes.length > 0) {
+    defaultTab = 'eliminados';
+  }
+
+  // Renderizar Agregados
   let agregadosHtml = '';
   if (inserts.length === 0) {
-    agregadosHtml = `<p class="text-center text-[10px] text-slate-500 py-8">Ningún registro fue agregado en este proceso.</p>`;
+    agregadosHtml = `<p class="text-center text-xs text-slate-500 py-10">Ningún registro fue agregado en este proceso.</p>`;
   } else {
     agregadosHtml = `
-      <div class="overflow-x-auto w-full">
-        <table class="w-full border-collapse text-left text-[11px] min-w-[500px]">
-          <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold">
-              <th class="py-2 pr-4">Sección</th>
-              <th class="py-2 px-4">Folio / Nombre</th>
-              <th class="py-2 pl-4">Detalles</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${inserts.map(item => {
-              let detailStr = '';
-              if (item.section === 'Sujeto Pasivo (SPH)') {
-                detailStr = `Cargo: ${item.cargo || ''}`;
-              } else {
-                detailStr = `Sujeto Pasivo: ${item.pasivo || ''} <br> Solicitante: ${item.activo || ''}`;
-              }
-              return `
-                <tr class="border-b border-slate-200 dark:border-slate-800/40 text-slate-300">
-                  <td class="py-2 pr-4 font-bold text-slate-500 dark:text-slate-400">${item.section}</td>
-                  <td class="py-2 px-4 font-mono font-bold text-slate-200">${item.folio || item.nombre || ''}</td>
-                  <td class="py-2 pl-4 leading-normal text-slate-400">${detailStr}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="space-y-2.5">
+        ${inserts.map(item => `
+          <div class="sync-item-card bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">${item.section}</span>
+                <span class="font-mono font-bold text-xs text-slate-800 dark:text-slate-100">${item.folio || item.nombre || `ID: ${item.id}`}</span>
+              </div>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                ${item.pasivo ? `<strong class="text-slate-700 dark:text-slate-300">Sujeto:</strong> ${item.pasivo}` : ''}
+                ${item.activo ? ` &bull; <strong class="text-slate-700 dark:text-slate-300">Solicitante:</strong> ${item.activo}` : ''}
+                ${item.cargo ? `<strong class="text-slate-700 dark:text-slate-300">Cargo:</strong> ${item.cargo}` : ''}
+              </p>
+            </div>
+            <span class="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] self-start sm:self-auto border border-emerald-500/20">
+              + Nuevo Registro
+            </span>
+          </div>
+        `).join('')}
       </div>
     `;
   }
 
+  // Renderizar Modificados (Tarjetas Diff con buen formato y sin cortes)
   let modificadosHtml = '';
   if (updates.length === 0) {
-    modificadosHtml = `<p class="text-center text-[10px] text-slate-500 py-8">Ningún registro fue modificado en este proceso.</p>`;
+    modificadosHtml = `<p class="text-center text-xs text-slate-500 py-10">Ningún registro fue modificado en este proceso.</p>`;
   } else {
     modificadosHtml = `
-      <div class="overflow-x-auto w-full">
-        <table class="w-full border-collapse text-left text-[11px] min-w-[500px]">
-          <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold">
-              <th class="py-2 pr-4" style="width: 140px;">Sección</th>
-              <th class="py-2 px-4" style="width: 140px;">Folio / Nombre</th>
-              <th class="py-2 pl-4">Cambios Realizados</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${updates.map(item => {
-              let changesText = '';
-              Object.keys(item.changes).forEach(fieldName => {
-                const diff = item.changes[fieldName];
-                changesText += `
-                  <div class="flex flex-col gap-0.5 border-b border-slate-200 dark:border-slate-800/40 pb-1.5 mb-1.5 last:border-0 last:pb-0 last:mb-0">
-                    <span class="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">${fieldName}</span>
-                    <div class="flex items-center gap-1.5 text-[10px]">
-                      <span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-500 line-through truncate max-w-[220px]" title="${diff.old}">${diff.old || '(vacío)'}</span>
-                      <span class="text-slate-400">→</span>
-                      <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 truncate max-w-[220px]" title="${diff.new}">${diff.new || '(vacío)'}</span>
-                    </div>
-                  </div>
-                `;
-              });
-
+      <div class="space-y-3">
+        ${updates.map(item => {
+          let diffsHtml = '';
+          if (item.changes && Object.keys(item.changes).length > 0) {
+            diffsHtml = Object.keys(item.changes).map(field => {
+              const diff = item.changes[field];
               return `
-                <tr class="border-b border-slate-200 dark:border-slate-800/40 text-slate-300 align-top">
-                  <td class="py-2.5 pr-4 font-bold text-slate-500 dark:text-slate-400">${item.section}</td>
-                  <td class="py-2.5 px-4 font-mono font-bold text-slate-200">${item.folio || item.nombre || ''}</td>
-                  <td class="py-2.5 pl-4">${changesText}</td>
-                </tr>
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-3 py-2 border-b border-slate-200/60 dark:border-slate-800/60 last:border-0 items-start text-xs">
+                  <span class="sm:col-span-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pt-0.5">${field}</span>
+                  <div class="sm:col-span-9 flex flex-wrap items-center gap-2">
+                    <span class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 line-through text-[11px] font-medium max-w-full break-words" title="${diff.old}">${diff.old || '(vacío)'}</span>
+                    <span class="text-slate-400 font-bold">→</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px] max-w-full break-words" title="${diff.new}">${diff.new || '(vacío)'}</span>
+                  </div>
+                </div>
               `;
-            }).join('')}
-          </tbody>
-        </table>
+            }).join('');
+          } else {
+            diffsHtml = `<p class="text-[11px] text-slate-450 dark:text-slate-500 italic">Campos actualizados en base de datos.</p>`;
+          }
+
+          return `
+            <div class="sync-item-card bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 space-y-2.5 transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">${item.section}</span>
+                  <span class="font-mono font-bold text-xs text-slate-800 dark:text-slate-100">${item.folio || item.nombre || `ID: ${item.id}`}</span>
+                </div>
+                ${item.pasivo ? `<span class="text-[11px] text-slate-500 dark:text-slate-400"><strong class="text-slate-700 dark:text-slate-300">Sujeto:</strong> ${item.pasivo}</span>` : ''}
+              </div>
+              <div class="space-y-1">
+                ${diffsHtml}
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   }
 
+  // Renderizar Eliminados
   let eliminadosHtml = '';
   if (deletes.length === 0) {
-    eliminadosHtml = `<p class="text-center text-[10px] text-slate-500 py-8">Ningún registro fue eliminado en este proceso.</p>`;
+    eliminadosHtml = `<p class="text-center text-xs text-slate-500 py-10">Ningún registro fue eliminado en este proceso.</p>`;
   } else {
     eliminadosHtml = `
-      <div class="overflow-x-auto w-full">
-        <table class="w-full border-collapse text-left text-[11px] min-w-[500px]">
-          <thead>
-            <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold">
-              <th class="py-2 pr-4">Sección</th>
-              <th class="py-2 px-4">Folio / Nombre</th>
-              <th class="py-2 pl-4">Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${deletes.map(item => {
-              return `
-                <tr class="border-b border-slate-200 dark:border-slate-800/40 text-slate-300">
-                  <td class="py-2 pr-4 font-bold text-slate-500 dark:text-slate-400">${item.section}</td>
-                  <td class="py-2 px-4 font-mono font-bold text-slate-200">${item.folio || item.nombre || ''}</td>
-                  <td class="py-2 pl-4 leading-normal text-slate-400">Sujeto Pasivo: ${item.pasivo || item.nombre || ''}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="space-y-2.5">
+        ${deletes.map(item => `
+          <div class="sync-item-card bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '')}">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">${item.section}</span>
+                <span class="font-mono font-bold text-xs text-slate-800 dark:text-slate-100">${item.folio || item.nombre || `ID: ${item.id}`}</span>
+              </div>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                ${item.pasivo ? `<strong class="text-slate-700 dark:text-slate-300">Sujeto Pasivo:</strong> ${item.pasivo}` : ''}
+                ${item.nombre ? `<strong class="text-slate-700 dark:text-slate-300">Nombre:</strong> ${item.nombre}` : ''}
+              </p>
+            </div>
+            <span class="shrink-0 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-[10px] self-start sm:self-auto border border-rose-500/20">
+              - Registro Removido
+            </span>
+          </div>
+        `).join('')}
       </div>
     `;
   }
 
   modal.innerHTML = `
-    <div class="glass-card w-full max-w-4xl p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col overflow-hidden">
+    <div class="glass-card w-full max-w-4xl p-6 rounded-3xl space-y-4 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 max-h-[88vh] flex flex-col overflow-hidden">
       <!-- Header -->
       <div class="flex items-start justify-between shrink-0">
         <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+          <div class="h-10 w-10 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0 border border-brand-500/20">
             <i data-lucide="clipboard-list" class="h-5 w-5"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-heading">Detalle de Cambios de Importación</h3>
-            <p class="text-[10px] text-slate-500 mt-0.5">${dateStr}</p>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Desglose Detallado de Cambios</h3>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">${dateStr}</p>
           </div>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
       </div>
 
+      <!-- Search Filter -->
+      <div class="relative w-full shrink-0">
+        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400"></i>
+        <input type="text" id="sync-detail-search" oninput="filterSyncDetailCards(this.value)" placeholder="Buscar por folio, sujeto pasivo, solicitante o RUT..." class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+      </div>
+
       <!-- Tabs Header -->
-      <div class="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <button data-tab="agregados" onclick="changeSyncDetailTab('agregados')" class="sync-tab-header px-4 py-2 border-b-2 border-emerald-500 text-emerald-500 text-xs font-bold transition-all bg-transparent cursor-pointer">
+      <div class="flex border-b border-slate-200 dark:border-slate-800 shrink-0 gap-1">
+        <button data-tab="agregados" onclick="changeSyncDetailTab('agregados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'agregados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'} text-xs font-bold transition-all bg-transparent cursor-pointer">
           Agregados (${inserts.length})
         </button>
-        <button data-tab="modificados" onclick="changeSyncDetailTab('modificados')" class="sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer">
+        <button data-tab="modificados" onclick="changeSyncDetailTab('modificados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'modificados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'} text-xs font-bold transition-all bg-transparent cursor-pointer">
           Modificados (${updates.length})
         </button>
-        <button data-tab="eliminados" onclick="changeSyncDetailTab('eliminados')" class="sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer">
+        <button data-tab="eliminados" onclick="changeSyncDetailTab('eliminados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'eliminados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'} text-xs font-bold transition-all bg-transparent cursor-pointer">
           Eliminados (${deletes.length})
         </button>
       </div>
@@ -3651,22 +4337,28 @@ function openSyncDetailsModal(statsObj, dateStr) {
       <!-- Tab Contents (scrollable) -->
       <div class="flex-1 overflow-y-auto min-h-0 pr-1 py-1">
         <!-- AGREGADOS -->
-        <div id="sync-tab-agregados" class="sync-tab-content space-y-3">
+        <div id="sync-tab-agregados" class="sync-tab-content ${defaultTab === 'agregados' ? '' : 'hidden'} space-y-3">
           ${agregadosHtml}
         </div>
         <!-- MODIFICADOS -->
-        <div id="sync-tab-modificados" class="sync-tab-content hidden space-y-3">
+        <div id="sync-tab-modificados" class="sync-tab-content ${defaultTab === 'modificados' ? '' : 'hidden'} space-y-3">
           ${modificadosHtml}
         </div>
         <!-- ELIMINADOS -->
-        <div id="sync-tab-eliminados" class="sync-tab-content hidden space-y-3">
+        <div id="sync-tab-eliminados" class="sync-tab-content ${defaultTab === 'eliminados' ? '' : 'hidden'} space-y-3">
           ${eliminadosHtml}
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0">
-        <button onclick="closeModal()" class="px-4 py-2 rounded-xl text-[10px] font-bold btn-primary text-white cursor-pointer">
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        ${showBackBtn ? `
+          <button onclick="openSyncSummaryModal(window._activeSyncStats, window._activeSyncDateStr)" class="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer transition-all">
+            <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+            <span>Volver al resumen</span>
+          </button>
+        ` : `<div></div>`}
+        <button onclick="closeModal()" class="px-5 py-2 rounded-xl text-xs font-bold btn-primary text-white cursor-pointer shadow-lg shadow-brand-500/20">
           Cerrar
         </button>
       </div>
@@ -3683,9 +4375,29 @@ window.changeSyncDetailTab = (tabName) => {
   
   document.querySelectorAll('.sync-tab-header').forEach(el => {
     if (el.getAttribute('data-tab') === tabName) {
-      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-emerald-500 text-emerald-500 text-xs font-bold transition-all bg-transparent cursor-pointer';
+      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 text-xs font-bold transition-all bg-transparent cursor-pointer';
     } else {
-      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer';
+      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer';
+    }
+  });
+
+  const searchInput = document.getElementById('sync-detail-search');
+  if (searchInput && searchInput.value) {
+    window.filterSyncDetailCards(searchInput.value);
+  }
+};
+
+window.filterSyncDetailCards = (query) => {
+  const q = (query || '').toLowerCase().trim();
+  const activeContent = document.querySelector('.sync-tab-content:not(.hidden)');
+  if (!activeContent) return;
+  const cards = activeContent.querySelectorAll('.sync-item-card');
+  cards.forEach(card => {
+    const text = (card.getAttribute('data-search') || '') + ' ' + card.innerText;
+    if (text.toLowerCase().includes(q)) {
+      card.classList.remove('hidden');
+    } else {
+      card.classList.add('hidden');
     }
   });
 };
@@ -4196,9 +4908,13 @@ function initDashboardCharts() {
 
   // 1. Re-filtrar datos locales para cálculos temporales
   let filtered = rawData;
-  if (filters.soloVigentes) {
+  if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
     if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
       filtered = filtered.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  } else if (filters.vigencia === 'no_vigentes') {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      filtered = filtered.filter(item => !item.sujeto_pasivo_id || !activeSujetoIdsCache.has(item.sujeto_pasivo_id));
     }
   }
   if (filters.anio && filters.anio !== 'TODOS') {
@@ -4237,6 +4953,23 @@ function initDashboardCharts() {
       height: 280,
       fontFamily: 'Inter, sans-serif',
       foreColor: textColor,
+      toolbar: {
+        show: true,
+        tools: {
+          download: true,
+          selection: false,
+          zoom: false,
+          zoomin: false,
+          zoomout: false,
+          pan: false,
+          reset: false
+        },
+        export: {
+          csv: { filename: 'distribucion_solicitudes_por_estado' },
+          svg: { filename: 'distribucion_solicitudes_por_estado' },
+          png: { filename: 'distribucion_solicitudes_por_estado' }
+        }
+      }
     },
     series: distData,
     labels: ['Ingresadas', 'Aceptadas', 'Rechazadas', 'Suspendidas', 'Canceladas', 'Encomendadas'],
@@ -4322,8 +5055,17 @@ function initDashboardCharts() {
   const selectedYear = parseInt(selectedYearStr, 10);
   const previousYear = selectedYear - 1;
 
-  // Filtrar datos para evolución aplicando filtros de Nombre y Cargo pero saltándose año
+  // Filtrar datos para evolución aplicando filtros de Vigencia, Nombre y Cargo pero saltándose año
   let dataForEvol = rawData;
+  if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      dataForEvol = dataForEvol.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  } else if (filters.vigencia === 'no_vigentes') {
+    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
+      dataForEvol = dataForEvol.filter(item => !item.sujeto_pasivo_id || !activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    }
+  }
   if (filters.nombre && filters.nombre.trim() !== '') {
     const val = filters.nombre.toLowerCase();
     dataForEvol = dataForEvol.filter(item => item.sujeto_pasivo && item.sujeto_pasivo.toLowerCase().includes(val));
@@ -4372,7 +5114,21 @@ function initDashboardCharts() {
       fontFamily: 'Inter, sans-serif',
       foreColor: textColor,
       toolbar: {
-        show: false
+        show: true,
+        tools: {
+          download: true,
+          selection: false,
+          zoom: false,
+          zoomin: false,
+          zoomout: false,
+          pan: false,
+          reset: false
+        },
+        export: {
+          csv: { filename: 'evolucion_mensual_solicitudes' },
+          svg: { filename: 'evolucion_mensual_solicitudes' },
+          png: { filename: 'evolucion_mensual_solicitudes' }
+        }
       }
     },
     series: [
@@ -4460,7 +5216,21 @@ function initDashboardCharts() {
       fontFamily: 'Inter, sans-serif',
       foreColor: textColor,
       toolbar: {
-        show: false
+        show: true,
+        tools: {
+          download: true,
+          selection: false,
+          zoom: false,
+          zoomin: false,
+          zoomout: false,
+          pan: false,
+          reset: false
+        },
+        export: {
+          csv: { filename: 'cumplimiento_plazos_mensual' },
+          svg: { filename: 'cumplimiento_plazos_mensual' },
+          png: { filename: 'cumplimiento_plazos_mensual' }
+        }
       }
     },
     series: [
@@ -4534,7 +5304,21 @@ function initDashboardCharts() {
       fontFamily: 'Inter, sans-serif',
       foreColor: textColor,
       toolbar: {
-        show: false
+        show: true,
+        tools: {
+          download: true,
+          selection: false,
+          zoom: false,
+          zoomin: false,
+          zoomout: false,
+          pan: false,
+          reset: false
+        },
+        export: {
+          csv: { filename: 'top_autoridades_solicitudes' },
+          svg: { filename: 'top_autoridades_solicitudes' },
+          png: { filename: 'top_autoridades_solicitudes' }
+        }
       }
     },
     series: [{
@@ -4896,9 +5680,9 @@ async function generarReportesMasivos() {
   showToast('Iniciando procesamiento masivo...');
 
   // 2. Obtener la lista de sujetos vigentes si corresponde
-  const soloVigentes = document.getElementById('batch-reportes-solo-vigentes')?.checked;
+  const vigenciaState = reportesFilters.vigencia || 'todos';
   let vigentesIds = null;
-  if (soloVigentes) {
+  if (vigenciaState === 'vigentes' || vigenciaState === 'no_vigentes') {
     try {
       const res = await fetch('/api/sujetos_pasivos/vigentes');
       if (res.ok) {
@@ -4951,9 +5735,13 @@ async function generarReportesMasivos() {
       if (!match) return;
     }
 
-    // Filtro por sujetos vigentes
-    if (soloVigentes && vigentesIds) {
+    // Filtro por estado de vigencia
+    if (vigenciaState === 'vigentes' && vigentesIds) {
       if (!vigentesIds.includes(item.sujeto_pasivo_id)) {
+        return;
+      }
+    } else if (vigenciaState === 'no_vigentes' && vigentesIds) {
+      if (item.sujeto_pasivo_id && vigentesIds.includes(item.sujeto_pasivo_id)) {
         return;
       }
     }
@@ -4973,7 +5761,33 @@ async function generarReportesMasivos() {
     groups[key].push(item);
   });
 
-  const groupKeys = Object.keys(groups);
+  // Ordenar la cola de generación masiva según la jerarquía institucional solicitada por el usuario:
+  // 1. ALC (Alcaldía) -> 2. CON (Concejales) -> 3. DOM (Obras) -> 4. SECMUN (Secretaría) -> 5. CE (Comisión) -> 6. LOS DEMÁs (Alfabético)
+  const cargoPriorityOrder = ['ALC', 'CON', 'DOM', 'SECMUN', 'CE'];
+
+  const groupKeys = Object.keys(groups).sort((keyA, keyB) => {
+    const [nameA, cargoA] = keyA.split('|||');
+    const [nameB, cargoB] = keyB.split('|||');
+
+    const codeA = getCargoAbbreviated(cargoA);
+    const codeB = getCargoAbbreviated(cargoB);
+
+    const idxA = cargoPriorityOrder.indexOf(codeA);
+    const idxB = cargoPriorityOrder.indexOf(codeB);
+
+    const prioA = idxA !== -1 ? idxA : 999;
+    const prioB = idxB !== -1 ? idxB : 999;
+
+    if (prioA !== prioB) {
+      return prioA - prioB;
+    }
+
+    if (codeA !== codeB) {
+      return codeA.localeCompare(codeB);
+    }
+
+    return nameA.localeCompare(nameB);
+  });
   const totalGroups = groupKeys.length;
 
   if (totalGroups === 0) {
@@ -5097,7 +5911,7 @@ async function generarReportesMasivos() {
         cargo: cleanedCargoText,
         fechaIngreso: formatDate(item.fecha_ingreso),
         fechaLimiteRespuesta: item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : null,
-        fechaAgendada: formatDate(item.fecha_agendada) || '---',
+        fechaAgendada: formatDateTime(item.fecha_agendada),
         fechaLimitePublicacion: (item.fecha_agendada && item.fecha_agendada !== '-') ? pubInfo.deadlineStr : null,
         estado: itemEstado,
         badgeClass: badge.class,
@@ -5174,138 +5988,19 @@ async function generarReportesMasivos() {
       `;
     });
 
-    const rfechas = `${fInicio ? `Desde: ${fInicio}` : ''} ${fTermino ? `Hasta: ${fTermino}` : ''}`;
-    const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
-    const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
-
-    const htmlContent = `
-      <style>
-        @page {
-          size: portrait;
-          margin-top: 22mm;
-          margin-bottom: 20mm;
-          margin-left: 15mm;
-          margin-right: 15mm;
-          
-          @top-left {
-            content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Sujeto Pasivo: ${normalizeName(name)}";
-            font-family: 'Inter', sans-serif;
-            font-size: 8px;
-            font-weight: 800;
-            color: #0f172a;
-            padding-bottom: 6px;
-            border-bottom: 1.5px solid #334155;
-          }
-          @top-right {
-            content: "Generado el ${generadoFechaHora}";
-            font-family: monospace;
-            font-size: 7.5px;
-            font-weight: 700;
-            color: #64748b;
-            padding-bottom: 6px;
-            border-bottom: 1.5px solid #334155;
-          }
-          @bottom-right {
-            content: "Página " counter(page) " de " counter(pages);
-            font-family: monospace;
-            font-size: 8.5px;
-            font-weight: 700;
-            color: #64748b;
-          }
-        }
-        @page :first {
-          margin-top: 15mm;
-          @top-left { content: none; }
-          @top-right { content: none; }
-        }
-      </style>
-      <div style="font-family: 'Inter', sans-serif;">
-        <div class="municipal-header-p1">
-          <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
-            <tr>
-              <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
-                <table style="border-collapse: collapse; border: none;">
-                  <tr>
-                    <td style="padding-right: 12px; vertical-align: middle; border: none;">
-                      <img src="/logo_secum.png" style="height: 52px; width: auto; display: block;" />
-                    </td>
-                    <td style="vertical-align: middle; border: none;">
-                      <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Reporte de Solicitudes de Audiencia</div>
-                      <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="vertical-align: middle; text-align: right; border: none; padding: 0;">
-                <div style="font-size: 9px; font-weight: 700; color: #475569; font-family: monospace;">${generadoFechaHora}</div>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 15px; box-sizing: border-box; width: 100%;">
-          <div style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: -0.01em;">Sujeto Pasivo: ${normalizeName(name)}</div>
-          <div style="font-size: 10px; font-weight: 700; color: #475569; margin-top: 2px; text-transform: uppercase; letter-spacing: -0.01em;">Cargo: ${cargo}</div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; color: #475569; margin-top: 6px;">
-            <tr>
-              <td style="padding: 0; border: none; width: 50%;"><strong>Período:</strong> ${rfechasStr}</td>
-              <td style="padding: 0; border: none; width: 50%;"><strong>Estados:</strong> ${hasEstadosFilter ? reportesFilters.estados.join(', ') : 'Todos'}</td>
-            </tr>
-          </table>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
-          <tr>
-            <td style="width: 33.3%; padding-right: 8px; border: none;">
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Total de Audiencias</div>
-                <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${totalItems}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #e2e8f0; font-weight: 900; line-height: 1; user-select: none;">#</div>
-              </div>
-            </td>
-            <td style="width: 33.3%; padding-left: 4px; padding-right: 4px; border: none;">
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.05em;">Dentro de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #15803d; margin-top: 2px;">${compliantCount}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #dcfce7; font-weight: 900; line-height: 1; user-select: none;">✓</div>
-              </div>
-            </td>
-            <td style="width: 33.3%; padding-left: 8px; border: none;">
-              <div style="background: #fffdfd; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: left; box-sizing: border-box; position: relative; overflow: hidden;">
-                <div style="font-size: 7.5px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.05em;">Fuera de Plazo</div>
-                <div style="font-size: 20px; font-weight: 800; color: #b91c1c; margin-top: 2px;">${overdueCount}</div>
-                <div style="position: absolute; right: 10px; bottom: 4px; font-size: 20px; color: #fee2e2; font-weight: 900; line-height: 1; user-select: none;">!</div>
-              </div>
-            </td>
-          </tr>
-        </table>
-
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
-            <thead>
-              <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 7.5px;">
-                <th style="padding: 10px; width: 30px; border-bottom: 1px solid #e2e8f0;">#</th>
-                <th style="padding: 10px; width: 95px; border-bottom: 1px solid #e2e8f0;">Folio</th>
-                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Cargo</th>
-                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
-                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Ingreso</div>
-                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Respuesta</div>
-                </th>
-                <th style="padding: 10px; width: 110px; border-bottom: 1px solid #e2e8f0; vertical-align: bottom;">
-                  <div style="font-size: 7.5px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Fecha Agenda</div>
-                  <div style="font-size: 6.5px; font-weight: 500; color: #64748b; margin-top: 1px; text-transform: uppercase;">Plazo Publicación</div>
-                </th>
-                <th style="padding: 10px; width: 100px; border-bottom: 1px solid #e2e8f0;">Estado</th>
-                <th style="padding: 10px; width: 75px; border-bottom: 1px solid #e2e8f0;">Plazo / Retraso</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rowsArray.join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
+    const htmlContent = buildReportPDFHtml({
+      processedData: processedGroupItems,
+      filtersSnapshot: {
+        nombre: name,
+        cargo: cargo,
+        fechaInicio: fInicio,
+        fechaTermino: fTermino,
+        estados: reportesFilters.estados || []
+      },
+      sujetoPasivoNombre: normalizeName(name),
+      sujetoPasivoCargo: cargo,
+      codigoReporte
+    });
 
     const cargoAbbr = getCargoAbbreviated(cargo);
     const sanitizedNombre = sanitizeNombreForFilename(name);

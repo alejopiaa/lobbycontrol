@@ -17,6 +17,7 @@ release/
 *.db-shm
 *.db-wal
 *.sqlite
+*.tmp*
 data/*.db
 data/*.sqlite
 data/*.db-journal
@@ -24,6 +25,7 @@ data/*.db-shm
 data/*.db-wal
 data/*.json
 data/*.bak
+data/*.tmp*
 *.bak
 data/backup/
 data/sharepoint_upload/

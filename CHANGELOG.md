@@ -2,13 +2,27 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo. El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
----
+## [Unreleased]
 
-## Unreleased
+## [2.8.0] - 2026-08-18
 
----
+### Added
+- **Exportación a Excel**: Generación y descarga directa de reportes consolidados en formato planilla Excel (`.xlsx`).
+- **Reporte Ejecutivo en PDF**: Generación de informes ejecutivos con métricas consolidadas por estado, jerarquía institucional y fila de totales generales.
+- **Filtro de Estado de Sujeto Pasivo**: Selector tri-estado (*Todos*, *Vigentes*, *No Vigentes*) disponible en todas las vistas, sincronizado en tiempo real con las métricas y gráficos.
+- **Resumen y Detalle de Sincronización**: Modal informativo tras la importación de datos con métricas rápidas de cambios y visor detallado con buscador y comparación de campos modificados.
+- **Ficha de Detalle de Audiencias y Solicitudes**: Modales interactivos para consultar el registro completo de solicitudes y audiencias sin salir de la aplicación.
+- **Exportación de Gráficos**: Herramienta en los gráficos del Dashboard para exportar las visualizaciones en formatos de imagen y datos (SVG, PNG, CSV).
 
-## 2.5.0 - 2026-08-12
+### Changed
+- **Rediseño de la Agenda**: Reestructuración de las vistas de mes, semana y día para optimizar la visualización de reuniones en una sola pantalla con navegación fluida.
+- **Animaciones y Transiciones de Interfaz**: Transiciones suaves en la navegación entre vistas, apertura de modales y notificaciones del sistema.
+
+### Fixed
+- **Búsqueda en Reportes**: Solución al fallo que impedía filtrar por texto parcial en el buscador de sujetos pasivos.
+- **Recuperación Automática de Datos**: Reparación y validación automática de la base de datos local ante archivos dañados o corruptos al iniciar la aplicación.
+
+## [2.7.0] - 2026-08-12
 
 ### Changed
 - **Migración a ApexCharts**: Reemplazo de la biblioteca Chart.js por ApexCharts (v3) de forma local, mejorando la interactividad, tooltips y la adaptabilidad de los gráficos en el Dashboard al cambiar entre modo claro y oscuro.
@@ -22,9 +36,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ### Fixed
 - **Habilitación de Selector de Fechas en Reportes**: Solución al bloqueo que impedía usar el calendario de Reportes de forma independiente sin configurar previamente filtros secundarios.
 
----
-
-## 2.4.1 - 2026-08-11
+## [2.6.0] - 2026-08-11
 
 ### Added
 - **Cancelación en exportación masiva**: Botón de cancelación en el modal de exportación masiva de PDFs para detener el proceso de generación en cualquier momento.
@@ -43,9 +55,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Superposición en controles de agenda**: Ajuste visual para evitar que el menú desplegable del buscador de agenda se dibuje detrás del calendario.
 - **Hora en detalle de audiencias**: Incorporación del componente de hora (HH:MM) al lado de la fecha agendada en la ficha detallada de audiencias.
 
----
-
-## 2.4.0 - 2026-07-10
+## [2.5.0] - 2026-07-10
 
 ### Added
 - **Simulador de Perfiles (Impersonación)**: Herramienta administrativa para emular de forma segura la sesión de otros usuarios y auditar la visibilidad de datos y accesos. Incluye un banner superior de advertencia en color ámbar mientras la simulación permanezca activa.
@@ -60,9 +70,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ### Fixed
 - **Importador de Datos**: Corrección de un problema en la lectura de la columna de género de los sujetos activos desde la planilla de origen.
 
----
-
-## 2.3.1 - 2026-07-09
+## [2.4.0] - 2026-07-09
 
 ### Added
 - **Reintento de Sincronización Manual**: Botón en la cápsula de estado para restablecer de forma directa la sincronización en la nube ante problemas de conexión temporales.
@@ -81,9 +89,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Consistencia en Subida de Datos**: Corrección de desfases de red mediante verificación del estado de guardado local antes del envío a la nube.
 - **Prevención de Concurrencia**: Bloqueo del botón de sincronización durante procesos activos para evitar duplicación de tareas.
 
----
-
-## 2.3.0 - 2026-07-08
+## [2.3.0] - 2026-07-08
 
 ### Added
 - **Filtro de Historial de Eventos**: Clasificación rápida de eventos por nivel de severidad e integración de paginación en el panel administrativo.
@@ -97,9 +103,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ### Fixed
 - **Navegación en Logs**: Solución a problemas visuales al aplicar filtros o navegar entre páginas de logs del sistema.
 
----
-
-## 2.2.0 - 2026-07-07
+## [2.2.0] - 2026-07-07
 
 ### Added
 - **Historial de Cambios Detallado**: Registro visual de registros agregados, modificados y eliminados en cada sincronización de datos.
@@ -113,9 +117,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ### Fixed
 - **Iconografía en Logs**: Solución al fallo de carga de iconos en la bitácora administrativa de logs del sistema.
 
----
-
-## 2.1.0 - 2026-07-03
+## [2.1.0] - 2026-07-03
 
 ### Added
 - **Módulo de Agenda**: Calendario integrado con vistas mensual, semanal y diaria, con codificación de colores para reuniones pendientes y pasadas.
@@ -129,9 +131,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ### Fixed
 - **Métricas del Dashboard**: Solución a problemas de visualización de decimales y porcentajes pequeños en los gráficos.
 
----
-
-## 2.0.0 - 2026-06-26
+## [2.0.0] - 2026-06-26
 
 ### Added
 - **Migración a Escritorio**: Transición de la arquitectura web local a una aplicación nativa instalable en escritorio (Electron).
@@ -153,9 +153,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Inicio de Sesión**: Solución a bucles de redirección de inicio de sesión para departamentos municipales específicos.
 - **Rutas de Datos**: Reubicación de archivos de base de datos fuera de directorios del sistema protegidos por Windows en producción.
 
----
-
-## 1.1.0 - 2026-06-24
+## [1.1.0] - 2026-06-24
 
 ### Added
 - **Sincronización Bidireccional**: Motor de sincronización de datos con resolución de conflictos para soporte offline y online.
@@ -163,9 +161,7 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Optimización de Cargas**: Ingesta masiva optimizada para soportar planillas de datos de origen muy extensas.
 - **Modo Desconectado**: Habilitación del sistema para realizar búsquedas locales e interacciones básicas sin acceso a Internet.
 
----
-
-## 1.0.0 - 2026-06-22
+## [1.0.0] - 2026-06-22
 
 ### Added
 - **Lanzamiento Inicial**: Publicación de la primera versión de la plataforma de control local para la gestión de audiencias de la Ley de Lobby.

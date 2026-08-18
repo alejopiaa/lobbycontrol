@@ -610,6 +610,12 @@ async function handle(req, setSharepointCookie) {
       whereClauses.push(`(folio_lobby IS NULL OR folio_lobby = '' OR folio_lobby NOT IN (SELECT folio_lobby FROM publicadas_ph WHERE folio_lobby IS NOT NULL AND folio_lobby != ''))`);
     }
 
+    if (query.vigencia === 'vigentes' || query.soloVigentes === 'true') {
+      whereClauses.push(`sujeto_pasivo_id IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes)`);
+    } else if (query.vigencia === 'no_vigentes') {
+      whereClauses.push(`(sujeto_pasivo_id IS NULL OR sujeto_pasivo_id NOT IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes))`);
+    }
+
     if (query.folio) {
       whereClauses.push(`folio_lobby LIKE ?`);
       params.push(`%${query.folio}%`);
@@ -930,6 +936,12 @@ async function handle(req, setSharepointCookie) {
       const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       whereClauses.push(`LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?)`);
       params.push(targetRut);
+    }
+
+    if (query.vigencia === 'vigentes' || query.soloVigentes === 'true') {
+      whereClauses.push(`LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE id_sujeto_lobby IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes))`);
+    } else if (query.vigencia === 'no_vigentes') {
+      whereClauses.push(`(sujeto_pasivo IS NULL OR LOWER(sujeto_pasivo) NOT IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE id_sujeto_lobby IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes)))`);
     }
 
     if (query.folio) {

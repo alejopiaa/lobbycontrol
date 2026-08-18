@@ -373,6 +373,28 @@ function getPublishedDelay(fechaInicio, fechaPublicacion) {
   }
 }
 
+function ensureDecompressedDb(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return;
+  try {
+    const fd = fs.openSync(filePath, "r");
+    const headerBuffer = Buffer.alloc(2);
+    fs.readSync(fd, headerBuffer, 0, 2, 0);
+    fs.closeSync(fd);
+    if (headerBuffer[0] === 0x1f && headerBuffer[1] === 0x8b) {
+      console.log(`[Auto-Repair] Detectada base de datos comprimida en ${filePath}. Descomprimiendo...`);
+      const zlib = require("zlib");
+      const compressedBuffer = fs.readFileSync(filePath);
+      const decompressedBuffer = zlib.gunzipSync(compressedBuffer);
+      fs.writeFileSync(filePath, decompressedBuffer);
+      console.log(`✓ [Auto-Repair] Base de datos ${filePath} descomprimida correctamente.`);
+    }
+  } catch (e) {
+    console.error(`[Auto-Repair Error] Error al verificar/descomprimir ${filePath}:`, e.message);
+  }
+}
+
+ensureDecompressedDb(dbPath);
+
 // Abrir base de datos
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -421,6 +443,94 @@ try {
 function normalizeVal(val) {
   if (val === null || val === undefined) return "";
   return String(val).trim();
+}
+
+function normalizeDiffVal(val) {
+  if (val === null || val === undefined) return "";
+  return String(val).trim();
+}
+
+function diffSolicitudSH(oldRow, newRow) {
+  const changes = {};
+  const fields = [
+    { label: "Estado", oldVal: oldRow.estado, newVal: newRow.estado },
+    { label: "Fecha Agendada", oldVal: oldRow.fecha_agendada, newVal: newRow.fecha_agendada },
+    { label: "Fecha Respuesta", oldVal: oldRow.fecha_respuesta, newVal: newRow.fecha_respuesta },
+    { label: "Fecha Ingreso", oldVal: oldRow.fecha_ingreso, newVal: newRow.fecha_ingreso },
+    { label: "Sujeto Pasivo", oldVal: oldRow.sujeto_pasivo, newVal: newRow.sujeto_pasivo },
+    { label: "Cargo", oldVal: oldRow.cargo, newVal: newRow.cargo },
+    { label: "Sujeto Activo", oldVal: oldRow.sujeto_activo, newVal: newRow.sujeto_activo },
+    { label: "RUN Solicitante", oldVal: oldRow.rut, newVal: newRow.rut },
+    { label: "Representado", oldVal: oldRow.representado, newVal: newRow.representado },
+    { label: "Materia", oldVal: oldRow.materia, newVal: newRow.materia },
+    { label: "Especificación Materia", oldVal: oldRow.especificacion_materia, newVal: newRow.especificacion_materia },
+    { label: "Código Licitación", oldVal: oldRow.codigo_licitacion, newVal: newRow.codigo_licitacion },
+  ];
+
+  for (const f of fields) {
+    const o = normalizeDiffVal(f.oldVal);
+    const n = normalizeDiffVal(f.newVal);
+    if (o !== n) {
+      changes[f.label] = { old: o, new: n };
+    }
+  }
+  return changes;
+}
+
+function diffPublicadaPH(oldRow, newRow) {
+  const changes = {};
+  const fields = [
+    { label: "Estado", oldVal: oldRow.estado, newVal: newRow.estado },
+    { label: "Fecha Inicio", oldVal: oldRow.fecha_inicio, newVal: newRow.fecha_inicio },
+    { label: "Fecha Término", oldVal: oldRow.fecha_termino, newVal: newRow.fecha_termino },
+    { label: "Fecha Publicación", oldVal: oldRow.fecha_publicacion, newVal: newRow.fecha_publicacion },
+    { label: "Cumplimiento", oldVal: oldRow.cumplimiento, newVal: newRow.cumplimiento },
+    { label: "Forma", oldVal: oldRow.forma, newVal: newRow.forma },
+    { label: "Materia", oldVal: oldRow.materia, newVal: newRow.materia },
+    { label: "Especificación Materia", oldVal: oldRow.especificacion_materia, newVal: newRow.especificacion_materia },
+    { label: "Lugar", oldVal: oldRow.lugar, newVal: newRow.lugar },
+    { label: "Comuna", oldVal: oldRow.comuna, newVal: newRow.comuna },
+    { label: "Sujeto Pasivo", oldVal: oldRow.sujeto_pasivo, newVal: newRow.sujeto_pasivo },
+    { label: "Cargo", oldVal: oldRow.cargo, newVal: newRow.cargo },
+    { label: "Sujeto Activo", oldVal: oldRow.sujeto_activo, newVal: newRow.sujeto_activo },
+    { label: "RUN Solicitante", oldVal: oldRow.rut, newVal: newRow.rut },
+    { label: "Tipo Solicitante", oldVal: oldRow.tipo, newVal: newRow.tipo },
+    { label: "Representado", oldVal: oldRow.representado, newVal: newRow.representado },
+    { label: "Duración", oldVal: oldRow.duracion, newVal: newRow.duracion },
+  ];
+
+  for (const f of fields) {
+    const o = normalizeDiffVal(f.oldVal);
+    const n = normalizeDiffVal(f.newVal);
+    if (o !== n) {
+      changes[f.label] = { old: o, new: n };
+    }
+  }
+  return changes;
+}
+
+function diffSujetoPasivoSPH(oldRow, newRow) {
+  const changes = {};
+  const fields = [
+    { label: "Nombre", oldVal: oldRow.nombre, newVal: newRow.nombre },
+    { label: "RUN", oldVal: oldRow.rut, newVal: newRow.rut },
+    { label: "Cargo", oldVal: oldRow.cargo, newVal: newRow.cargo },
+    { label: "Tipo", oldVal: oldRow.tipo, newVal: newRow.tipo },
+    { label: "Zona", oldVal: oldRow.zona, newVal: newRow.zona },
+    { label: "Fecha Incorporación", oldVal: oldRow.fecha_incorporacion, newVal: newRow.fecha_incorporacion },
+    { label: "Fecha Término", oldVal: oldRow.fecha_termino, newVal: newRow.fecha_termino },
+    { label: "Respaldo Jurídico", oldVal: oldRow.respaldo_juridico, newVal: newRow.respaldo_juridico },
+    { label: "Asistente Técnico", oldVal: oldRow.asistente_tecnico, newVal: newRow.asistente_tecnico },
+  ];
+
+  for (const f of fields) {
+    const o = normalizeDiffVal(f.oldVal);
+    const n = normalizeDiffVal(f.newVal);
+    if (o !== n) {
+      changes[f.label] = { old: o, new: n };
+    }
+  }
+  return changes;
 }
 
 /**
@@ -501,6 +611,10 @@ function syncSolicitudes(rows, callback) {
       WHERE id_lobby = ?
     `);
 
+      const selectOldStmt = db.prepare(
+        "SELECT * FROM solicitudes_sh WHERE id_lobby = ?",
+      );
+
       const seenIds = new Set();
       let insertsCount = 0;
       let updatesCount = 0;
@@ -512,6 +626,7 @@ function syncSolicitudes(rows, callback) {
         if (loopFinished && pendingOps === 0) {
           insertStmt.finalize();
           updateStmt.finalize();
+          selectOldStmt.finalize();
 
           const deleteIds = [];
           Object.keys(existingMap).forEach((id) => {
@@ -671,14 +786,41 @@ function syncSolicitudes(rows, callback) {
               idLobby,
             ];
             pendingOps++;
-            updateStmt.run(updateValues, (err) => {
-              if (err)
-                console.error(
-                  `Error al actualizar SH ID ${idLobby}:`,
-                  err.message,
-                );
-              pendingOps--;
-              done();
+            selectOldStmt.get([idLobby], (selectErr, oldRow) => {
+              if (!selectErr && oldRow) {
+                const changes = diffSolicitudSH(oldRow, {
+                  estado: precalc.estado,
+                  fecha_agendada: parsedFechaAgendada,
+                  fecha_respuesta: parsedFechaRespuesta,
+                  fecha_ingreso: parsedFechaIngreso,
+                  sujeto_pasivo: row["sujetoPasivo"] || "",
+                  cargo: row["cargoSujetoPasivo"] || "",
+                  sujeto_activo: row["sujetoActivo"] || "",
+                  rut: row["runSujetoActivo"] || "",
+                  representado: row["representado"] || "",
+                  materia: row["materia"] || "",
+                  especificacion_materia: row["especificacionMateria"] || "",
+                  codigo_licitacion: precalc.codigo_licitacion,
+                });
+                if (Object.keys(changes).length > 0) {
+                  allStats.sh.details.push({
+                    type: "update",
+                    id: idLobby,
+                    folio: row["folio"] || `ID: ${idLobby}`,
+                    pasivo: row["sujetoPasivo"] || "",
+                    changes: changes,
+                  });
+                }
+              }
+              updateStmt.run(updateValues, (err) => {
+                if (err)
+                  console.error(
+                    `Error al actualizar SH ID ${idLobby}:`,
+                    err.message,
+                  );
+                pendingOps--;
+                done();
+              });
             });
             updatesCount++;
           } else {
@@ -734,6 +876,10 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
       WHERE id_lobby = ?
     `);
 
+      const selectOldStmt = db.prepare(
+        "SELECT * FROM publicadas_ph WHERE id_lobby = ?",
+      );
+
       const seenIds = new Set();
       let insertsCount = 0;
       let updatesCount = 0;
@@ -745,6 +891,7 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
         if (loopFinished && pendingOps === 0) {
           insertStmt.finalize();
           updateStmt.finalize();
+          selectOldStmt.finalize();
 
           const deleteIds = [];
           Object.keys(existingMap).forEach((id) => {
@@ -917,14 +1064,46 @@ function syncPublicadas(rows, solicitudAceptadaMap, callback) {
               idLobby,
             ];
             pendingOps++;
-            updateStmt.run(updateValues, (err) => {
-              if (err)
-                console.error(
-                  `Error al actualizar PH ID ${idLobby}:`,
-                  err.message,
-                );
-              pendingOps--;
-              done();
+            selectOldStmt.get([idLobby], (selectErr, oldRow) => {
+              if (!selectErr && oldRow) {
+                const changes = diffPublicadaPH(oldRow, {
+                  estado: normalizeEstado(row["estado"] || "Publicada"),
+                  fecha_inicio: parsedFechaInicio,
+                  fecha_termino: parseExcelDate(row["fechaTermino"]),
+                  fecha_publicacion: parsedFechaPublicacion,
+                  cumplimiento: cumplimientoVal,
+                  forma: row["forma"] || "",
+                  materia: row["materia"] || "",
+                  especificacion_materia: row["especificacionMateria"] || "",
+                  lugar: row["lugar"] || "",
+                  comuna: row["comuna"] || "",
+                  sujeto_pasivo: row["sujetoPasivo"] || "",
+                  cargo: row["cargoSujetoPasivo"] || "",
+                  sujeto_activo: row["sujetoActivo"] || "",
+                  rut: row["runSujetoActivo"] || "",
+                  tipo: row["tipoSujetoActivo"] || "",
+                  representado: row["representado"] || "",
+                  duracion: row["duracion"] || "",
+                });
+                if (Object.keys(changes).length > 0) {
+                  allStats.ph.details.push({
+                    type: "update",
+                    id: idLobby,
+                    folio: folio || `ID: ${idLobby}`,
+                    pasivo: row["sujetoPasivo"] || "",
+                    changes: changes,
+                  });
+                }
+              }
+              updateStmt.run(updateValues, (err) => {
+                if (err)
+                  console.error(
+                    `Error al actualizar PH ID ${idLobby}:`,
+                    err.message,
+                  );
+                pendingOps--;
+                done();
+              });
             });
             updatesCount++;
           } else {
@@ -977,6 +1156,10 @@ function syncSujetosPasivos(rows, callback) {
       WHERE id_sujeto_lobby = ?
     `);
 
+      const selectOldStmt = db.prepare(
+        "SELECT * FROM sujetos_pasivos_sph WHERE id_sujeto_lobby = ?",
+      );
+
       const seenIds = new Set();
       let insertsCount = 0;
       let updatesCount = 0;
@@ -988,6 +1171,7 @@ function syncSujetosPasivos(rows, callback) {
         if (loopFinished && pendingOps === 0) {
           insertStmt.finalize();
           updateStmt.finalize();
+          selectOldStmt.finalize();
 
           const deleteIds = [];
           Object.keys(existingMap).forEach((id) => {
@@ -1112,14 +1296,38 @@ function syncSujetosPasivos(rows, callback) {
               idSujeto,
             ];
             pendingOps++;
-            updateStmt.run(updateValues, (err) => {
-              if (err)
-                console.error(
-                  `Error al actualizar SPH ID ${idSujeto}:`,
-                  err.message,
-                );
-              pendingOps--;
-              done();
+            selectOldStmt.get([idSujeto], (selectErr, oldRow) => {
+              if (!selectErr && oldRow) {
+                const changes = diffSujetoPasivoSPH(oldRow, {
+                  nombre: row["nombre"] || "",
+                  rut: row["run"] || "",
+                  cargo: row["cargo"] || "",
+                  tipo: row["tipo"] || "",
+                  zona: row["zona"] || "",
+                  fecha_incorporacion: parseExcelDate(row["fechaInicio"]),
+                  fecha_termino: parseExcelDate(row["fechaTermino"]),
+                  respaldo_juridico: row["respaldoJuridico"] || "",
+                  asistente_tecnico: row["asistenteTecnico"] || "",
+                });
+                if (Object.keys(changes).length > 0) {
+                  allStats.sph.details.push({
+                    type: "update",
+                    id: idSujeto,
+                    nombre: row["nombre"] || `ID: ${idSujeto}`,
+                    cargo: row["cargo"] || "",
+                    changes: changes,
+                  });
+                }
+              }
+              updateStmt.run(updateValues, (err) => {
+                if (err)
+                  console.error(
+                    `Error al actualizar SPH ID ${idSujeto}:`,
+                    err.message,
+                  );
+                pendingOps--;
+                done();
+              });
             });
             updatesCount++;
           } else {

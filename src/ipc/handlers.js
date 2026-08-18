@@ -270,13 +270,13 @@ safeIpcHandle("select-directory", async (event) => {
   };
 });
 
-safeIpcHandle("select-save-path", async (event, { defaultName }) => {
+safeIpcHandle("select-save-path", async (event, { defaultName, filters, title }) => {
   const { dialog } = require("electron");
   const mainWindow = event.sender.getOwnerBrowserWindow();
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: "Guardar reporte PDF",
+    title: title || "Guardar archivo",
     defaultPath: defaultName,
-    filters: [
+    filters: filters || [
       { name: "Archivos PDF", extensions: ["pdf"] }
     ]
   });
@@ -284,6 +284,40 @@ safeIpcHandle("select-save-path", async (event, { defaultName }) => {
     cancelled: result.canceled,
     filePath: result.filePath
   };
+});
+
+safeIpcHandle("generate-excel-file", async (event, { data, sheetName, filePath }) => {
+  const XLSX = require("xlsx");
+  const fs = require("fs");
+  const path = require("path");
+
+  try {
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    if (data && data.length > 0) {
+      const colWidths = Object.keys(data[0]).map(key => {
+        const maxLen = Math.max(
+          key.length,
+          ...data.map(row => String(row[key] || '').length)
+        );
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 65) };
+      });
+      worksheet['!cols'] = colWidths;
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName || 'Reporte Lobby');
+
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    XLSX.writeFile(workbook, filePath);
+    return { success: true };
+  } catch (err) {
+    console.error("[generate-excel-file] Error al generar planilla Excel:", err);
+    return { success: false, error: err.message };
+  }
 });
 
 safeIpcHandle("generate-silent-pdf", async (event, { html, filePath }) => {

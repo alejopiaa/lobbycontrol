@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld("api", {
   invokeRoute: (routeInfo) => ipcRenderer.invoke("api-route", routeInfo),
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
   generateSilentPdf: (args) => ipcRenderer.invoke("generate-silent-pdf", args),
-  selectSavePath: (args) => ipcRenderer.invoke("select-save-path", args)
+  selectSavePath: (args) => ipcRenderer.invoke("select-save-path", args),
+  generateExcelFile: (args) => ipcRenderer.invoke("generate-excel-file", args)
 });

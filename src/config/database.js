@@ -60,6 +60,32 @@ if (fs.existsSync(orphanExcelPath)) {
   }
 }
 
+// Función de autorreparación para asegurar que la base de datos no esté comprimida con GZIP en disco
+function ensureDecompressedDb(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return;
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const headerBuffer = Buffer.alloc(2);
+    fs.readSync(fd, headerBuffer, 0, 2, 0);
+    fs.closeSync(fd);
+    if (headerBuffer[0] === 0x1f && headerBuffer[1] === 0x8b) {
+      console.log(`[Auto-Repair] Detectada base de datos comprimida en ${filePath}. Descomprimiendo...`);
+      const zlib = require('zlib');
+      const compressedBuffer = fs.readFileSync(filePath);
+      const decompressedBuffer = zlib.gunzipSync(compressedBuffer);
+      fs.writeFileSync(filePath, decompressedBuffer);
+      console.log(`✓ [Auto-Repair] Base de datos ${filePath} descompuesta y reparada correctamente.`);
+    }
+  } catch (e) {
+    console.error(`[Auto-Repair Error] Error al verificar/descomprimir ${filePath}:`, e.message);
+  }
+}
+
+// Autorreparar bases de datos si están comprimidas
+ensureDecompressedDb(dbPath);
+ensureDecompressedDb(usersDbPath);
+ensureDecompressedDb(localDbPath);
+
 // Verificar firma digital del archivo de base de datos para depuración (sin acción destructiva)
 if (fs.existsSync(dbPath)) {
   const localVersionPath = path.join(dbDir, 'version_lobby.json');
@@ -92,6 +118,7 @@ let activeUsersDb = null;
 let activeLocalDb = null;
 
 function connectLobbyDb(targetPath) {
+  ensureDecompressedDb(targetPath);
   activeDb = new sqlite3.Database(targetPath, (err) => {
     if (err) {
       console.error('Error al abrir lobby.db SQLite:', err.message);

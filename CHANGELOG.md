@@ -4,7 +4,23 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ---
 
-## Unreleased
+## 2.6.0 - 2026-08-18
+
+### Added
+- **Exportación a Excel**: Generación y descarga directa de reportes consolidados en formato planilla Excel (`.xlsx`).
+- **Reporte Ejecutivo en PDF**: Generación de informes ejecutivos con métricas consolidadas por estado, jerarquía institucional y fila de totales generales.
+- **Filtro de Estado de Sujeto Pasivo**: Selector tri-estado (*Todos*, *Vigentes*, *No Vigentes*) disponible en todas las vistas, sincronizado en tiempo real con las métricas y gráficos.
+- **Resumen y Detalle de Sincronización**: Modal informativo tras la importación de datos con métricas rápidas de cambios y visor detallado con buscador y comparación de campos modificados.
+- **Ficha de Detalle de Audiencias y Solicitudes**: Modales interactivos para consultar el registro completo de solicitudes y audiencias sin salir de la aplicación.
+- **Exportación de Gráficos**: Herramienta en los gráficos del Dashboard para exportar las visualizaciones en formatos de imagen y datos (SVG, PNG, CSV).
+- **Animaciones y Transiciones de Interfaz**: Transiciones suaves en la navegación entre vistas, apertura de modales y notificaciones del sistema.
+
+### Changed
+- **Rediseño de la Agenda**: Reestructuración de las vistas de mes, semana y día para optimizar la visualización de reuniones en una sola pantalla con navegación fluida.
+
+### Fixed
+- **Búsqueda en Reportes**: Solución al fallo que impedía filtrar por texto parcial en el buscador de sujetos pasivos.
+- **Recuperación Automática de Datos**: Reparación y validación automática de la base de datos local ante archivos dañados o corruptos al iniciar la aplicación.
 
 ---
 

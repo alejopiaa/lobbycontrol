@@ -21,6 +21,7 @@ let dataStore = {
 // Variables de estado del Calendario (Agenda)
 let currentCalendarDate = new Date();
 let calendarViewMode = 'month'; // 'month', 'week', 'day'
+let previousCalendarViewMode = 'month';
 let calendarFilters = { search: '', vigencia: 'todos' };
 let calendarEvents = [];
 
@@ -145,7 +146,7 @@ let paginationState = {
       vigencia: 'todos'
     }
   },
-  sujetos_pasivos: { page: 1, search: '', vigencia: 'todos' },
+  sujetos_pasivos: { page: 1, search: '', vigencia: 'todos', tipoFecha: 'incorporacion', fechaDesde: '', fechaHasta: '' },
   reportes: { page: 1 },
   logs: { page: 1, filterType: 'all' }
 };
@@ -613,24 +614,11 @@ async function fetchAppVersion() {
   }
 }
 
-// Reloj digital en vivo para el header (Fecha y hora actual)
+// Reloj digital (desactivado para reducir distracciones visuales)
 function startLiveClock() {
   const dateEl = document.getElementById('current-date');
   const timeEl = document.getElementById('current-time');
   if (!dateEl || !timeEl) return;
-
-  const updateClock = () => {
-    const now = new Date();
-    const optionsDate = { weekday: 'long', day: 'numeric', month: 'long' };
-    let dateStr = now.toLocaleDateString('es-CL', optionsDate);
-    dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-    const timeStr = now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    dateEl.textContent = dateStr;
-    timeEl.textContent = timeStr;
-  };
-
-  updateClock();
-  setInterval(updateClock, 1000);
 }
 
 // Al cargar el documento
@@ -1364,6 +1352,9 @@ function getActiveFiltersAndPrefix() {
   } else if (currentView === 'publicadas') {
     idPrefix = 'publicadas-filter-';
     filters = paginationState.publicadas.filters;
+  } else if (currentView === 'sujetos_pasivos' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'sujetos')) {
+    idPrefix = 'search-';
+    filters = paginationState.sujetos_pasivos;
   }
   return { idPrefix, filters };
 }
@@ -1886,6 +1877,22 @@ window.changeSujetosPasivosVigencia = function(val) {
   renderView();
 };
 
+window.changeSujetosTipoFecha = function(val) {
+  paginationState.sujetos_pasivos.tipoFecha = val;
+  paginationState.sujetos_pasivos.page = 1;
+  renderView();
+};
+
+window.clearSujetosFilters = function() {
+  paginationState.sujetos_pasivos.search = '';
+  paginationState.sujetos_pasivos.vigencia = 'todos';
+  paginationState.sujetos_pasivos.tipoFecha = 'incorporacion';
+  paginationState.sujetos_pasivos.fechaDesde = '';
+  paginationState.sujetos_pasivos.fechaHasta = '';
+  paginationState.sujetos_pasivos.page = 1;
+  renderView();
+};
+
 window.changeReportesVigencia = function(val) {
   reportesFilters.vigencia = val;
   paginationState.reportes.page = 1;
@@ -2022,9 +2029,11 @@ function renderView(forceAnimateCards = false) {
   lucide.createIcons();
   updateThemeIcons();
   
-  // Inicializar Air Datepicker SOLO si la vista se redibujó por completo
+  // Inicializar Air Datepicker si la vista se redibujó por completo, o resincronizar límites si fue actualización parcial
   if (!isPartialUpdate) {
     requestAnimationFrame(() => initAirDatepickerFields());
+  } else {
+    requestAnimationFrame(() => syncAllLinkedDatepickers());
   }
   
   if (typeof HSStaticMethods !== 'undefined' && HSStaticMethods.autoInit) {
@@ -2039,7 +2048,6 @@ function renderView(forceAnimateCards = false) {
 // ─── AIR DATEPICKER v3: Inicialización de selectores de fecha premium ───────
 // Permite navegación por grid de meses y grid de años al hacer click en el header
 function initAirDatepickerFields() {
-  console.log('[DatePicker] Inicializando campos de fecha...');
   if (typeof AirDatepicker === 'undefined') {
     console.error('[DatePicker] AirDatepicker no está definido en el ámbito global.');
     return;
@@ -2049,14 +2057,12 @@ function initAirDatepickerFields() {
     ? window.AirDatepickerLocaleEs
     : undefined;
 
-  const inputs = document.querySelectorAll('.flatpickr-display-input');
-  console.log(`[DatePicker] Encontrados ${inputs.length} inputs con la clase .flatpickr-display-input`);
+  const inputs = document.querySelectorAll('.datepicker-display-input, .flatpickr-display-input');
 
   inputs.forEach(displayInput => {
     try {
       const hiddenInputId = displayInput.getAttribute('data-date-target');
       const hiddenInput = hiddenInputId ? document.getElementById(hiddenInputId) : null;
-      console.log(`[DatePicker] Procesando display ID: ${displayInput.id}, target oculto: ${hiddenInputId}`);
 
       // 1. Obtener límites min y max desde el input oculto
       let minDate = undefined;
@@ -2080,24 +2086,11 @@ function initAirDatepickerFields() {
 
       // 2. Si ya tiene una instancia de AirDatepicker, solo actualizamos sus opciones en lugar de recrearla
       if (displayInput._airDatepicker) {
-        console.log(`[DatePicker] Instancia existente encontrada para ${displayInput.id}. Actualizando opciones.`);
         const dp = displayInput._airDatepicker;
         dp.update({
           minDate: minDate,
           maxDate: maxDate
         });
-        
-        // Si el año cambió y la fecha seleccionada queda fuera del rango, la limpiamos
-        if (dp.selectedDates.length > 0) {
-          const selDate = dp.selectedDates[0];
-          if ((minDate && selDate < minDate) || (maxDate && selDate > maxDate)) {
-            dp.clear();
-            if (hiddenInput) {
-              hiddenInput.value = '';
-              hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-          }
-        }
         return;
       }
 
@@ -2123,6 +2116,7 @@ function initAirDatepickerFields() {
             dp.clear();
             if (hiddenInput && hiddenInput.value !== '') {
               hiddenInput.value = '';
+              syncAllLinkedDatepickers();
               hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
             dp.hide();
@@ -2141,12 +2135,14 @@ function initAirDatepickerFields() {
             if (hiddenInput.value !== newVal) {
               hiddenInput.value = newVal;
               displayInput.value = formattedDate || `${dd.toString().padStart(2,'0')}/${mm}/${yyyy}`;
+              syncAllLinkedDatepickers();
               hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
           } else {
             if (hiddenInput.value !== '') {
               hiddenInput.value = '';
               displayInput.value = '';
+              syncAllLinkedDatepickers();
               hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
           }
@@ -2180,18 +2176,80 @@ function initAirDatepickerFields() {
 
       // Botón del ícono de calendario: toggle del picker
       const triggerBtn = displayInput.parentElement
-        ? displayInput.parentElement.querySelector(`[data-flatpickr-trigger="${hiddenInputId}"]`)
+        ? displayInput.parentElement.querySelector(`[data-datepicker-trigger="${hiddenInputId}"], [data-flatpickr-trigger="${hiddenInputId}"]`)
         : null;
       if (triggerBtn) {
         const newBtn = triggerBtn.cloneNode(true);
         triggerBtn.parentNode.replaceChild(newBtn, triggerBtn);
         newBtn.addEventListener('click', (e) => { e.stopPropagation(); dp.show(); });
       }
-      console.log(`[DatePicker] Inicialización exitosa para ID: ${displayInput.id}`);
     } catch (e) {
       console.error(`[DatePicker] Error al inicializar para el elemento:`, displayInput, e);
     }
   });
+
+  // 4. Sincronizar dinámicamente los límites cruzados (minDate / maxDate) entre pares de fecha
+  syncAllLinkedDatepickers();
+}
+
+/**
+ * Sincroniza dinámicamente los límites minDate y maxDate entre un selector de Fecha Inicio y Fecha Término.
+ * Deshabilita en tiempo real las fechas inválidas en el calendario compañero sin destruir ni re-renderizar los inputs.
+ */
+function syncLinkedDatepickers(startId, endId) {
+  const startHidden = document.getElementById(startId);
+  const endHidden = document.getElementById(endId);
+  const startDisplay = document.getElementById(`${startId}-display`);
+  const endDisplay = document.getElementById(`${endId}-display`);
+
+  if (!startDisplay || !endDisplay) return;
+
+  const dpStart = startDisplay._airDatepicker;
+  const dpEnd = endDisplay._airDatepicker;
+
+  let startDate = undefined;
+  if (startHidden && startHidden.value && startHidden.value.length === 10) {
+    const parts = startHidden.value.split('-').map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      startDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+  }
+
+  let endDate = undefined;
+  if (endHidden && endHidden.value && endHidden.value.length === 10) {
+    const parts = endHidden.value.split('-').map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      endDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+  }
+
+  const minValStart = startHidden ? startHidden.getAttribute('min') : null;
+  const minDateBase = minValStart ? new Date(minValStart.split('-')[0], minValStart.split('-')[1] - 1, minValStart.split('-')[2]) : undefined;
+  
+  const maxValEnd = endHidden ? endHidden.getAttribute('max') : null;
+  const maxDateBase = maxValEnd ? new Date(maxValEnd.split('-')[0], maxValEnd.split('-')[1] - 1, maxValEnd.split('-')[2]) : undefined;
+
+  if (dpStart) {
+    dpStart.update({
+      minDate: minDateBase,
+      maxDate: endDate || maxDateBase
+    });
+  }
+  if (dpEnd) {
+    dpEnd.update({
+      minDate: startDate || minDateBase,
+      maxDate: maxDateBase
+    });
+  }
+}
+
+/**
+ * Aplica la sincronización cruzada a todos los módulos con rangos de fecha activos.
+ */
+function syncAllLinkedDatepickers() {
+  syncLinkedDatepickers('filter-sujetos-fechadesde', 'filter-sujetos-fechahasta');
+  syncLinkedDatepickers('report-filter-fechainicio', 'report-filter-fechatermino');
+  syncLinkedDatepickers('dashboard-filter-fechainicio', 'dashboard-filter-fechatermino');
 }
 
 // Eliminación genérica de registros
@@ -2707,9 +2765,11 @@ document.addEventListener('keydown', (e) => {
 // 3. Eventos de Focus (Mostrar sugerencias al enfocar)
 document.addEventListener('focus', (e) => {
   const target = e.target;
-  if (target.dataset.component === 'search-input' && target.dataset.autocomplete === 'true') {
-    const fieldName = target.dataset.field;
-    showDashboardSuggestions(fieldName);
+  if (target.dataset.component === 'search-input') {
+    if (target.dataset.autocomplete === 'true') {
+      const fieldName = target.dataset.field;
+      showDashboardSuggestions(fieldName);
+    }
     
     // Ocultar temporalmente la tarjeta/badge overlay y hacer visible el texto para editarlo
     target.classList.remove('placeholder-transparent', 'select-none');
@@ -2789,23 +2849,12 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// 5. Eventos de Blur/Desenfoque (Ocultar sugerencias y aplicar filtros de fecha)
+// 5. Eventos de Blur/Desenfoque (Ocultar sugerencias)
 document.addEventListener('blur', (e) => {
   const target = e.target;
   if (target.dataset.component === 'search-input' && target.dataset.autocomplete === 'true') {
     const fieldName = target.dataset.field;
     hideDashboardSuggestions(fieldName);
-  }
-  // Para el input de texto visible del date-mask: aplicar el filtro al salir del campo
-  if (target.dataset.dateDisplay === 'true') {
-    const fieldName = target.dataset.field;
-    // El estado ya fue actualizado en handleDateDisplayInput.
-    // Solo disparamos el re-render aquí.
-    if (currentView === 'dashboard') {
-      renderView();
-    } else if (currentView === 'reportes') {
-      debouncedReportesRender();
-    }
   }
 }, true); // useCapture para eventos que no burbujean
 
@@ -2822,14 +2871,19 @@ document.addEventListener('mousedown', (e) => {
 // 7. Eventos de Change (Selectores y Checkboxes)
 document.addEventListener('change', (e) => {
   const target = e.target;
+  const isSujetos = currentView === 'sujetos_pasivos' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'sujetos');
   
   if (target.dataset.component === 'select-input') {
     const fieldName = target.dataset.field;
-    handleMultiFilter(currentView, fieldName, target.value);
+    if (isSujetos && fieldName === 'tipoFecha') {
+      window.changeSujetosTipoFecha(target.value);
+    } else {
+      handleMultiFilter(currentView, fieldName, target.value);
+    }
   } else if (target.dataset.component === 'date-input') {
     // Actualizamos el estado interno siempre.
     // Si la fecha ya está completa (YYYY-MM-DD = 10 chars) o fue vaciada,
-    // re-renderizamos inmediatamente (ej: selección desde calendario nativo).
+    // re-renderizamos inmediatamente (ej: selección desde calendario nativo / Air Datepicker).
     // El blur también dispara el render como respaldo para escritura manual.
     const fieldName = target.dataset.field;
     const value = target.value;
@@ -2837,10 +2891,15 @@ document.addEventListener('change', (e) => {
     if (currentView === 'dashboard') {
       dashboardFilters[fieldName] = value;
       if (isComplete) renderView();
-    } else if (currentView === 'reportes') {
+    } else if (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes')) {
       if (fieldName === 'fechaInicio') reportesFilters.fechaInicio = value;
       else if (fieldName === 'fechaTermino') reportesFilters.fechaTermino = value;
       if (isComplete) debouncedReportesRender();
+    } else if (isSujetos) {
+      if (fieldName === 'fechaDesde') paginationState.sujetos_pasivos.fechaDesde = value;
+      else if (fieldName === 'fechaHasta') paginationState.sujetos_pasivos.fechaHasta = value;
+      paginationState.sujetos_pasivos.page = 1;
+      if (isComplete) renderView();
     }
   } else if (target.classList.contains('report-estado-checkbox')) {
     updateReporteEstadoPillStyle(target);

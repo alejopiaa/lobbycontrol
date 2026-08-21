@@ -867,84 +867,19 @@ html.dark .card-alert-info {
   background: rgba(59, 130, 246, 0.04) !important;
 }
 
-/* Calendario */
-.calendar-day-header {
-  border-bottom: 2px solid var(--border-ui);
-}
-.calendar-timeline-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
-}
-.calendar-timeline-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.calendar-timeline-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.calendar-timeline-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.3);
-  border-radius: 10px;
-}
-.calendar-cell {
-  min-height: 110px;
-  height: 110px;
-  transition: all 0.15s ease-in-out;
-  background-color: var(--cal-cell-bg) !important;
-}
-.calendar-cell:hover {
-  background-color: var(--cal-cell-hover) !important;
-}
-.calendar-grid-wrapper {
-  background-color: var(--cal-grid-bg) !important;
-  border-color: var(--cal-grid-border) !important;
-}
-.calendar-header-cell {
-  background-color: var(--cal-header-bg) !important;
-  color: var(--cal-header-text) !important;
-}
-.cal-event-past {
-  background-color: var(--cal-past-bg) !important;
-  color: var(--cal-past-text) !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-bottom: none !important;
-  border-left: 3px solid var(--cal-past-border) !important;
-}
-.cal-event-future {
-  background-color: var(--cal-future-bg) !important;
-  color: var(--cal-future-text) !important;
-  border-top: none !important;
-  border-right: none !important;
-  border-bottom: none !important;
-  border-left: 3px solid var(--cal-future-border) !important;
-}
-.cal-count-badge {
-  background-color: var(--cal-badge-bg) !important;
-  color: var(--cal-badge-text) !important;
-  border-color: var(--cal-badge-border) !important;
-}
-.cal-week-card {
-  background-color: var(--cal-week-card-bg) !important;
-  border-color: var(--cal-grid-border) !important;
-}
-.cal-day-card {
-  background-color: var(--cal-day-card-bg) !important;
-  border-color: var(--cal-grid-border) !important;
-}
-.cal-folio-badge {
-  background-color: var(--cal-folio-bg) !important;
-  color: var(--cal-folio-text) !important;
-  border-color: var(--cal-folio-border) !important;
-}
+/* Autocomplete de búsqueda en Agenda */
 .cal-suggestions {
-  background-color: var(--cal-suggest-bg);
-  border: 1px solid var(--cal-suggest-border);
+  background-color: var(--cal-suggest-bg, #ffffff);
+  border: 1px solid var(--border-ui, #e2e8f0);
   border-radius: 0.75rem;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
   max-height: 200px;
   overflow-y: auto;
   z-index: 50;
+}
+html.dark .cal-suggestions {
+  background-color: #0f172a;
+  border-color: #334155;
 }
 .cal-suggestion-item {
   padding: 0.5rem 0.75rem;
@@ -957,64 +892,6 @@ html.dark .card-alert-info {
 .cal-suggestion-item.active {
   background-color: var(--cal-suggest-hover);
   color: var(--text-primary);
-}
-.cal-event-past,
-.cal-event-past h4,
-.cal-event-past p,
-.cal-event-past span,
-.cal-event-past div {
-  color: var(--cal-past-text) !important;
-}
-.cal-event-future,
-.cal-event-future h4,
-.cal-event-future p,
-.cal-event-future span,
-.cal-event-future div {
-  color: var(--cal-future-text) !important;
-}
-.cal-event-past p,
-.cal-event-past span:not(.font-bold),
-.cal-event-past .text-\[8px\],
-.cal-event-past [style*="color: var(--text-tertiary)"] {
-  opacity: 0.75 !important;
-}
-.cal-event-future p,
-.cal-event-future span:not(.font-bold),
-.cal-event-future .text-\[8px\],
-.cal-event-future [style*="color: var(--text-tertiary)"] {
-  opacity: 0.75 !important;
-}
-.cal-event-past .cal-folio-badge {
-  background-color: rgba(203, 213, 225, 0.25) !important;
-  color: var(--cal-past-text) !important;
-  border-color: rgba(203, 213, 225, 0.7) !important;
-}
-.cal-event-future .cal-folio-badge {
-  background-color: rgba(16, 185, 129, 0.12) !important;
-  color: var(--cal-future-text) !important;
-  border-color: rgba(16, 185, 129, 0.4) !important;
-}
-html.dark .cal-event-past .cal-folio-badge {
-  background-color: rgba(148, 163, 184, 0.1) !important;
-  color: var(--cal-past-text) !important;
-  border-color: rgba(148, 163, 184, 0.3) !important;
-}
-html.dark .cal-event-future .cal-folio-badge {
-  background-color: rgba(52, 211, 153, 0.08) !important;
-  color: var(--cal-future-text) !important;
-  border-color: rgba(52, 211, 153, 0.25) !important;
-}
-.cal-event-past div[style*="border-top"] {
-  border-top-color: rgba(203, 213, 225, 0.4) !important;
-}
-.cal-event-future div[style*="border-top"] {
-  border-top-color: rgba(16, 185, 129, 0.25) !important;
-}
-html.dark .cal-event-past div[style*="border-top"] {
-  border-top-color: rgba(148, 163, 184, 0.2) !important;
-}
-html.dark .cal-event-future div[style*="border-top"] {
-  border-top-color: rgba(52, 211, 153, 0.15) !important;
 }
 
 /* Cápsula de Estado */

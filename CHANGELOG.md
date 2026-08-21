@@ -2,7 +2,26 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo. El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
-## [Unreleased]
+## [2.9.0] - 2026-08-21
+
+### Added
+- **Sincronización Dinámica de Límites de Fechas**: Control bidireccional en tiempo real (`minDate` / `maxDate`) entre selectores de *Fecha Desde/Inicio* y *Fecha Hasta/Término* en Dashboard, Reportes y Sujetos Pasivos para impedir rangos invertidos.
+- **Filtros Temporales en Sujetos Pasivos**: Filtrado condicionado por rango de fechas (Fecha Inicio / Fecha Término) con integración al componente de calendario Air Datepicker v3.
+- **Separación de Fechas en Sujetos Pasivos**: Visualización independiente de las columnas *Fecha Inicio* y *Fecha Término* en el listado de Sujetos Pasivos.
+- **Ocultamiento Dinámico de Fines de Semana en Agenda**: Las vistas de Mes y Semana colapsan automáticamente sábados y domingos si no contienen eventos, expandiéndose reactivamente a 7 columnas si existe alguna audiencia agendada.
+
+### Changed
+- **Rediseño Integral de la Agenda**: Interfaz construida con Tailwind CSS v4, modal pop-over de eventos del día, ordenamiento cronológico estricto y navegación fluida sin selectores nativos del sistema.
+- **Homologación de Filtros en Sujetos Pasivos**: Integración de la tarjeta oficial de filtros del sistema de diseño en grilla de 4 columnas responsive con búsqueda general de texto editable y fluido.
+- **Ordenamiento Inteligente de Sujetos Pasivos**: Priorización de registros con cargos vigentes/indefinidos primero (ordenados por fecha de incorporación) seguidos de los cargos con fecha de término definida.
+- **Visualización de Cargo y Nombre**: Ampliación del ancho de columna para nombres y limpieza de sufijos duplicados en la descripción de cargos (`getCargoClean`).
+
+### Removed
+- **Limpieza de Código Residual**: Eliminación de más de 150 líneas de código muerto de máscaras por teclado obsoletas (`handleDateDisplayInput`, `handleDateDisplayKeydown`, etc.) y supresión de helpers globales huérfanos.
+
+### Fixed
+- **Tolerancia a Solicitudes sin Plazo Legal**: Solución al error `calculateDeadline is not defined` que provocaba la pantalla *"Error en Servidor Local"* cuando una solicitud importada no contenía fecha límite o fecha de ingreso.
+- **Estado de Vigencia en Modal de Sujeto Pasivo**: Corrección en el cálculo de vigencia para cargos con término indefinido o continuo en la ficha de detalle.
 
 ## [2.8.0] - 2026-08-18
 

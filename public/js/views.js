@@ -614,7 +614,7 @@ function renderSolicitudes(container) {
           <td class="px-2 text-xs text-left">
             <div class="font-semibold text-slate-200" title="Fecha Ingreso">${formatDate(item.fecha_ingreso)}</div>
             <div class="text-[10px] text-slate-400 mt-0.5" title="Plazo Legal Límite">
-              ${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : calculateDeadline(item.fecha_ingreso)}
+              ${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : (item.fecha_ingreso ? formatDate(item.fecha_ingreso) : "---")}
             </div>
           </td>
           <td class="px-2 text-xs text-slate-300 font-medium text-left">${formatDate(item.fecha_respuesta) || "---"}</td>
@@ -1404,25 +1404,48 @@ function renderPublicadas(container) {
   `;
 }
 
+function isFechaTerminoIndefinida(ft) {
+  if (!ft) return true;
+  const s = String(ft).trim().toLowerCase();
+  return s === '' || s === '-' || s === 'null' || s.includes('indefin');
+}
+
 function isSujetoPasivoVigente(item) {
   if (item.id_sujeto_lobby && typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache.size > 0) {
     return activeSujetoIdsCache.has(item.id_sujeto_lobby);
   }
-  const ft = (item.fecha_termino || '').trim().toLowerCase();
-  if (!ft || ft === '' || ft === '-' || ft === 'null' || ft.includes('indefin')) return true;
-  return false;
+  return isFechaTerminoIndefinida(item.fecha_termino);
 }
 
 // RENDER: VISTA SUJETOS PASIVOS SPH
 function renderSujetosPasivos(container) {
   const search = paginationState.sujetos_pasivos.search.toLowerCase();
   const vigencia = paginationState.sujetos_pasivos.vigencia || 'todos';
+  const tipoFecha = paginationState.sujetos_pasivos.tipoFecha || 'incorporacion';
+  const fechaDesde = paginationState.sujetos_pasivos.fechaDesde || '';
+  const fechaHasta = paginationState.sujetos_pasivos.fechaHasta || '';
+
   let filtered = dataStore.sujetos_pasivos || [];
   if (vigencia === 'vigentes') {
     filtered = filtered.filter((item) => isSujetoPasivoVigente(item));
   } else if (vigencia === 'no_vigentes') {
     filtered = filtered.filter((item) => !isSujetoPasivoVigente(item));
   }
+
+  // Filtrado condicionado por Fecha de Incorporación o Fecha de Término
+  if (fechaDesde || fechaHasta) {
+    filtered = filtered.filter((item) => {
+      const targetDate = tipoFecha === 'termino' ? item.fecha_termino : item.fecha_incorporacion;
+      if (!targetDate) return false;
+      if (tipoFecha === 'termino' && isFechaTerminoIndefinida(targetDate)) return false;
+
+      const d = targetDate.split(' ')[0];
+      if (fechaDesde && d < fechaDesde) return false;
+      if (fechaHasta && d > fechaHasta) return false;
+      return true;
+    });
+  }
+
   if (search) {
     filtered = filtered.filter((item) => {
       const nombre = (item.nombre || "").toLowerCase();
@@ -1438,6 +1461,20 @@ function renderSujetosPasivos(container) {
     });
   }
 
+  // Ordenar: Indefinidos primero (por fecha_incorporacion DESC), luego fecha_termino DESC
+  filtered.sort((a, b) => {
+    const isIndefA = isFechaTerminoIndefinida(a.fecha_termino);
+    const isIndefB = isFechaTerminoIndefinida(b.fecha_termino);
+
+    if (isIndefA && isIndefB) {
+      return (b.fecha_incorporacion || '').localeCompare(a.fecha_incorporacion || '');
+    }
+    if (isIndefA) return -1;
+    if (isIndefB) return 1;
+
+    return (b.fecha_termino || '').localeCompare(a.fecha_termino || '');
+  });
+
   const totalItems = filtered.length;
   const currentPage = paginationState.sujetos_pasivos.page;
   const pageSize = 10;
@@ -1449,28 +1486,31 @@ function renderSujetosPasivos(container) {
   let rowsHtml = "";
 
   if (paginatedItems.length === 0) {
-    rowsHtml = `<tr><td colspan="6" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de sujetos pasivos.</td></tr>`;
+    rowsHtml = `<tr><td colspan="7" class="px-3 py-8 text-center text-xs text-slate-300">No hay registros de sujetos pasivos.</td></tr>`;
   } else {
     paginatedItems.forEach((item) => {
       const isVigente = isSujetoPasivoVigente(item);
+      const isIndef = isFechaTerminoIndefinida(item.fecha_termino);
       const statusBadge = isVigente
         ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status-enplazo">Vigente</span>`
         : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold badge-status-vencido">No Vigente</span>`;
 
       rowsHtml += `
         <tr class="hover:bg-slate-900/40 border-b border-slate-800 transition-colors h-[72px]">
-          <td class="pl-6 pr-2 text-xs font-semibold text-slate-200">
-            <div class="w-full truncate" title="${escapeHtmlAttr(item.nombre)}">${escapeHtml(item.nombre)}</div>
+          <td class="pl-6 pr-3 text-xs font-semibold text-slate-200">
+            <div class="leading-snug" title="${escapeHtmlAttr(item.nombre)}">${escapeHtml(item.nombre)}</div>
           </td>
           <td class="px-2 text-xs text-slate-300 font-mono">
             <div class="w-full truncate">${escapeHtml(item.rut || "No definido")}</div>
           </td>
-          <td class="px-2 text-xs text-slate-300 font-medium">
-            <div class="w-full truncate" title="${escapeHtmlAttr(getCargoClean(item.cargo))}">${escapeHtml(getCargoClean(item.cargo))}</div>
+          <td class="px-3 text-xs text-slate-300 font-medium">
+            <div class="line-clamp-2 leading-relaxed" title="${escapeHtmlAttr(getCargoClean(item.cargo))}">${escapeHtml(getCargoClean(item.cargo))}</div>
           </td>
-          <td class="px-2 text-xs text-slate-300">
-            <div class="font-semibold text-slate-200" title="Fecha Inicio">${formatDate(item.fecha_incorporacion)}</div>
-            <div class="text-[10px] text-slate-400 mt-0.5" title="Fecha Término">${item.fecha_termino ? formatDate(item.fecha_termino) : 'Presente'}</div>
+          <td class="px-2 text-xs text-slate-300 font-mono">
+            <div>${formatDate(item.fecha_incorporacion)}</div>
+          </td>
+          <td class="px-2 text-xs text-slate-300 font-mono">
+            <div>${isIndef ? '<span class="text-slate-500 font-bold select-none">-</span>' : formatDate(item.fecha_termino)}</div>
           </td>
           <td class="px-2 text-xs">
             ${statusBadge}
@@ -1506,42 +1546,93 @@ function renderSujetosPasivos(container) {
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-white tracking-tight">Sujetos Pasivos</h2>
+        <h2 class="text-2xl font-bold text-heading tracking-tight">Sujetos Pasivos</h2>
       </div>
     </div>
 
-    <!-- CONTENEDOR FILTROS Y TABLA -->
-    <div class="rounded-2xl overflow-hidden mt-4 border border-slate-700/40 glass-card">
-      <div class="p-4 border-b border-slate-200 dark:border-slate-800/80 flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div class="w-full md:w-80">
-            ${renderSearchInput({
-              id: "search-sujetos",
-              fieldName: "search",
-              placeholder: "Buscar por Nombre, RUT o Cargo...",
-              value: paginationState.sujetos_pasivos.search,
-              icon: "search",
-            })}
-          </div>
+    <!-- CONTENEDOR FILTROS ESTÁNDAR (IDÉNTICO A SOLICITUDES, AUDIENCIAS Y REPORTES) -->
+    ${renderGlassCard(
+      `
+      <div class="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800/60 pb-3 gap-2">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+            <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+            Filtros
+          </h3>
           ${renderVigenciaSelect({
             id: "filter-sujetos-vigencia",
             value: paginationState.sujetos_pasivos.vigencia,
             onChange: "changeSujetosPasivosVigencia",
           })}
         </div>
-        <div class="text-xs text-slate-500 dark:text-slate-300" id="sujetos-counter">Mostrando ${totalItems} registros en total</div>
+        ${(paginationState.sujetos_pasivos.search || paginationState.sujetos_pasivos.fechaDesde || paginationState.sujetos_pasivos.fechaHasta || paginationState.sujetos_pasivos.vigencia !== 'todos') ? `
+          <button onclick="clearSujetosFilters()" class="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-0">
+            <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
+          </button>
+        ` : ''}
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- BUSCADOR GENERAL -->
+        ${renderSearchInput({
+          id: "search-sujetos",
+          fieldName: "search",
+          label: "Búsqueda General",
+          placeholder: "Nombre, RUT o Cargo...",
+          value: paginationState.sujetos_pasivos.search,
+          icon: "search",
+        })}
+
+        <!-- CRITERIO DE FECHA -->
+        ${renderSelectInput({
+          id: "filter-sujetos-tipoFecha",
+          fieldName: "tipoFecha",
+          label: "Criterio de Fecha",
+          value: tipoFecha,
+          optionsList: [
+            { value: "incorporacion", text: "Fecha Incorporación" },
+            { value: "termino", text: "Fecha Término" }
+          ]
+        })}
+
+        <!-- FECHA DESDE (AIR DATEPICKER) -->
+        ${renderDateInput({
+          id: "filter-sujetos-fechadesde",
+          fieldName: "fechaDesde",
+          label: "Fecha Desde",
+          value: fechaDesde,
+        })}
+
+        <!-- FECHA HASTA (AIR DATEPICKER) -->
+        ${renderDateInput({
+          id: "filter-sujetos-fechahasta",
+          fieldName: "fechaHasta",
+          label: "Fecha Hasta",
+          value: fechaHasta,
+        })}
+      </div>
+      `,
+      "rounded-2xl p-5 space-y-4 relative z-20 mt-4",
+    )}
+
+    <!-- CONTENEDOR TABLA -->
+    <div class="rounded-2xl overflow-hidden mt-6 border border-slate-700/40 glass-card">
+      <div class="p-4 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Registros Oficiales</div>
+        <div class="text-xs text-slate-500 dark:text-slate-300 shrink-0" id="sujetos-counter">Mostrando ${totalItems} registros en total</div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse table-fixed" id="table-sujetos">
           <thead>
             <tr class="bg-slate-800/30 border-b border-slate-700/60 text-slate-400 text-[10px] uppercase font-bold tracking-widest">
-              <th class="pl-6 pr-2 py-3 w-56 text-left">Nombre Completo</th>
-              <th class="px-2 py-3 w-32 text-left">RUT / RUN</th>
-              <th class="px-2 py-3 w-64 text-left">Cargo Municipal</th>
-              <th class="px-2 py-3 w-48 text-left">Fechas de Vigencia</th>
-              <th class="px-2 py-3 w-28 text-left">Estado</th>
-              <th class="pl-2 pr-6 py-3 w-32 text-left">Acción</th>
+              <th class="pl-6 pr-3 py-3 w-60 text-left">Nombre Completo</th>
+              <th class="px-2 py-3 w-28 text-left">RUT / RUN</th>
+              <th class="px-3 py-3 min-w-[220px] text-left">Cargo</th>
+              <th class="px-2 py-3 w-28 text-left">Fecha Inicio</th>
+              <th class="px-2 py-3 w-28 text-left">Fecha Término</th>
+              <th class="px-2 py-3 w-24 text-left">Estado</th>
+              <th class="pl-2 pr-6 py-3 w-28 text-left">Acción</th>
             </tr>
           </thead>
           <tbody>
@@ -1610,6 +1701,12 @@ function showSujetoDetailsModal(sujetoId) {
       `;
     }
 
+    const isVigente = isSujetoPasivoVigente(item);
+    const isIndef = isFechaTerminoIndefinida(item.fecha_termino);
+    const statusBadgeModal = isVigente
+      ? `<span class="px-2.5 py-0.5 text-[10px] rounded-md font-bold badge-status-enplazo">Vigente</span>`
+      : `<span class="px-2.5 py-0.5 text-[10px] rounded-md font-bold badge-status-vencido">No Vigente</span>`;
+
     modal.innerHTML = `
       <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] font-sans text-left">
         <!-- Header -->
@@ -1650,17 +1747,14 @@ function showSujetoDetailsModal(sujetoId) {
 
           <div>
             <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Cargo</span>
-            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.cargo || "Sin cargo registrado")}</p>
+            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(getCargoClean(item.cargo))}</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Estado de Vigencia</span>
               <p class="mt-1">
-                ${item.fecha_termino 
-                  ? `<span class="px-2.5 py-0.5 text-[10px] rounded-md font-semibold badge-status-vencido">No Vigente</span>` 
-                  : `<span class="px-2.5 py-0.5 text-[10px] rounded-md font-semibold badge-status-enplazo">Vigente</span>`
-                }
+                ${statusBadgeModal}
               </p>
             </div>
           </div>
@@ -1672,7 +1766,7 @@ function showSujetoDetailsModal(sujetoId) {
             </div>
             <div>
               <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Fecha de Término</span>
-              <p class="text-slate-700 dark:text-slate-200 font-semibold font-mono mt-0.5">${item.fecha_termino ? formatDate(item.fecha_termino) : "—"}</p>
+              <p class="text-slate-700 dark:text-slate-200 font-semibold font-mono mt-0.5">${isIndef ? "Indefinido" : formatDate(item.fecha_termino)}</p>
             </div>
           </div>
 
@@ -1930,7 +2024,7 @@ function showSolicitudDetailsModal(idOrItem, isPending = false) {
             </div>
             <div>
               <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">DDL</span>
-              <span class="text-slate-700 dark:text-slate-200 font-semibold">${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : calculateDeadline(item.fecha_ingreso)}</span>
+              <span class="text-slate-700 dark:text-slate-200 font-semibold">${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : (item.fecha_ingreso ? formatDate(item.fecha_ingreso) : "—")}</span>
             </div>
             <div>
               <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold mb-0.5">F. Respuesta</span>
@@ -4343,6 +4437,10 @@ function detectCalendarConflicts(events) {
 }
 
 function drawCalendarBodyOnly() {
+  const rangeLabel = document.getElementById("calendar-active-range-label");
+  if (rangeLabel) {
+    rangeLabel.textContent = getCalendarActiveTitle();
+  }
   const titleDisplay = document.getElementById("calendar-title-display");
   if (titleDisplay) {
     titleDisplay.textContent = getCalendarActiveTitle();
@@ -4417,17 +4515,21 @@ function drawMonthView(container, events) {
   const year = currentCalendarDate.getFullYear();
   const month = currentCalendarDate.getMonth();
 
-  const firstDayOfMonth = new Date(year, month, 1);
-  const startDay = firstDayOfMonth.getDay();
-  let prevMonthDaysCount = startDay === 0 ? 6 : startDay - 1;
+  // Escanear si hay reuniones en Sábado o Domingo durante el mes activo
+  const hasWeekendEventsInMonth = events.some((e) => {
+    if (!e.fecha_agendada) return false;
+    const [datePart] = e.fecha_agendada.split(" ");
+    const [y, m, d] = datePart.split("-").map(Number);
+    if (y === year && m - 1 === month) {
+      const dayOfWeek = new Date(y, m - 1, d).getDay();
+      return dayOfWeek === 0 || dayOfWeek === 6; // 0 = Domingo, 6 = Sábado
+    }
+    return false;
+  });
 
-  const gridStartDate = new Date(firstDayOfMonth);
-  gridStartDate.setDate(gridStartDate.getDate() - prevMonthDaysCount);
-
-  let html = `
-    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;" class="calendar-grid-wrapper rounded-2xl overflow-hidden border shadow-xl">
-      <!-- Headers -->
-      ${[
+  const colsCount = hasWeekendEventsInMonth ? 7 : 5;
+  const dayHeaders = hasWeekendEventsInMonth
+    ? [
         "Lunes",
         "Martes",
         "Miércoles",
@@ -4436,9 +4538,29 @@ function drawMonthView(container, events) {
         "Sábado",
         "Domingo",
       ]
+    : ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startDay = firstDayOfMonth.getDay();
+  let prevMonthDaysCount = startDay === 0 ? 6 : startDay - 1;
+
+  const gridStartDate = new Date(firstDayOfMonth);
+  gridStartDate.setDate(gridStartDate.getDate() - prevMonthDaysCount);
+
+  // Calcular número de semanas del mes
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const endDay = lastDayOfMonth.getDay();
+  let daysAfter = endDay === 0 ? 0 : 7 - endDay;
+  const totalDaysSpan = prevMonthDaysCount + lastDayOfMonth.getDate() + daysAfter;
+  const weeksCount = Math.ceil(totalDaysSpan / 7);
+
+  let html = `
+    <div class="grid ${hasWeekendEventsInMonth ? "grid-cols-7" : "grid-cols-5"} gap-px rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-200 dark:bg-slate-800 shadow-sm h-[calc(100vh-250px)] min-h-[520px]">
+      <!-- Headers -->
+      ${dayHeaders
         .map(
           (day) => `
-        <div class="py-2 text-center text-[10px] font-bold uppercase tracking-wider calendar-header-cell border-b select-none">
+        <div class="bg-slate-50 dark:bg-slate-900/90 text-slate-500 dark:text-slate-400 text-[10.5px] font-bold uppercase tracking-wider py-2.5 text-center select-none border-b border-slate-200 dark:border-slate-800">
           ${day}
         </div>
       `,
@@ -4450,86 +4572,212 @@ function drawMonthView(container, events) {
   const todayStr = formatLocalDateYYYYMMDD(today);
   const tempDate = new Date(gridStartDate);
 
-  for (let i = 0; i < 42; i++) {
-    const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
-    const isCurrentMonth = tempDate.getMonth() === month;
-    const isToday = tempDateStr === todayStr;
+  for (let w = 0; w < weeksCount; w++) {
+    for (let d = 0; d < 7; d++) {
+      const dayOfWeek = tempDate.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    const cellEvents = events.filter(
-      (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
-    );
+      // Si el mes no tiene reuniones de fin de semana, saltar sábados y domingos
+      if (!hasWeekendEventsInMonth && isWeekend) {
+        tempDate.setDate(tempDate.getDate() + 1);
+        continue;
+      }
 
-    const visibleEvents = cellEvents.slice(0, 2);
-    const hiddenCount = cellEvents.length - visibleEvents.length;
+      const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
+      const isCurrentMonth = tempDate.getMonth() === month;
+      const isToday = tempDateStr === todayStr;
 
-    html += `
-      <div onclick="selectCalendarDay('${tempDateStr}')" 
-           class="calendar-cell p-1.5 flex flex-col justify-between relative cursor-pointer ${
-             isToday ? "ring-1 ring-brand-500/50" : ""
-           }" style="min-height: 86px; max-height: 96px; height: 90px;">
-        <div class="flex justify-between items-center mb-1 select-none">
-          <span class="text-xs font-bold ${
-            isToday
-              ? "text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded-lg border border-brand-500/20"
-              : isCurrentMonth
-                ? ""
-                : "opacity-40"
-          }" style="color: ${isToday ? "" : "var(--text-secondary)"}">
-            ${tempDate.getDate()}
-          </span>
-          ${
-            cellEvents.length > 0
-              ? `<span class="text-[8.5px] font-bold cal-badge-events px-1.5 py-0.2 rounded-full border">${cellEvents.length}</span>`
-              : ""
-          }
-        </div>
-        <div class="flex-1 space-y-1 text-left overflow-hidden">
-          ${visibleEvents
-            .map((e) => {
-              const isPast =
-                e.fecha_agendada && e.fecha_agendada.split(" ")[0] < todayStr;
-              const timeStr =
-                e.fecha_agendada && e.fecha_agendada.split(" ")[1]
-                  ? e.fecha_agendada.split(" ")[1].slice(0, 5)
-                  : "00:00";
-              const chipClass = isPast ? "cal-event-past" : "cal-event-future";
+      const cellEvents = isCurrentMonth
+        ? events
+            .filter(
+              (e) =>
+                e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
+            )
+            .sort((a, b) =>
+              (a.fecha_agendada || "").localeCompare(b.fecha_agendada || ""),
+            )
+        : [];
 
-              return `
-              <div onclick="event.stopPropagation(); showAgendaDetailsModal(${e.id})" 
-                   class="p-1 rounded-md cursor-pointer transition-all meeting-card-lift hover:-translate-y-px active:translate-y-0 ${chipClass} select-none border-l-2 ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30" : ""}"
-                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${e.hasConflict ? `\n⚠️ ${escapeHtmlAttr(e.conflictDetails || "")}` : ""}">
-                <!-- Line 1: Time & Folio -->
-                <div class="flex items-center justify-between gap-1 leading-none mb-0.5">
-                  <span class="font-mono text-[9px] font-bold shrink-0 ${e.hasConflict ? "text-amber-500" : "text-brand-600 dark:text-brand-400"}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
-                  <span class="font-mono text-[7.5px] font-bold cal-folio-badge px-1 py-0.2 rounded truncate">F:${escapeHtml(e.folio_lobby || "s/f")}</span>
+      const maxVisible = cellEvents.length <= 2 ? 2 : 1;
+      const visibleEvents = cellEvents.slice(0, maxVisible);
+      const hiddenCount = cellEvents.length - visibleEvents.length;
+
+      html += `
+        <div ${isCurrentMonth ? `onclick="openDayEventsModal('${tempDateStr}')"` : ""} 
+             class="p-2 flex flex-col justify-between min-h-0 overflow-hidden transition-colors ${
+               isToday
+                 ? "bg-violet-50/60 dark:bg-violet-950/30 ring-2 ring-brand-500 ring-inset z-10 cursor-pointer"
+                 : isCurrentMonth
+                   ? isWeekend
+                     ? "bg-amber-50/30 dark:bg-amber-950/20 hover:bg-amber-100/40 cursor-pointer"
+                     : "bg-white dark:bg-slate-900 hover:bg-violet-50/40 dark:hover:bg-violet-950/20 cursor-pointer"
+                   : "bg-slate-50/80 dark:bg-slate-950/80 opacity-30 select-none cursor-default"
+             }">
+          <!-- Header del día -->
+          <div class="flex items-center justify-between leading-none mb-1 select-none">
+            <span class="text-xs font-bold ${
+              isToday
+                ? "w-6 h-6 flex items-center justify-center rounded-full bg-brand-600 text-white shadow-sm"
+                : isCurrentMonth
+                  ? isWeekend
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-slate-800 dark:text-slate-200"
+                  : "text-slate-400 dark:text-slate-600"
+            }">
+              ${tempDate.getDate()}
+            </span>
+            ${isWeekend && isCurrentMonth ? '<span class="text-[7.5px] font-bold uppercase tracking-wider text-amber-500 px-1 rounded bg-amber-500/10 border border-amber-500/20">Fin de Semana</span>' : ''}
+          </div>
+
+          <!-- Lista de micro-píldoras elásticas -->
+          <div class="flex-1 space-y-1 overflow-hidden">
+            ${visibleEvents
+              .map((e) => {
+                const isPast =
+                  e.fecha_agendada && e.fecha_agendada.split(" ")[0] < todayStr;
+                const timeStr =
+                  e.fecha_agendada && e.fecha_agendada.split(" ")[1]
+                    ? e.fecha_agendada.split(" ")[1].slice(0, 5)
+                    : "00:00";
+
+                return `
+                <div onclick="event.stopPropagation(); showAgendaDetailsModal(${e.id})" 
+                     class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10.5px] border cursor-pointer select-none transition-all hover:scale-[1.01] shadow-xs ${
+                       isWeekend
+                         ? "bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700/60 text-amber-950 dark:text-amber-100"
+                         : isPast
+                           ? "bg-slate-100/90 dark:bg-slate-800/70 border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-200/90"
+                           : "bg-violet-50 dark:bg-violet-950/50 border-violet-200/90 dark:border-violet-800/60 text-slate-900 dark:text-slate-100 hover:bg-violet-100 dark:hover:bg-violet-900/60"
+                     } ${e.hasConflict ? "ring-1 ring-amber-500/40" : ""}"
+                     title="${escapeHtmlAttr(e.sujeto_pasivo)} (${timeStr}) - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${isWeekend ? ' [⚠️ Fin de semana]' : ''}">
+                  <span class="font-mono font-bold text-[10px] shrink-0 ${isWeekend ? "text-amber-600 dark:text-amber-400" : e.hasConflict ? "text-amber-500" : isPast ? "text-slate-500 dark:text-slate-400" : "text-violet-700 dark:text-violet-400"}">${timeStr}</span>
+                  <span class="truncate font-semibold">${escapeHtml(e.sujeto_pasivo)}</span>
                 </div>
-                <!-- Line 2: Sujeto Pasivo — Sujeto Activo -->
-                <div class="text-[9px] truncate leading-tight text-left">
-                  <span class="font-bold" style="color: inherit">${escapeHtml(e.sujeto_pasivo)}</span>
-                  <span class="opacity-70 font-normal"> — ${escapeHtml(e.sujeto_activo || e.representado || "Particular")}</span>
-                </div>
+              `;
+              })
+              .join("")}
+            ${
+              hiddenCount > 0
+                ? `
+              <div onclick="event.stopPropagation(); openDayEventsModal('${tempDateStr}')" 
+                   class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 hover:bg-violet-200 dark:hover:bg-violet-800/70 transition-colors cursor-pointer select-none">
+                +${hiddenCount} más
               </div>
-            `;
-            })
-            .join("")}
-          ${
-            hiddenCount > 0
-              ? `
-            <div class="text-[8px] font-bold text-brand-600 dark:text-brand-400 hover:underline cursor-pointer select-none leading-none pt-0.5">
-              +${hiddenCount} más →
-            </div>
-          `
-              : ""
-          }
+            `
+                : ""
+            }
+          </div>
         </div>
-      </div>
-    `;
+      `;
 
-    tempDate.setDate(tempDate.getDate() + 1);
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
   }
 
   html += `</div>`;
   container.innerHTML = html;
+}
+
+function openDayEventsModal(dateStr) {
+  try {
+    const event = window.event;
+    if (event) event.stopPropagation();
+
+    const eventsList = window.calendarEvents || calendarEvents || [];
+    const dayEvents = eventsList
+      .filter((e) => e.fecha_agendada && e.fecha_agendada.startsWith(dateStr))
+      .sort((a, b) =>
+        (a.fecha_agendada || "").localeCompare(b.fecha_agendada || ""),
+      );
+
+    const modal = document.getElementById("modal-container");
+    if (!modal) return;
+
+    const today = new Date();
+    const todayStr = formatLocalDateYYYYMMDD(today);
+    const isToday = dateStr === todayStr;
+
+    modal.classList.remove("hidden");
+    modal.classList.add("backdrop-animate-in");
+
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-lg p-5 rounded-3xl space-y-4 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl max-h-[85vh] flex flex-col font-sans text-left">
+        <!-- Header del Pop-over -->
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-500 dark:bg-brand-500/20 dark:text-brand-400 flex items-center justify-center shrink-0">
+              <i data-lucide="calendar" class="h-5 w-5"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>Audiencias del Día</span>
+                ${isToday ? '<span class="text-[9px] font-bold uppercase px-2 py-0.5 bg-brand-500 text-white rounded-full">Hoy</span>' : ''}
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">${formatDate(dateStr)}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              ${dayEvents.length} ${dayEvents.length === 1 ? 'Reunión' : 'Reuniones'}
+            </span>
+            <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" title="Cerrar">
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Listado de Audiencias con scroll interno ordenadas cronológicamente -->
+        <div class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
+          ${dayEvents.length === 0 ? `
+            <div class="py-12 text-center select-none">
+              <i data-lucide="calendar" class="h-8 w-8 mx-auto mb-2 text-slate-300 dark:text-slate-600"></i>
+              <p class="text-xs italic text-slate-400 dark:text-slate-500">No hay audiencias registradas para esta fecha.</p>
+            </div>
+          ` : dayEvents.map(e => {
+            const isPast = e.fecha_agendada && e.fecha_agendada.split(" ")[0] < todayStr;
+            const timeStr = e.fecha_agendada && e.fecha_agendada.split(" ")[1] ? e.fecha_agendada.split(" ")[1].slice(0, 5) : "00:00";
+            return `
+              <div onclick="showAgendaDetailsModal(${e.id})" 
+                   class="p-3 rounded-2xl border text-left cursor-pointer transition-all hover:scale-[1.01] ${
+                     isPast
+                       ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60'
+                       : 'bg-violet-50/70 dark:bg-violet-950/30 border-violet-200/80 dark:border-violet-800/50 hover:bg-violet-100/80'
+                   } ${e.hasConflict ? 'ring-1 ring-amber-500/40' : ''}">
+                <div class="flex items-center justify-between mb-1 select-none">
+                  <span class="text-xs font-bold font-mono ${e.hasConflict ? 'text-amber-500' : isPast ? 'text-slate-500 dark:text-slate-400' : 'text-violet-700 dark:text-violet-400'}">${e.hasConflict ? '⚠️ ' : ''}${timeStr} hrs</span>
+                  <div class="flex items-center gap-1.5">
+                    ${e.hasConflict ? '<span class="text-[8px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25 px-1.5 py-0.5 rounded">CHOQUE</span>' : ''}
+                    <span class="text-[8.5px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Folio: ${escapeHtml(e.folio_lobby || 's/f')}</span>
+                  </div>
+                </div>
+                <h4 class="text-xs font-bold truncate text-slate-900 dark:text-slate-100">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
+                <div class="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                  <span class="truncate">Solicitante: <strong class="text-slate-700 dark:text-slate-300">${escapeHtml(e.sujeto_activo || 'Sin Lobbista')}</strong></span>
+                  <span class="text-brand-500 dark:text-brand-400 font-semibold shrink-0">Ver ficha →</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-between items-center pt-2 shrink-0 border-t border-slate-200 dark:border-slate-800">
+          <button onclick="previousCalendarViewMode = 'month'; calendarViewMode = 'day'; currentCalendarDate = new Date('${dateStr}T12:00:00'); closeModal(); renderView();" class="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 cursor-pointer">
+            <span>Ir a vista diaria completa</span>
+            <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+          </button>
+          <button type="button" onclick="closeModal()" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    `;
+
+    lucide.createIcons();
+  } catch (err) {
+    console.error("Error al abrir popover de audiencias del día:", err);
+  }
 }
 
 function drawWeekView(container, events) {
@@ -4558,38 +4806,54 @@ function drawWeekView(container, events) {
 
   for (let i = 0; i < 7; i++) {
     const tempDateStr = formatLocalDateYYYYMMDD(tempDate);
-    const cellEvents = events.filter(
-      (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
-    );
+    const isWeekend = i >= 5;
+    const cellEvents = events
+      .filter(
+        (e) => e.fecha_agendada && e.fecha_agendada.startsWith(tempDateStr),
+      )
+      .sort((a, b) =>
+        (a.fecha_agendada || "").localeCompare(b.fecha_agendada || ""),
+      );
     weekDays.push({
       name: dayNames[i],
       date: tempDate.getDate(),
       dateStr: tempDateStr,
       isToday: tempDateStr === todayStr,
+      isWeekend: isWeekend,
       events: cellEvents,
     });
     tempDate.setDate(tempDate.getDate() + 1);
   }
 
-  // 2. Grilla horizontal de 7 columnas contenida a la altura de la pantalla
-  let html = `<div class="w-full" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.5rem; height: calc(100vh - 275px); min-height: 520px;">`;
+  // Detectar si el fin de semana tiene reuniones
+  const hasWeekendEvents =
+    weekDays[5].events.length > 0 || weekDays[6].events.length > 0;
+  const activeDays = hasWeekendEvents ? weekDays : weekDays.slice(0, 5);
+  const gridColsClass = hasWeekendEvents ? "grid-cols-7" : "grid-cols-5";
 
-  weekDays.forEach((day) => {
+  // 2. Grilla horizontal dinámica (5 columnas si no hay eventos en fin de semana, 7 si los hay)
+  let html = `<div class="w-full grid ${gridColsClass} gap-3 h-[calc(100vh-250px)] min-h-[520px]">`;
+
+  activeDays.forEach((day) => {
     html += `
-      <div class="cal-week-card glass-card flex flex-col rounded-2xl border ${
-        day.isToday ? "ring-2 ring-brand-500/50 shadow-md shadow-brand-500/10" : ""
-      } p-3" style="height: 100%; display: flex; flex-direction: column; overflow: hidden;">
-        <div class="border-b pb-2 mb-2.5 text-center select-none shrink-0 ${day.isToday ? "bg-brand-500/10 rounded-xl pt-1" : ""}" style="border-color: var(--border-ui);">
-          <p class="text-[9.5px] font-bold uppercase tracking-wider ${day.isToday ? "text-brand-500 dark:text-brand-400" : ""}" style="color: ${day.isToday ? "" : "var(--text-tertiary)"}">${day.name}</p>
-          <p class="text-base font-extrabold mt-0.5" style="color: ${day.isToday ? "var(--brand-color)" : "var(--text-primary)"}">${day.date}</p>
-          ${day.isToday ? `<span class="inline-block text-[7.5px] font-bold uppercase px-1.5 py-0.2 bg-brand-500 text-white rounded-full mt-0.5">Hoy</span>` : ''}
+      <div class="bg-white dark:bg-slate-900 flex flex-col rounded-2xl border ${
+        day.isWeekend
+          ? "border-amber-200 dark:border-amber-900/60 bg-amber-50/10"
+          : "border-slate-200 dark:border-slate-800"
+      } ${
+        day.isToday ? "ring-2 ring-brand-500 shadow-md shadow-brand-500/10" : ""
+      } p-3.5 overflow-hidden shadow-xs">
+        <div class="border-b border-slate-200 dark:border-slate-800 pb-2 mb-2.5 text-center select-none shrink-0 ${day.isToday ? "bg-brand-500/10 rounded-xl pt-1.5 pb-1.5" : ""}">
+          <p class="text-[10.5px] font-bold uppercase tracking-wider ${day.isToday ? "text-brand-600 dark:text-brand-400" : day.isWeekend ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}">${day.name}</p>
+          <p class="text-lg font-extrabold mt-0.5 ${day.isToday ? "text-brand-600 dark:text-brand-400" : "text-slate-800 dark:text-slate-100"}">${day.date}</p>
+          ${day.isToday ? `<span class="inline-block text-[8px] font-bold uppercase px-2 py-0.5 bg-brand-500 text-white rounded-full mt-0.5 shadow-sm">Hoy</span>` : day.isWeekend ? `<span class="inline-block text-[7.5px] font-bold uppercase px-1.5 py-0.2 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 rounded-full mt-0.5">Fin de Semana</span>` : ''}
         </div>
-        <div class="flex-1 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto space-y-2.5 pr-0.5 custom-scrollbar">
           ${
             day.events.length === 0
               ? `
             <div class="h-full flex items-center justify-center py-20">
-              <p class="text-[9.5px] font-medium italic select-none opacity-60" style="color: var(--cal-empty-text)">Sin reuniones</p>
+              <p class="text-[10.5px] font-medium italic select-none opacity-60 text-slate-400 dark:text-slate-500">Sin reuniones</p>
             </div>
           `
               : day.events
@@ -4601,26 +4865,30 @@ function drawWeekView(container, events) {
                       e.fecha_agendada && e.fecha_agendada.split(" ")[1]
                         ? e.fecha_agendada.split(" ")[1].slice(0, 5)
                         : "00:00";
-                    const chipClass = isPast
-                      ? "cal-event-past"
-                      : "cal-event-future";
 
                     return `
               <div onclick="showAgendaDetailsModal(${e.id})" 
-                   class="p-2.5 rounded-xl border cursor-pointer text-left transition-all meeting-card-lift hover:-translate-y-0.5 active:translate-y-0 ${chipClass} ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-sm" : ""}"
-                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${e.hasConflict ? `\n⚠️ ${escapeHtmlAttr(e.conflictDetails || "")}` : ""}">
-                <!-- Fila 1: Hora + Folio -->
+                   class="p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 border-l-4 ${
+                     day.isWeekend
+                       ? "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/30"
+                       : isPast
+                         ? "border-l-slate-400 bg-slate-50/90 dark:bg-slate-800/40"
+                         : "border-l-brand-500 bg-violet-50/40 dark:bg-violet-950/20 hover:bg-violet-50 dark:hover:bg-violet-950/40"
+                   } cursor-pointer text-left transition-all hover:scale-[1.01] shadow-xs ${e.hasConflict ? "ring-1 ring-amber-500/40" : ""}"
+                   title="${escapeHtmlAttr(e.sujeto_pasivo)} - Folio: ${escapeHtmlAttr(e.folio_lobby || "Sin Folio")}${day.isWeekend ? " [⚠️ Reunión en Fin de Semana]" : ""}">
+                <!-- Fila 1: Hora + Folio + Badges -->
                 <div class="flex items-center justify-between mb-1 select-none">
-                  <span class="text-[9.5px] font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
+                  <span class="text-[10.5px] font-bold font-mono ${day.isWeekend ? "text-amber-600 dark:text-amber-400" : e.hasConflict ? "text-amber-500 dark:text-amber-400" : isPast ? "text-slate-500 dark:text-slate-400" : "text-violet-700 dark:text-violet-300"}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
                   <div class="flex gap-1 items-center">
+                    ${day.isWeekend ? `<span class="text-[7px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/25 px-1 py-0.5 rounded shadow-sm select-none">⚠️ FIN DE SEMANA</span>` : ""}
                     ${e.hasConflict ? `<span class="text-[7px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25 px-1 py-0.5 rounded shadow-sm select-none">CHOQUE</span>` : ""}
-                    <span class="text-[8px] font-bold font-mono cal-folio-badge px-1.5 py-0.5 rounded border">Folio: ${escapeHtml(e.folio_lobby || "s/f")}</span>
+                    <span class="text-[8.5px] font-bold font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">Folio: ${escapeHtml(e.folio_lobby || "s/f")}</span>
                   </div>
                 </div>
                 <!-- Fila 2: Sujeto Pasivo -->
-                <h4 class="text-[11px] font-bold truncate" style="color: var(--text-primary)" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
+                <h4 class="text-xs font-bold truncate ${isPast ? "text-slate-700 dark:text-slate-300" : "text-slate-900 dark:text-slate-100"}" title="${escapeHtmlAttr(e.sujeto_pasivo)}">${escapeHtml(e.sujeto_pasivo)}</h4>
                 <!-- Fila 3: Sujeto Activo / Representado -->
-                <p class="text-[9px] truncate mt-0.5 font-medium" style="color: var(--text-tertiary)" title="${escapeHtmlAttr((e.sujeto_activo || "Sin Lobbista") + (e.representado ? " · " + e.representado : ""))}">
+                <p class="text-[10px] truncate mt-0.5 font-medium ${isPast ? "text-slate-400 dark:text-slate-500" : "text-slate-500 dark:text-slate-400"}" title="${escapeHtmlAttr((e.sujeto_activo || "Sin Lobbista") + (e.representado ? " · " + e.representado : ""))}">
                   ${escapeHtml(e.sujeto_activo || "Sin Lobbista")}${e.representado && e.representado !== e.sujeto_activo ? ` <span class="opacity-75">· ${escapeHtml(e.representado)}</span>` : ""}
                 </p>
               </div>
@@ -4642,41 +4910,53 @@ function drawDayView(container, events) {
   const todayStr = formatLocalDateYYYYMMDD(today);
   const activeDateStr = formatLocalDateYYYYMMDD(currentCalendarDate);
 
-  const cellEvents = events.filter(
-    (e) => e.fecha_agendada && e.fecha_agendada.startsWith(activeDateStr),
-  );
+  const cellEvents = events
+    .filter(
+      (e) => e.fecha_agendada && e.fecha_agendada.startsWith(activeDateStr),
+    )
+    .sort((a, b) =>
+      (a.fecha_agendada || "").localeCompare(b.fecha_agendada || ""),
+    );
+
+  const backTargetMode =
+    typeof previousCalendarViewMode !== "undefined" &&
+    previousCalendarViewMode === "week"
+      ? "week"
+      : "month";
+  const backLabel =
+    backTargetMode === "week" ? "Volver a Semana" : "Volver al Mes";
 
   let html = `
-    <div class="cal-day-card glass-card rounded-2xl border p-5 shadow-xl flex flex-col" style="height: calc(100vh - 275px); min-height: 520px; overflow: hidden;">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm flex flex-col h-[calc(100vh-250px)] min-h-[520px] overflow-hidden">
       <!-- Cabecera Superior Fija -->
-      <div class="border-b pb-3 mb-3 flex justify-between items-center select-none shrink-0" style="border-color: var(--border-ui)">
+      <div class="border-b border-slate-200 dark:border-slate-800 pb-3 mb-3 flex justify-between items-center select-none shrink-0">
         <div class="flex items-center gap-3 text-left">
-          <button onclick="calendarViewMode = 'week'; renderView();" class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer flex items-center gap-1.5">
-            <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
-            <span>Volver a Semana</span>
+          <button onclick="calendarViewMode = '${backTargetMode}'; renderView();" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+            <span>${backLabel}</span>
           </button>
           <div>
-            <h3 class="text-sm font-bold" style="color: var(--text-primary)">Reuniones del Día</h3>
-            <p class="text-xs" style="color: var(--text-tertiary)">${formatDate(activeDateStr)}</p>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-slate-100">Reuniones del Día</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${formatDate(activeDateStr)}</p>
           </div>
         </div>
-        <span class="px-3 py-1 rounded-xl text-xs font-bold cal-folio-badge border">
+        <span class="px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-xs">
           ${cellEvents.length} ${cellEvents.length === 1 ? "Reunión" : "Reuniones"}
         </span>
       </div>
       
-      <!-- Listado Interno con Scroll Propio (Sin Materia en Tarjetas) -->
+      <!-- Listado Interno con Scroll Propio -->
       <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
         ${
           cellEvents.length === 0
             ? `
           <div class="py-24 text-center select-none">
-            <i data-lucide="calendar" class="h-10 w-10 mx-auto mb-3" style="color: var(--border-ui)"></i>
-            <p class="text-xs italic" style="color: var(--cal-empty-text)">No hay reuniones programadas para este día.</p>
+            <i data-lucide="calendar" class="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600"></i>
+            <p class="text-xs italic text-slate-400 dark:text-slate-500">No hay reuniones programadas para este día.</p>
           </div>
         `
             : `
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             ${cellEvents
               .map((e) => {
                 const isPast =
@@ -4688,39 +4968,56 @@ function drawDayView(container, events) {
 
                 return `
                 <div onclick="showAgendaDetailsModal(${e.id})" 
-                     class="p-4 rounded-xl border text-left cursor-pointer transition-all meeting-card-lift hover:-translate-y-px active:translate-y-0 ${isPast ? "cal-event-past" : "cal-event-future"} flex gap-3.5 items-start ${e.hasConflict ? "ring-1 ring-amber-500/40 dark:ring-amber-500/30 shadow-md" : ""}">
-                  <div class="flex flex-col items-center shrink-0 w-14 select-none">
-                    <span class="text-xs font-bold font-mono ${e.hasConflict ? "text-amber-500 dark:text-amber-400" : ""}">${e.hasConflict ? "⚠️ " : ""}${timeStr}</span>
-                    <span class="text-[8px] font-semibold mt-1 uppercase tracking-wider" style="color: var(--text-tertiary)">Inicio</span>
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5 mb-1.5 flex-wrap select-none">
-                      ${e.hasConflict ? `<span class="border border-amber-500/35 bg-amber-500/10 text-amber-500 text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shadow-sm">⚠️ CHOQUE DE HORARIO</span>` : ""}
-                      <span class="cal-folio-badge border text-[8px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider">Folio: ${escapeHtml(e.folio_lobby || "Sin Folio")}</span>
+                     class="p-4 rounded-2xl border text-left cursor-pointer transition-all hover:scale-[1.005] shadow-xs hover:shadow-md ${
+                       isPast
+                         ? "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60"
+                         : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-brand-500/40"
+                     } flex flex-col gap-3 ${e.hasConflict ? "ring-1 ring-amber-500/40 shadow-md" : ""}">
+                  <!-- Top Row: Time & Folio Badges -->
+                  <div class="flex items-center justify-between select-none">
+                    <div class="flex items-center gap-2">
+                      <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold ${
+                        e.hasConflict
+                          ? "bg-amber-500/10 text-amber-500 border border-amber-500/25"
+                          : isPast
+                            ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                            : "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300"
+                      }">
+                        ${e.hasConflict ? "⚠️ " : ""}${timeStr} hrs
+                      </span>
+                      ${e.hasConflict ? `<span class="border border-amber-500/35 bg-amber-500/10 text-amber-500 text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">CHOQUE HORARIO</span>` : ""}
                     </div>
-                    <h4 class="text-xs font-bold truncate" style="color: var(--text-primary)">${escapeHtml(e.sujeto_pasivo)}</h4>
-                    <p class="text-[10px] font-semibold mt-0.5 truncate" style="color: var(--text-tertiary)">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
-                    
-                    ${
-                      e.hasConflict
-                        ? `
-                      <div class="mt-2 text-[10px] font-bold text-amber-500 dark:text-amber-400 flex items-center gap-1.5 select-none bg-amber-500/5 p-2 rounded-lg border border-amber-500/15">
-                        <i data-lucide="alert-triangle" class="h-3.5 w-3.5 shrink-0 text-amber-500"></i>
-                        <span>${escapeHtml(e.conflictDetails)}</span>
-                      </div>
-                    `
-                        : ""
-                    }
-                    
-                    <div class="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                      <div>
-                        <span class="text-[8px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Sujeto Activo</span>
-                        <span class="font-medium truncate block" style="color: var(--text-secondary)" title="${escapeHtmlAttr(e.sujeto_activo || "Sin Lobbista")}">${escapeHtml(e.sujeto_activo || "Sin Lobbista")}</span>
-                      </div>
-                      <div>
-                        <span class="text-[8px] block uppercase tracking-wider font-bold select-none" style="color: var(--text-tertiary)">Representado</span>
-                        <span class="font-medium truncate block" style="color: var(--text-secondary)" title="${escapeHtmlAttr(e.representado || "Particular")}">${escapeHtml(e.representado || "Particular")}</span>
-                      </div>
+                    <span class="text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      Folio: ${escapeHtml(e.folio_lobby || "Sin Folio")}
+                    </span>
+                  </div>
+
+                  <!-- Authority info -->
+                  <div>
+                    <h4 class="text-sm font-bold truncate ${isPast ? "text-slate-700 dark:text-slate-300" : "text-slate-900 dark:text-slate-100"}">${escapeHtml(e.sujeto_pasivo)}</h4>
+                    <p class="text-xs font-medium mt-0.5 truncate text-slate-500 dark:text-slate-400">${escapeHtml(e.cargo_limpio || getCargoClean(e.cargo))}</p>
+                  </div>
+                  
+                  ${
+                    e.hasConflict
+                      ? `
+                    <div class="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 select-none bg-amber-500/5 p-2 rounded-xl border border-amber-500/20">
+                      <i data-lucide="alert-triangle" class="h-3.5 w-3.5 shrink-0 text-amber-500"></i>
+                      <span>${escapeHtml(e.conflictDetails)}</span>
+                    </div>
+                  `
+                      : ""
+                  }
+                  
+                  <!-- Participants in structured boxes -->
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                      <span class="text-[8px] block uppercase tracking-wider font-bold select-none text-slate-400 dark:text-slate-500">Sujeto Activo (Lobbista)</span>
+                      <span class="font-semibold truncate block text-slate-700 dark:text-slate-200 mt-0.5" title="${escapeHtmlAttr(e.sujeto_activo || "Sin Lobbista")}">${escapeHtml(e.sujeto_activo || "Sin Lobbista")}</span>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                      <span class="text-[8px] block uppercase tracking-wider font-bold select-none text-slate-400 dark:text-slate-500">Representado</span>
+                      <span class="font-semibold truncate block text-slate-700 dark:text-slate-200 mt-0.5" title="${escapeHtmlAttr(e.representado || "Particular")}">${escapeHtml(e.representado || "Particular")}</span>
                     </div>
                   </div>
                 </div>
@@ -4805,7 +5102,7 @@ function showAgendaDetailsModal(eventId) {
     modal.classList.remove("hidden");
     modal.classList.add("backdrop-animate-in");
     modal.innerHTML = `
-      <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 text-[var(--text-primary)] max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
+      <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl text-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar font-sans text-left">
         <!-- Header -->
         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div class="flex items-center gap-2">
@@ -4814,10 +5111,10 @@ function showAgendaDetailsModal(eventId) {
             </div>
             <div>
               <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Detalle de Audiencia</h3>
-              <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-350">Folio: <span class="font-mono text-brand-500 dark:text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
             </div>
           </div>
-          <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer">
+          <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer">
             <i data-lucide="x" class="h-4 w-4"></i>
           </button>
         </div>
@@ -4859,16 +5156,16 @@ function showAgendaDetailsModal(eventId) {
 
           <div>
             <span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Materia</span>
-            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || "Sin especificar")}</p>
+            <p class="text-xs text-slate-700 dark:text-slate-200 font-semibold mt-1 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl leading-relaxed select-text">${escapeHtml(item.materia || "Sin especificar")}</p>
           </div>
 
-          ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span><p class="text-xs text-slate-600 dark:text-slate-300 mt-1 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 p-2.5 rounded-xl leading-relaxed select-text">' + escapeHtml(item.especificacion_materia) + "</p></div>" : ""}
+          ${item.especificacion_materia ? '<div><span class="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Especificación de la Materia</span><p class="text-xs text-slate-600 dark:text-slate-300 mt-1 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl leading-relaxed select-text">' + escapeHtml(item.especificacion_materia) + "</p></div>" : ""}
         </div>
 
         <!-- Footer -->
         <div class="flex justify-end gap-3 pt-2">
-          ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ""}
-          <button type="button" onclick="closeModal()" class="px-4 py-2.5 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+          ${item.id_lobby ? '<a href="https://www.leylobby.gob.cl/admin/solicitudes/' + item.id_lobby + '" target="_blank" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all hover:shadow-lg hover:shadow-brand-500/20 cursor-pointer">Ver Solicitud Original <i data-lucide="external-link" class="h-3.5 w-3.5"></i></a>' : ""}
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer">
             Cerrar
           </button>
         </div>
@@ -4890,104 +5187,60 @@ function showAgendaDetailsModal(eventId) {
 function renderAgenda(container) {
   const searchVal = calendarFilters.search || "";
 
-  // Generar opciones para meses (0 a 11)
-  const monthNames = [
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
-  const currentMonth = currentCalendarDate.getMonth();
-  const monthOptions = monthNames
-    .map(
-      (name, idx) =>
-        `<option value="${idx}" ${idx === currentMonth ? "selected" : ""}>${name}</option>`,
-    )
-    .join("");
-
-  // Generar opciones para años (desde 2014 hasta el año actual + 1)
-  const currentYear = currentCalendarDate.getFullYear();
-  const maxYear = new Date().getFullYear() + 1;
-  const yearOptionsList = [];
-  for (let y = 2014; y <= maxYear; y++) {
-    yearOptionsList.push(
-      `<option value="${y}" ${y === currentYear ? "selected" : ""}>${y}</option>`,
-    );
-  }
-  const yearOptions = yearOptionsList.join("");
-
   let headerHtml = `
-    <div class="space-y-6 font-sans">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div class="space-y-1 text-left">
-          <h2 class="text-xl font-bold text-heading flex items-center gap-2 select-none flex-wrap">
-            <span class="flex items-center gap-2">
-              <i data-lucide="calendar" class="h-5 w-5 text-brand-500"></i>
-              Agenda de Audiencias
-            </span>
-            <span id="calendar-title-display" class="text-xs font-bold px-2.5 py-0.5 bg-brand-500/10 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400 rounded-xl border border-brand-500/20 shadow-sm animate-fade-in">
-              Cargando...
-            </span>
+    <div class="space-y-4 font-sans">
+      <!-- Title Bar (Uncluttered) -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+        <div class="space-y-0.5 text-left">
+          <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 select-none">
+            <i data-lucide="calendar" class="h-5 w-5 text-brand-500"></i>
+            <span>Agenda de Audiencias</span>
           </h2>
-          <p class="text-xs text-slate-400">Revisión de audiencias programadas y verificación de plazos.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Revisión de audiencias programadas y verificación de plazos.</p>
         </div>
       </div>
 
-      <!-- Integrated Controls Bar (Uncluttered, symmetrical, and elastically aligned) -->
-      <div class="glass-card p-2.5 rounded-2xl flex flex-col md:flex-row items-center gap-4 border border-slate-200 dark:border-slate-800/60 shadow-sm bg-white/80 dark:bg-slate-900/80 backdrop-blur-md relative z-30">
-        <!-- Search bar with autocomplete (Stretches to fill space) -->
-        <div class="relative flex-1 w-full" id="cal-search-wrapper">
+      <!-- Integrated Controls Bar (Tailwind UI Pattern) -->
+      <div class="glass-card p-2.5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3 border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md relative z-30 shadow-sm">
+        <!-- Compact Search bar with autocomplete -->
+        <div class="relative w-full md:w-72" id="cal-search-wrapper">
           <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500"></i>
           <input type="text" id="search-calendar" 
                  oninput="onCalendarSearchInput(this.value)" 
                  onfocus="onCalendarSearchFocus()"
                  onkeydown="onCalendarSearchKeydown(event)"
-                 placeholder="Buscar por autoridad, cargo o folio..." 
+                 placeholder="Buscar por autoridad o folio..." 
                  value="${escapeHtmlAttr(searchVal)}" 
                  autocomplete="off"
-                 class="w-full py-2 pl-10 pr-4 rounded-xl text-xs border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 focus:bg-white dark:focus:bg-slate-950 focus:border-brand-500 dark:focus:border-brand-500 focus:outline-none transition-all" style="color: var(--text-primary)">
+                 class="w-full py-1.5 pl-9 pr-3 rounded-xl text-xs border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-950 focus:border-brand-500 dark:focus:border-brand-500 focus:outline-none transition-all">
           <div id="cal-suggestions-list" class="cal-suggestions absolute top-full left-0 right-0 mt-1 hidden"></div>
         </div>
         
         <!-- Controls grouped on the right -->
-        <div class="flex items-center gap-3 shrink-0 flex-wrap justify-end w-full md:w-auto">
+        <div class="flex items-center gap-2.5 shrink-0 flex-wrap justify-end w-full md:w-auto">
           ${renderVigenciaSelect({
             id: "calendar-filter-vigencia",
             value: calendarFilters.vigencia,
             onChange: "changeCalendarVigencia",
           })}
 
-          <!-- Navigation with Month/Year Quick Selectors -->
-          <div class="flex items-center bg-slate-50 dark:bg-slate-950/40 p-1 px-2.5 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-2">
-            <button onclick="navigateCalendar(-1)" class="h-6 w-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all cursor-pointer" title="Anterior">
-              <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+          <!-- Temporal Navigation Capsule (Tailwind UI Pattern: No native OS select dropdowns) -->
+          <div class="flex items-center bg-slate-50 dark:bg-slate-950/40 p-1 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-1 select-none">
+            <button onclick="navigateCalendar(-1)" class="h-7 w-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 transition-all cursor-pointer" title="Anterior">
+              <i data-lucide="chevron-left" class="h-4 w-4"></i>
             </button>
-            <button onclick="goCalendarToday()" class="text-xs font-semibold px-2 py-0.5 text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-all cursor-pointer" title="Volver a Hoy">
+            <button onclick="goCalendarToday()" class="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-white dark:hover:bg-slate-900 rounded-lg transition-all cursor-pointer" title="Volver a Hoy">
               Hoy
             </button>
-            
-            <select id="cal-month-select" onchange="onCalendarDropdownChange()" class="bg-transparent border-0 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:outline-none cursor-pointer pr-1">
-              ${monthOptions}
-            </select>
-            
-            <select id="cal-year-select" onchange="onCalendarDropdownChange()" class="bg-transparent border-0 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:outline-none cursor-pointer pr-1">
-              ${yearOptions}
-            </select>
-            
-            <button onclick="navigateCalendar(1)" class="h-6 w-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all cursor-pointer" title="Siguiente">
-              <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+            <span id="calendar-active-range-label" class="px-3 py-1 text-xs font-bold text-slate-800 dark:text-slate-100 min-w-[110px] text-center tracking-wide">
+              ${getCalendarActiveTitle()}
+            </span>
+            <button onclick="navigateCalendar(1)" class="h-7 w-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white hover:bg-white dark:hover:bg-slate-900 transition-all cursor-pointer" title="Siguiente">
+              <i data-lucide="chevron-right" class="h-4 w-4"></i>
             </button>
           </div>
           
-          <!-- View selector -->
+          <!-- View Switcher (Segmented Button Group) -->
           <div class="flex items-center bg-slate-50 dark:bg-slate-950/40 p-1 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-0.5">
             ${["month", "week", "day"]
               .map((view) => {
@@ -5000,7 +5253,7 @@ function renderAgenda(container) {
                 return (
                   "<button onclick=\"changeCalendarViewMode('" +
                   view +
-                  '\')" class="px-3.5 py-1 rounded-lg text-xs transition-all cursor-pointer ' +
+                  '\')" class="px-3 py-1 rounded-lg text-xs transition-all cursor-pointer ' +
                   activeClass +
                   '">' +
                   label +
@@ -5013,7 +5266,7 @@ function renderAgenda(container) {
       </div>
 
       <!-- Calendar body container -->
-      <div id="calendar-content-placeholder" class="relative" style="min-height: 660px;">
+      <div id="calendar-content-placeholder" class="relative">
         <!-- Rendered dynamically -->
       </div>
     </div>
@@ -5027,6 +5280,9 @@ function renderAgenda(container) {
 
 // Registrar funciones de la Agenda en el ámbito global window
 window.changeCalendarViewMode = function (mode) {
+  if (calendarViewMode !== mode && calendarViewMode !== "day") {
+    previousCalendarViewMode = calendarViewMode;
+  }
   calendarViewMode = mode;
   renderView();
 };
@@ -5194,8 +5450,13 @@ document.addEventListener("click", function (e) {
 });
 
 window.showAgendaDetailsModal = showAgendaDetailsModal;
+window.getCalendarActiveTitle = getCalendarActiveTitle;
+window.formatCalendarTitle = getCalendarActiveTitle;
 
 window.selectCalendarDay = function (dateStr) {
+  if (calendarViewMode !== "day") {
+    previousCalendarViewMode = calendarViewMode;
+  }
   currentCalendarDate = new Date(dateStr + "T12:00:00");
   calendarViewMode = "day";
   renderView();

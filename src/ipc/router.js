@@ -1031,7 +1031,29 @@ async function handle(req, setSharepointCookie) {
       return { status: 403, data: { error: 'Acceso denegado. No autorizado para consultar sujetos pasivos.' } };
     }
     return new Promise((resolve) => {
-      db.all('SELECT * FROM sujetos_pasivos_sph ORDER BY fecha_incorporacion DESC', [], (err, rows) => {
+      const sql = `
+        SELECT * FROM sujetos_pasivos_sph
+        ORDER BY 
+          CASE 
+            WHEN fecha_termino IS NULL 
+              OR TRIM(fecha_termino) = '' 
+              OR LOWER(TRIM(fecha_termino)) IN ('indefinido', 'indefinicio', 'null', '-')
+              OR LOWER(TRIM(fecha_termino)) LIKE '%indefin%' 
+            THEN 0 
+            ELSE 1 
+          END ASC,
+          CASE 
+            WHEN fecha_termino IS NULL 
+              OR TRIM(fecha_termino) = '' 
+              OR LOWER(TRIM(fecha_termino)) IN ('indefinido', 'indefinicio', 'null', '-')
+              OR LOWER(TRIM(fecha_termino)) LIKE '%indefin%' 
+            THEN fecha_incorporacion 
+            ELSE NULL 
+          END DESC,
+          fecha_termino DESC,
+          fecha_incorporacion DESC
+      `;
+      db.all(sql, [], (err, rows) => {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         resolve({ status: 200, data: rows });
       });

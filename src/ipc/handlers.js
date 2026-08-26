@@ -320,13 +320,25 @@ safeIpcHandle("generate-excel-file", async (event, { data, sheetName, filePath }
   }
 });
 
-safeIpcHandle("generate-silent-pdf", async (event, { html, filePath }) => {
+safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) => {
   const { BrowserWindow } = require("electron");
   const fs = require("fs");
   const path = require("path");
 
   return new Promise((resolve) => {
     try {
+      // Cargar logo en base64 para incrustarlo directamente y evitar condiciones de carrera al imprimir
+      let processedHtml = html;
+      try {
+        const logoPath = path.join(__dirname, "../../public/logo_secum.png");
+        if (fs.existsSync(logoPath)) {
+          const logoBase64 = `data:image/png;base64,${fs.readFileSync(logoPath).toString("base64")}`;
+          processedHtml = processedHtml.replace(/\/logo_secum\.png/g, logoBase64);
+        }
+      } catch (imgErr) {
+        console.warn("No se pudo incrustar logo en base64:", imgErr.message);
+      }
+
       const win = new BrowserWindow({
         show: false,
         webPreferences: {
@@ -339,9 +351,32 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath }) => {
 
       win.webContents.on("did-finish-load", async () => {
         try {
-          const escapedHtml = JSON.stringify(html);
+          const docTitle = title || path.basename(filePath, path.extname(filePath));
+          const escapedTitle = JSON.stringify(docTitle);
+          const escapedHtml = JSON.stringify(processedHtml);
           await win.webContents.executeJavaScript(`
-            document.getElementById('print-content').innerHTML = ${escapedHtml};
+            (async () => {
+              document.title = ${escapedTitle};
+              document.getElementById('print-content').innerHTML = ${escapedHtml};
+              
+              // Esperar a que todas las imágenes se encuentren decodificadas y cargadas
+              const imgs = Array.from(document.images);
+              await Promise.all(imgs.map(img => {
+                if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+                if (img.decode) {
+                  return img.decode().catch(() => {});
+                }
+                return new Promise(res => {
+                  img.onload = res;
+                  img.onerror = res;
+                });
+              }));
+
+              // Esperar renderizado tipográfico
+              if (document.fonts) {
+                await document.fonts.ready;
+              }
+            })()
           `);
 
           const pdfBuffer = await win.webContents.printToPDF({

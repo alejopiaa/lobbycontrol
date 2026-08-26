@@ -2,6 +2,19 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo. El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [2.9.1] - 2026-08-26
+
+### Changed
+- **Homologación Institucional de Encabezados**: Unificación del título y membrete en todos los reportes individuales, masivos y generales bajo *"Reporte de Solicitudes de Audiencia"* y subtítulo *"Audiencias registradas bajo la Ley N° 20.730 de Lobby"*, eliminando denominaciones no institucionales.
+
+### Fixed
+- **Renderizado y Carga del Logotipo en Reportes PDF**: Solución al fallo de sincronización en la exportación de Chromium mediante incrustación directa en Base64 y espera explícita de decodificación de imágenes y fuentes, garantizando la aparición del logotipo en todos los reportes.
+- **Corte Inferior del Logo Institucional**: Reestructuración del contenedor del membrete en la plantilla de impresión (`municipal-header-p1`) con espaciado limpio para evitar el solapamiento y corte de texto provocado por tablas con `border-collapse`.
+- **Metadatos y Título Dinámico al Exportar PDF**: Asignación automática del nombre específico del reporte en `document.title`, evitando que los visores de PDF o el cuadro de guardado utilicen el nombre genérico de la plantilla.
+- **Parser Multiformato de Fechas en Ingesta**: Normalización automática en `parseExcelDate` para fechas ingresadas en formato texto (`DD/MM/YYYY`, `DD-MM-YYYY`, `YYYY/MM/DD`, con o sin hora) estandarizándolas al formato ISO `YYYY-MM-DD` / `YYYY-MM-DD HH:MM`.
+- **Tolerancia a Nulos en Filtros de Cargo**: Blindaje con fallback seguro en el filtro de cargo de la subpestaña *Pendientes de Publicación* ante registros sin cargo asignado.
+- **Validación Defensiva de Plazos**: Protección contra excepciones en tiempo de ejecución al procesar cadenas de plazo (`item.plazo`) nulas o indefinidas en la tabla de auditoría y en la exportación de reportes a PDF.
+
 ## [2.9.0] - 2026-08-21
 
 ### Added

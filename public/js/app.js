@@ -3011,13 +3011,14 @@ function buildReportPDFHtml({ processedData, filtersSnapshot, sujetoPasivoNombre
     const plazoBg   = isOverdue ? '#fff1f2' : '#f0fdf4';
     const plazoBorder = isOverdue ? '#fecdd3' : '#bbf7d0';
 
-    const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
-    let mainCode = item.plazo;
+    const plazoStr = item.plazo || '';
+    const hasDays = plazoStr.includes('(') && plazoStr.includes(')');
+    let mainCode = plazoStr || '—';
     let days = '';
     if (hasDays) {
-      const parts = item.plazo.split(' ');
-      mainCode = parts[0];
-      days = parts[1].replace(/[()]/g, '');
+      const parts = plazoStr.split(' ');
+      mainCode = parts[0] || '—';
+      days = (parts[1] || '').replace(/[()]/g, '');
     }
 
     const showTwoLine = hasDays && (mainCode === 'FDP' || mainCode === 'RFP');
@@ -3101,18 +3102,18 @@ function buildReportPDFHtml({ processedData, filtersSnapshot, sujetoPasivoNombre
       }
     </style>
     <div style="font-family: 'Inter', sans-serif;">
-      <div class="municipal-header-p1">
-        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
+      <div class="municipal-header-p1" style="border-bottom: 2px solid #334155; padding-bottom: 14px; margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse; border: none;">
           <tr>
             <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
               <table style="border-collapse: collapse; border: none;">
                 <tr>
-                  <td style="padding-right: 12px; vertical-align: middle; border: none;">
-                    <img src="/logo_secum.png" style="height: 52px; width: auto; display: block;" />
+                  <td style="padding-right: 14px; vertical-align: middle; border: none;">
+                    <img src="/logo_secum.png" style="height: 46px; max-height: 46px; width: auto; object-fit: contain; display: block;" />
                   </td>
                   <td style="vertical-align: middle; border: none;">
-                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Reporte de Solicitudes de Audiencia</div>
-                    <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; line-height: 1.2;">Reporte de Solicitudes de Audiencia</div>
+                    <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 2px; line-height: 1.2;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
                   </td>
                 </tr>
               </table>
@@ -3275,7 +3276,11 @@ async function exportReportToPDF() {
     }
 
     showToast('Generando reporte PDF...');
-    const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath: saveResult.filePath });
+    const silentResult = await window.api.generateSilentPdf({
+      html: htmlContent,
+      filePath: saveResult.filePath,
+      title: `${codigoReporte} - ${displayNombre}`
+    });
 
     if (silentResult && silentResult.success) {
       showToast(`Reporte ${codigoReporte} guardado correctamente.`, 'success');
@@ -3391,7 +3396,7 @@ async function exportReportToExcel() {
   }
 }
 
-// Función para generar el Reporte Ejecutivo PDF (Resumen Gerencial Nominativo por Sujeto Pasivo)
+// Función para generar el Reporte Ejecutivo PDF (Resumen Nominativo por Sujeto Pasivo)
 async function exportReporteEjecutivoPDF() {
   if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
     showToast('No hay datos para exportar.', 'error');
@@ -3541,7 +3546,7 @@ async function exportReporteEjecutivoPDF() {
         margin-right: 15mm;
         
         @top-left {
-          content: "Informe Ejecutivo de Gestión (Ley N° 20.730 de Lobby) — Municipalidad de Maipú";
+          content: "Reporte de Solicitudes de Audiencia (Ley N° 20.730 de Lobby) — Municipalidad de Maipú";
           font-family: 'Inter', sans-serif;
           font-size: 8px;
           font-weight: 800;
@@ -3573,18 +3578,18 @@ async function exportReporteEjecutivoPDF() {
       }
     </style>
     <div style="font-family: 'Inter', sans-serif;">
-      <div class="municipal-header-p1">
-        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 12px;">
+      <div class="municipal-header-p1" style="border-bottom: 2px solid #334155; padding-bottom: 14px; margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse; border: none;">
           <tr>
             <td style="vertical-align: middle; text-align: left; border: none; padding: 0;">
               <table style="border-collapse: collapse; border: none;">
                 <tr>
-                  <td style="padding-right: 12px; vertical-align: middle; border: none;">
-                    <img src="/logo_secum.png" style="height: 48px; width: auto; display: block;" />
+                  <td style="padding-right: 14px; vertical-align: middle; border: none;">
+                    <img src="/logo_secum.png" style="height: 46px; max-height: 46px; width: auto; object-fit: contain; display: block;" />
                   </td>
                   <td style="vertical-align: middle; border: none;">
-                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Informe Ejecutivo de Gestión — Ley de Lobby</div>
-                    <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 1px;">Síntesis gerencial de cumplimiento normativo y audiencias</div>
+                    <div style="font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; line-height: 1.2;">Reporte de Solicitudes de Audiencia</div>
+                    <div style="font-size: 9px; font-weight: 600; color: #64748b; margin-top: 2px; line-height: 1.2;">Audiencias registradas bajo la Ley N° 20.730 de Lobby</div>
                   </td>
                 </tr>
               </table>
@@ -3727,7 +3732,11 @@ async function exportReporteEjecutivoPDF() {
   }
 
   showToast('Generando Reporte Ejecutivo PDF...');
-  const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath: saveResult.filePath });
+  const silentResult = await window.api.generateSilentPdf({
+    html: htmlContent,
+    filePath: saveResult.filePath,
+    title: 'Reporte de Solicitudes de Audiencia — Resumen General'
+  });
 
   if (silentResult && silentResult.success) {
     showToast(`Reporte Ejecutivo PDF guardado correctamente.`, 'success');
@@ -6005,13 +6014,14 @@ async function generarReportesMasivos() {
       const plazoBg   = isOverdue ? '#fef2f2' : '#f0fdf4';
       const plazoBorder = isOverdue ? '#fecaca' : '#bbf7d0';
 
-      const hasDays = item.plazo.includes('(') && item.plazo.includes(')');
-      let mainCode = item.plazo;
+      const plazoStr = item.plazo || '';
+      const hasDays = plazoStr.includes('(') && plazoStr.includes(')');
+      let mainCode = plazoStr || '—';
       let days = '';
       if (hasDays) {
-        const parts = item.plazo.split(' ');
-        mainCode = parts[0];
-        days = parts[1].replace(/[()]/g, '');
+        const parts = plazoStr.split(' ');
+        mainCode = parts[0] || '—';
+        days = (parts[1] || '').replace(/[()]/g, '');
       }
 
       const showTwoLine = hasDays && (mainCode === 'FDP' || mainCode === 'RFP');
@@ -6067,7 +6077,11 @@ async function generarReportesMasivos() {
     const filePath = `${destFolder}/${fileName}`.replace(/\\/g, '/');
 
     // Generar archivo PDF silencioso
-    const silentResult = await window.api.generateSilentPdf({ html: htmlContent, filePath });
+    const silentResult = await window.api.generateSilentPdf({
+      html: htmlContent,
+      filePath,
+      title: `${codigoReporte} - ${name}`
+    });
 
     if (silentResult && silentResult.success) {
       // Éxito al generar PDF silencioso

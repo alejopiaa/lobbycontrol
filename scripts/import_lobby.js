@@ -201,7 +201,6 @@ console.log("Iniciando importación desde:", excelPath);
 // Función para formatear fechas de Excel a ISO YYYY-MM-DD [HH:MM]
 function parseExcelDate(serial) {
   if (serial === undefined || serial === null || serial === "") return "";
-  if (typeof serial === "string") return serial.trim();
   if (typeof serial === "number") {
     const utcDays = serial - 25569;
     const date = new Date(Math.round(utcDays * 86400000));
@@ -217,7 +216,39 @@ function parseExcelDate(serial) {
     }
     return `${yyyy}-${mm}-${dd}`;
   }
-  return String(serial).trim();
+
+  const str = String(serial).trim();
+  if (!str) return "";
+
+  // 1. Formato ISO existente: YYYY-MM-DD o YYYY/MM/DD [HH:MM]
+  const isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  if (isoMatch) {
+    const y = isoMatch[1];
+    const m = String(isoMatch[2]).padStart(2, "0");
+    const d = String(isoMatch[3]).padStart(2, "0");
+    if (isoMatch[4] !== undefined) {
+      const hh = String(isoMatch[4]).padStart(2, "0");
+      const min = String(isoMatch[5] || "00").padStart(2, "0");
+      return `${y}-${m}-${d} ${hh}:${min}`;
+    }
+    return `${y}-${m}-${d}`;
+  }
+
+  // 2. Formato Latino/Español: DD/MM/YYYY o DD-MM-YYYY [HH:MM]
+  const latinMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  if (latinMatch) {
+    const d = String(latinMatch[1]).padStart(2, "0");
+    const m = String(latinMatch[2]).padStart(2, "0");
+    const y = latinMatch[3];
+    if (latinMatch[4] !== undefined) {
+      const hh = String(latinMatch[4]).padStart(2, "0");
+      const min = String(latinMatch[5] || "00").padStart(2, "0");
+      return `${y}-${m}-${d} ${hh}:${min}`;
+    }
+    return `${y}-${m}-${d}`;
+  }
+
+  return str;
 }
 
 // =========================================================================

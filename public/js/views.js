@@ -1003,7 +1003,7 @@ function renderPublicadas(container) {
       if (filters.cargo) {
         const val = filters.cargo.toLowerCase();
         filtered = filtered.filter((item) =>
-          (item.cargo_limpio || (item.cargo && getCargoClean(item.cargo)))
+          (item.cargo_limpio || getCargoClean(item.cargo) || "")
             .toLowerCase()
             .includes(val),
         );
@@ -3265,15 +3265,16 @@ function renderReportes(container) {
           </td>
           <td class="pl-2 pr-6 text-xs text-left w-28">
             ${(() => {
+              const plazoStr = item.plazo || "";
               const hasDays =
-                item.plazo.includes("(") && item.plazo.includes(")");
-              let mainCode = item.plazo;
+                plazoStr.includes("(") && plazoStr.includes(")");
+              let mainCode = plazoStr || "—";
               let subtextHtml = "";
 
               if (hasDays) {
-                const parts = item.plazo.split(" ");
-                mainCode = parts[0];
-                const days = parts[1].replace(/[()]/g, "");
+                const parts = plazoStr.split(" ");
+                mainCode = parts[0] || "—";
+                const days = (parts[1] || "").replace(/[()]/g, "");
                 if (mainCode === "FDP" || mainCode === "RFP") {
                   subtextHtml = `<div class="text-[9px] font-bold mt-0.5 leading-none opacity-90">${days}</div>`;
                 }
@@ -3282,7 +3283,7 @@ function renderReportes(container) {
               const isOverdue =
                 mainCode === "FDP" ||
                 mainCode === "RFP" ||
-                item.plazo.includes("-");
+                plazoStr.includes("-");
               const badgeClass = isOverdue
                 ? "badge-status-vencido"
                 : "badge-status-enplazo";

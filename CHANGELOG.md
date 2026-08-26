@@ -4,9 +4,6 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ## [2.9.1] - 2026-08-26
 
-### Changed
-- **Homologación Institucional de Encabezados**: Unificación del título y membrete en todos los reportes individuales, masivos y generales bajo *"Reporte de Solicitudes de Audiencia"* y subtítulo *"Audiencias registradas bajo la Ley N° 20.730 de Lobby"*, eliminando denominaciones no institucionales.
-
 ### Fixed
 - **Renderizado y Carga del Logotipo en Reportes PDF**: Solución al fallo de sincronización en la exportación de Chromium mediante incrustación directa en Base64 y espera explícita de decodificación de imágenes y fuentes, garantizando la aparición del logotipo en todos los reportes.
 - **Corte Inferior del Logo Institucional**: Reestructuración del contenedor del membrete en la plantilla de impresión (`municipal-header-p1`) con espaciado limpio para evitar el solapamiento y corte de texto provocado por tablas con `border-collapse`.

@@ -5,12 +5,10 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 ## [2.9.1] - 2026-08-26
 
 ### Fixed
-- **Renderizado y Carga del Logotipo en Reportes PDF**: Solución al fallo de sincronización en la exportación de Chromium mediante incrustación directa en Base64 y espera explícita de decodificación de imágenes y fuentes, garantizando la aparición del logotipo en todos los reportes.
-- **Corte Inferior del Logo Institucional**: Reestructuración del contenedor del membrete en la plantilla de impresión (`municipal-header-p1`) con espaciado limpio para evitar el solapamiento y corte de texto provocado por tablas con `border-collapse`.
-- **Metadatos y Título Dinámico al Exportar PDF**: Asignación automática del nombre específico del reporte en `document.title`, evitando que los visores de PDF o el cuadro de guardado utilicen el nombre genérico de la plantilla.
-- **Parser Multiformato de Fechas en Ingesta**: Normalización automática en `parseExcelDate` para fechas ingresadas en formato texto (`DD/MM/YYYY`, `DD-MM-YYYY`, `YYYY/MM/DD`, con o sin hora) estandarizándolas al formato ISO `YYYY-MM-DD` / `YYYY-MM-DD HH:MM`.
-- **Tolerancia a Nulos en Filtros de Cargo**: Blindaje con fallback seguro en el filtro de cargo de la subpestaña *Pendientes de Publicación* ante registros sin cargo asignado.
-- **Validación Defensiva de Plazos**: Protección contra excepciones en tiempo de ejecución al procesar cadenas de plazo (`item.plazo`) nulas o indefinidas en la tabla de auditoría y en la exportación de reportes a PDF.
+- **Visualización de Logotipo en Reportes PDF**: Solución al problema de carga asíncrona y desborde visual que provocaba que el logotipo institucional no apareciera o se mostrara cortado al exportar documentos.
+- **Nombre y Título al Exportar Reportes**: Corrección en la asignación de metadatos para que los visores de PDF y el cuadro de guardado muestren el nombre oficial del reporte en lugar de la plantilla base.
+- **Importación de Fechas en Formato Texto**: Compatibilidad automática con fechas ingresadas en diversos formatos de texto al importar planillas de Excel.
+- **Estabilidad ante Registros Incompletos**: Prevención de fallos en la interfaz al consultar solicitudes o audiencias sin cargo asignado o sin cálculo de plazo definido.
 
 ## [2.9.0] - 2026-08-21
 

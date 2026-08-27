@@ -2,200 +2,199 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo. El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [2.10.0] - 2026-08-28
+
+### Added
+- **Módulo de Asistencia Técnica**: Ventana flotante independiente para registrar y gestionar tickets de atención y orientación, con bitácora histórica, directorio y motor de unificación de contactos duplicados, control de acceso por roles y exportación de fichas a PDF y EML.
+
+### Fixed
+- **Normalización del Sistema de Estilos y Contraste**: Estandarización completa de la interfaz con tokens semánticos nativos en Tailwind CSS v4, eliminación de dependencias externas (`Preline UI`) y corrección de contraste en tablas, menús y gráficos en modo claro y oscuro.
+- **Modernización de Diálogos de Confirmación**: Sustitución de diálogos nativos del navegador (`confirm`) por modales asíncronos (`openConfirmModal`) integrados al sistema de diseño.
+
 ## [2.9.1] - 2026-08-26
 
 ### Fixed
-- **Visualización de Logotipo en Reportes PDF**: Solución al problema de carga asíncrona y desborde visual que provocaba que el logotipo institucional no apareciera o se mostrara cortado al exportar documentos.
-- **Nombre y Título al Exportar Reportes**: Corrección en la asignación de metadatos para que los visores de PDF y el cuadro de guardado muestren el nombre oficial del reporte en lugar de la plantilla base.
-- **Importación de Fechas en Formato Texto**: Compatibilidad automática con fechas ingresadas en diversos formatos de texto al importar planillas de Excel.
-- **Estabilidad ante Registros Incompletos**: Prevención de fallos en la interfaz al consultar solicitudes o audiencias sin cargo asignado o sin cálculo de plazo definido.
+- **Visualización de Logotipo en Reportes PDF**: Solución a la carga asíncrona y desborde visual del logotipo institucional al exportar documentos PDF.
+- **Nombre y Metadatos al Exportar Reportes**: Asignación correcta de títulos y nombres de archivo en el cuadro de guardado y visores de PDF.
+- **Importación de Fechas en Formato Texto**: Compatibilidad automática con fechas ingresadas en diversos formatos de texto al importar planillas Excel.
+- **Estabilidad ante Registros Incompletos**: Prevención de excepciones en la interfaz al consultar registros sin cargo o sin cálculo de plazo definido.
 
 ## [2.9.0] - 2026-08-21
 
 ### Added
-- **Sincronización Dinámica de Límites de Fechas**: Control bidireccional en tiempo real (`minDate` / `maxDate`) entre selectores de *Fecha Desde/Inicio* y *Fecha Hasta/Término* en Dashboard, Reportes y Sujetos Pasivos para impedir rangos invertidos.
-- **Filtros Temporales en Sujetos Pasivos**: Filtrado condicionado por rango de fechas (Fecha Inicio / Fecha Término) con integración al componente de calendario Air Datepicker v3.
-- **Separación de Fechas en Sujetos Pasivos**: Visualización independiente de las columnas *Fecha Inicio* y *Fecha Término* en el listado de Sujetos Pasivos.
-- **Ocultamiento Dinámico de Fines de Semana en Agenda**: Las vistas de Mes y Semana colapsan automáticamente sábados y domingos si no contienen eventos, expandiéndose reactivamente a 7 columnas si existe alguna audiencia agendada.
+- **Sincronización Dinámica de Límites de Fechas**: Validación bidireccional en tiempo real (`minDate` / `maxDate`) entre selectores de fechas para impedir rangos invertidos.
+- **Filtros Temporales en Sujetos Pasivos**: Filtrado por rango de fechas integrado con Air Datepicker v3.
+- **Separación de Fechas en Tablas**: Columnas independientes para fecha de inicio y fecha de término en el listado de Sujetos Pasivos.
+- **Ocultamiento Dinámico de Fines de Semana en Agenda**: Colapso automático de sábados y domingos sin eventos, expandiéndose reactivamente si existen registros agendados.
 
 ### Changed
-- **Rediseño Integral de la Agenda**: Interfaz construida con Tailwind CSS v4, modal pop-over de eventos del día, ordenamiento cronológico estricto y navegación fluida sin selectores nativos del sistema.
-- **Homologación de Filtros en Sujetos Pasivos**: Integración de la tarjeta oficial de filtros del sistema de diseño en grilla de 4 columnas responsive con búsqueda general de texto editable y fluido.
-- **Ordenamiento Inteligente de Sujetos Pasivos**: Priorización de registros con cargos vigentes/indefinidos primero (ordenados por fecha de incorporación) seguidos de los cargos con fecha de término definida.
-- **Visualización de Cargo y Nombre**: Ampliación del ancho de columna para nombres y limpieza de sufijos duplicados en la descripción de cargos (`getCargoClean`).
+- **Rediseño Integral de la Agenda**: Interfaz actualizada en Tailwind CSS v4, modal pop-over para eventos diarios, ordenamiento cronológico y navegación fluida.
+- **Homologación de Filtros en Sujetos Pasivos**: Integración de panel de filtros responsive con búsqueda predictiva de texto.
+- **Ordenamiento Inteligente de Sujetos Pasivos**: Priorización de registros con vigencia activa seguidos de cargos con término definido.
+- **Visualización de Columnas y Nombres**: Ampliación de columnas y saneamiento de descripciones redundantes de cargos.
 
 ### Removed
-- **Limpieza de Código Residual**: Eliminación de más de 150 líneas de código muerto de máscaras por teclado obsoletas (`handleDateDisplayInput`, `handleDateDisplayKeydown`, etc.) y supresión de helpers globales huérfanos.
+- **Limpieza de Código Residual**: Eliminación de manejadores de eventos obsoletos por teclado y helpers globales huérfanos.
 
 ### Fixed
-- **Tolerancia a Solicitudes sin Plazo Legal**: Solución al error `calculateDeadline is not defined` que provocaba la pantalla *"Error en Servidor Local"* cuando una solicitud importada no contenía fecha límite o fecha de ingreso.
-- **Estado de Vigencia en Modal de Sujeto Pasivo**: Corrección en el cálculo de vigencia para cargos con término indefinido o continuo en la ficha de detalle.
+- **Manejo Defensivo en Cálculo de Plazos**: Prevención de excepciones cuando un registro importado carece de fecha de ingreso o plazo asociado.
+- **Estado de Vigencia en Modal de Detalle**: Corrección del cálculo de vigencia para cargos con término continuo o indefinido.
 
 ## [2.8.0] - 2026-08-18
 
 ### Added
-- **Exportación a Excel**: Generación y descarga directa de reportes consolidados en formato planilla Excel (`.xlsx`).
-- **Reporte Ejecutivo en PDF**: Generación de informes ejecutivos con métricas consolidadas por estado, jerarquía institucional y fila de totales generales.
-- **Filtro de Estado de Sujeto Pasivo**: Selector tri-estado (*Todos*, *Vigentes*, *No Vigentes*) disponible en todas las vistas, sincronizado en tiempo real con las métricas y gráficos.
-- **Resumen y Detalle de Sincronización**: Modal informativo tras la importación de datos con métricas rápidas de cambios y visor detallado con buscador y comparación de campos modificados.
-- **Ficha de Detalle de Audiencias y Solicitudes**: Modales interactivos para consultar el registro completo de solicitudes y audiencias sin salir de la aplicación.
-- **Exportación de Gráficos**: Herramienta en los gráficos del Dashboard para exportar las visualizaciones en formatos de imagen y datos (SVG, PNG, CSV).
+- **Exportación a Excel**: Generación y descarga directa de datos tabulares consolidados en formato `.xlsx`.
+- **Reporte Ejecutivo en PDF**: Generación de informes ejecutivos con métricas agrupadas por estado, jerarquía y totales generales.
+- **Filtro Global de Vigencia**: Selector tri-estado (*Todos*, *Vigentes*, *No Vigentes*) sincronizado en tiempo real con tarjetas y gráficos.
+- **Detalle de Sincronización**: Modal con métricas de cambios y comparador de campos modificados tras la importación.
+- **Fichas de Detalle Interactivas**: Modales para consultar la información completa de solicitudes y audiencias.
+- **Exportación de Gráficos**: Descarga de visualizaciones del Dashboard en formatos SVG, PNG y CSV.
 
 ### Changed
-- **Rediseño de la Agenda**: Reestructuración de las vistas de mes, semana y día para optimizar la visualización de reuniones en una sola pantalla con navegación fluida.
-- **Animaciones y Transiciones de Interfaz**: Transiciones suaves en la navegación entre vistas, apertura de modales y notificaciones del sistema.
+- **Optimización de Vistas de Agenda**: Reestructuración de vistas mensual, semanal y diaria para navegación fluida.
+- **Transiciones de Interfaz**: Animaciones suaves en cambios de vista, apertura de modales y notificaciones.
 
 ### Fixed
-- **Búsqueda en Reportes**: Solución al fallo que impedía filtrar por texto parcial en el buscador de sujetos pasivos.
-- **Recuperación Automática de Datos**: Reparación y validación automática de la base de datos local ante archivos dañados o corruptos al iniciar la aplicación.
+- **Búsqueda en Reportes**: Solución al filtrado por texto parcial en el buscador de registros.
+- **Recuperación Automática de Base de Datos**: Validación y reparación automática del archivo SQLite local ante cierres inesperados.
 
 ## [2.7.0] - 2026-08-12
 
 ### Changed
-- **Migración a ApexCharts**: Reemplazo de la biblioteca Chart.js por ApexCharts (v3) de forma local, mejorando la interactividad, tooltips y la adaptabilidad de los gráficos en el Dashboard al cambiar entre modo claro y oscuro.
-- **Actualización de Selector de Fechas**: Integración local de Air Datepicker v3 en los campos de fecha para solucionar incompatibilidades en la navegación de meses y años.
-- **Filtro Global de Vigencia**: Reubicación y unificación del checkbox de "Solo Sujeto Pasivos vigentes" al panel de filtros superior del Dashboard, aplicando el filtrado sobre todas las tarjetas de métricas y los gráficos en sincronía.
-- **Animaciones en Tarjetas**: Configuración para que las animaciones de conteo numérico de las tarjetas del Dashboard se ejecuten solo en cambios mayores de estado (como alternar vigencia de sujetos pasivos) para evitar interrupciones visuales durante la edición de textos o fechas.
+- **Migración a ApexCharts**: Reemplazo de biblioteca gráfica por ApexCharts v3 local, mejorando interactividad, tooltips y soporte de modo oscuro.
+- **Actualización de Selector de Fechas**: Integración local de Air Datepicker v3 para solucionar incompatibilidades en navegación temporal.
+- **Sincronización de Filtros en Dashboard**: Vinculación de filtros superiores con recálculo dinámico de métricas y series gráficas.
+- **Optimización de Renderizado en Tarjetas**: Animación de conteo numérico restringida a cambios mayores de datos para evitar parpadeos.
 
 ### Removed
-- **Remoción de Dependencias en Desuso**: Eliminación del archivo de biblioteca local obsoleto correspondiente a Chart.js.
+- **Remoción de Dependencias en Desuso**: Eliminación de la biblioteca gráfica anterior (Chart.js).
 
 ### Fixed
-- **Habilitación de Selector de Fechas en Reportes**: Solución al bloqueo que impedía usar el calendario de Reportes de forma independiente sin configurar previamente filtros secundarios.
+- **Independencia de Filtros en Reportes**: Corrección del selector de fechas para operar de forma desacoplada de filtros secundarios.
 
 ## [2.6.0] - 2026-08-11
 
 ### Added
-- **Cancelación en exportación masiva**: Botón de cancelación en el modal de exportación masiva de PDFs para detener el proceso de generación en cualquier momento.
+- **Cancelación de Exportación Masiva**: Opción de cancelar procesos de generación masiva de PDFs en ejecución.
 
 ### Changed
-- **Optimización del Importador de Excel**: Reducción drástica en el tiempo de carga de planillas Excel secundarias de respaldo (de más de 5 minutos a menos de 2 segundos).
+- **Optimización del Importador**: Reducción en los tiempos de procesamiento y lectura de planillas de respaldo.
 
 ### Removed
-- **Métrica de Archivo Excel**: Remoción de la verificación del archivo físico Excel local en el panel de salud del sistema, ya que la base de datos local definitiva reside en SQLite y se sincroniza directamente con SharePoint, reduciendo la dependencia del archivo de planilla original.
+- **Métrica de Archivo Local**: Supresión del chequeo de planilla física en el panel de salud tras la migración a almacenamiento estructurado en base de datos local.
 
 ### Fixed
-- **Persistencia de auditorías**: Sincronización automática de cambios a SharePoint tras registrar, editar o eliminar auditorías semanales, evitando pérdidas de cambios locales al reiniciar la aplicación.
-- **Filtro dinámico de vigencia en reportes**: Vinculación del checkbox "Solo vigentes" de reportes con la tabla en pantalla para filtrar dinámicamente los registros mostrados.
-- **Búsqueda de sujetos en reportes**: Solución al fallo que impedía ingresar o autocompletar nombres de sujetos pasivos para filtrar reportes desde el panel de administración.
-- **Duplicado de cabeceras**: Solución al error visual que provocaba que los encabezados del panel de administración se duplicaran repetidamente al realizar búsquedas.
-- **Superposición en controles de agenda**: Ajuste visual para evitar que el menú desplegable del buscador de agenda se dibuje detrás del calendario.
-- **Hora en detalle de audiencias**: Incorporación del componente de hora (HH:MM) al lado de la fecha agendada en la ficha detallada de audiencias.
+- **Persistencia de Auditorías**: Sincronización automática de cambios locales tras registrar, editar o eliminar registros de control.
+- **Filtros Dinámicos en Tablas**: Vinculación de checkboxes de estado con actualización reactiva de filas en pantalla.
+- **Autocompletado de Búsquedas**: Corrección del buscador administrativo al filtrar registros.
+- **Encabezados Duplicados**: Corrección del repintado de cabeceras de tablas durante búsquedas consecutivas.
+- **Z-Index en Agenda**: Corrección en la superposición de menús desplegables sobre el calendario.
+- **Visualización de Hora**: Inclusión del componente horario (HH:MM) en fichas de detalle de audiencias.
 
 ## [2.5.0] - 2026-07-10
 
 ### Added
-- **Simulador de Perfiles (Impersonación)**: Herramienta administrativa para emular de forma segura la sesión de otros usuarios y auditar la visibilidad de datos y accesos. Incluye un banner superior de advertencia en color ámbar mientras la simulación permanezca activa.
-- **Detalle de Sujeto Pasivo**: Soporte interactivo para visualizar una ficha de datos completa de cada Sujeto Pasivo (fechas de vigencia, cargo, decreto de respaldo jurídico y asistentes técnicos) desde la tabla administrativa.
-- **Campo Asistente Técnico**: Integración del campo de asistente técnico proveniente de los registros del Excel para complementar la información del Sujeto Pasivo.
+- **Simulador de Perfiles (Impersonación)**: Herramienta administrativa para auditar vistas y permisos emulando roles de usuario, con banner de estado activo.
+- **Ficha de Sujeto Pasivo**: Visor de datos completos con vigencia, cargos asociados y asistentes técnicos.
 
 ### Changed
-- **Simplificación del Menú de Navegación**: Rediseño del menú superior centrado en 4 pestañas de operaciones básicas (Dashboard, Solicitudes, Audiencias y Agenda) y reubicación de herramientas avanzadas en un acceso unificado (engranaje).
-- **Fusión de Módulos de Administración**: Las pantallas de *Reportes* y *Sujetos Pasivos* se integraron como pestañas del panel de Configuración. El rol de *Auditor* ahora tiene una vista restringida que solo le permite interactuar con estas dos herramientas.
-- **Ajustes de Interfaz**: Mejoras en el soporte y contraste del tema claro (Light-First) en toda la interfaz y simplificación visual del panel de sincronización.
+- **Simplificación del Menú de Navegación**: Menú superior optimizado en 4 vistas operativas y reubicación de herramientas avanzadas en panel de configuración.
+- **Consolidación de Administración**: Integración de vistas administrativas en pestañas con control de acceso por roles.
+- **Soporte de Temas**: Mejoras de contraste en modo claro (*Light-First*) y refinamiento del panel de sincronización.
 
 ### Fixed
-- **Importador de Datos**: Corrección de un problema en la lectura de la columna de género de los sujetos activos desde la planilla de origen.
+- **Normalización de Columnas en Ingesta**: Corrección en la lectura de atributos de solicitantes desde archivos de origen.
 
 ## [2.4.0] - 2026-07-09
 
 ### Added
-- **Reintento de Sincronización Manual**: Botón en la cápsula de estado para restablecer de forma directa la sincronización en la nube ante problemas de conexión temporales.
-- **Información de Errores de Red**: Visualización del detalle de errores directamente en el panel flotante de conexión.
-- **Bloqueo Inteligente de Búsqueda**: El buscador de sujetos pasivos se pre-completa y bloquea automáticamente para los usuarios con rol de Sujeto Pasivo, facilitando el uso de filtros secundarios.
+- **Reintento de Sincronización Manual**: Control directo para restablecer sincronización remota ante pérdidas de conexión.
+- **Detalle de Errores de Conectividad**: Despliegue de diagnóstico de red en la cápsula de estado.
+- **Pre-llenado de Filtros por Rol**: Bloqueo predictivo de filtros según el perfil del usuario autenticado.
 
 ### Changed
-- **Mejoras del Encabezado**: Rediseño estético de la barra superior de la aplicación.
-- **Selector de Inspector**: Optimización del panel de administración del sistema para segmentar la inspección de datos de forma más intuitiva.
-- **Optimización de Sincronización**: Ajustes en el guardado de datos y liberación de archivos locales para evitar bloqueos del sistema operativo en Windows.
+- **Barra Superior**: Rediseño visual del header y cápsula de sincronización.
+- **Liberación de Conexiones en Windows**: Manejo seguro de descriptores de archivo para evitar bloqueos del sistema operativo.
 
 ### Removed
-- **Limpieza de Archivos Temporales**: Remoción de transacciones residuales para prevenir la degradación de rendimiento.
+- **Limpieza de Archivos Temporales**: Purgado de transacciones temporales para prevenir sobreconsumo de almacenamiento.
 
 ### Fixed
-- **Consistencia en Subida de Datos**: Corrección de desfases de red mediante verificación del estado de guardado local antes del envío a la nube.
-- **Prevención de Concurrencia**: Bloqueo del botón de sincronización durante procesos activos para evitar duplicación de tareas.
+- **Consistencia en Envío de Datos**: Verificación de escritura en disco local previa a la transferencia remota.
+- **Bloqueo por Concurrencia**: Deshabilitación de botones durante procesos de red activos para evitar peticiones duplicadas.
 
 ## [2.3.0] - 2026-07-08
 
 ### Added
-- **Filtro de Historial de Eventos**: Clasificación rápida de eventos por nivel de severidad e integración de paginación en el panel administrativo.
+- **Historial de Eventos Paginado**: Clasificación de logs por severidad y navegación paginada.
 
 ### Changed
-- **Rediseño Visual**: Mejoras en los bordes y legibilidad del módulo de reportes y ajustes de contraste en las tablas del sistema.
+- **Contraste en Tablas**: Mejoras en la definición de bordes y legibilidad de celdas.
 
 ### Removed
-- **Leyenda Redundante**: Retiro de descripciones de logs explicativas en favor de una barra de filtros de navegación directa.
+- **Leyendas Redundantes**: Reemplazo de bloques de texto explicativos por controles directos de filtrado.
 
 ### Fixed
-- **Navegación en Logs**: Solución a problemas visuales al aplicar filtros o navegar entre páginas de logs del sistema.
+- **Paginación en Logs**: Solución a desajustes visuales al cambiar de página en la bitácora del sistema.
 
 ## [2.2.0] - 2026-07-07
 
 ### Added
-- **Historial de Cambios Detallado**: Registro visual de registros agregados, modificados y eliminados en cada sincronización de datos.
-- **Escudo de Salud del Sistema**: Indicador visual que comprueba la autenticidad e integridad de la base de datos local y el estado del archivo físico Excel origen en tiempo real.
-- **Segmentación de Plazos**: Filtro rápido en el Centro de Alertas por tipo de plazos legales.
+- **Historial de Cambios Comparativo**: Registro visual de filas agregadas, modificadas y eliminadas por sincronización.
+- **Monitor de Integridad de Datos**: Indicador en tiempo real del estado de la base de datos local y fuentes de datos.
+- **Filtros por Tipo de Plazo**: Clasificación de plazos legales en el Centro de Alertas.
 
 ### Changed
-- **Panel Informativo de Sincronización**: Despliegue automático de la bitácora comparativa al finalizar la sincronización en lugar de alertas genéricas.
-- **Estandarización de Estilos**: Centralización de variables de diseño de calendario para asegurar compatibilidad total del tema oscuro.
+- **Notificación de Sincronización**: Despliegue de resumen estructurado al completar la importación.
+- **Estandarización de Variables**: Centralización de estilos de calendario para soporte multiplataforma.
 
 ### Fixed
-- **Iconografía en Logs**: Solución al fallo de carga de iconos en la bitácora administrativa de logs del sistema.
+- **Carga de Iconos en Logs**: Corrección en la inicialización de iconos en el visor de bitácora.
 
 ## [2.1.0] - 2026-07-03
 
 ### Added
-- **Módulo de Agenda**: Calendario integrado con vistas mensual, semanal y diaria, con codificación de colores para reuniones pendientes y pasadas.
-- **Detalle de Audiencias**: Consulta interactiva de datos cruzados de audiencias para verificar el cumplimiento automático de plazos de ley.
-- **Recordatorios del Día**: Notificaciones del Centro de Alertas para audiencias agendadas en la fecha actual.
-- **Instalador de Windows**: Lanzamiento de instalador interactivo asistido con accesos directos e iconografía personalizada.
+- **Módulo de Agenda**: Calendario interactivo con vistas mensual, semanal y diaria.
+- **Control de Plazos en Audiencias**: Cálculo dinámico del cumplimiento de plazos legales.
+- **Recordatorios del Día**: Notificaciones para audiencias programadas en la fecha en curso.
+- **Instalador de Escritorio**: Empaquetado instalable para Windows con accesos directos e iconografía.
 
 ### Removed
-- **Contraseñas Locales**: Retiro definitivo del inicio de sesión con claves tradicionales para centralizar la autenticación a través del servicio Single Sign-On (SSO) institucional.
+- **Autenticación Clásica**: Retiro del formulario de credenciales locales en favor de Single Sign-On (SSO) institucional.
 
 ### Fixed
-- **Métricas del Dashboard**: Solución a problemas de visualización de decimales y porcentajes pequeños en los gráficos.
+- **Precisión Numérica en Dashboard**: Corrección en el redondeo de porcentajes y métricas decimales.
 
 ## [2.0.0] - 2026-06-26
 
 ### Added
-- **Migración a Escritorio**: Transición de la arquitectura web local a una aplicación nativa instalable en escritorio (Electron).
-- **Seguridad de Comunicación**: Conectividad directa entre cliente y servidor sin apertura de puertos de red vulnerables.
-- **División de Almacenamiento**: Separación de las bases de datos en archivos independientes para mejorar el rendimiento del lobby, la seguridad de los usuarios y la portabilidad de configuraciones.
-- **Bitácora Unificada**: Módulo administrativo de registro de actividad.
-- **Reportes Optimizados**: Plantilla especializada para la impresión física o digital de informes.
-- **Asignación de Administrador Inicial**: Registro automatizado del primer usuario del sistema con rol de administrador en bases de datos vacías.
+- **Migración a Aplicación de Escritorio**: Transición de la arquitectura web hacia aplicación nativa con Electron.
+- **Canal de Comunicación Seguro**: Comunicación IPC aislada sin exposición de puertos HTTP locales.
+- **Aislamiento de Bases de Datos**: Separación de almacenamiento en esquemas locales dedicados.
+- **Bitácora de Sistema**: Registro local de eventos y auditoría de acciones.
+- **Plantilla de Impresión de Reportes**: Formato optimizado para impresión en hoja A4 y exportación PDF.
 
 ### Changed
-- **Seguridad en la Nube**: Flujo directo de sincronización de usuarios hacia SharePoint para evitar pérdida de datos.
-- **Optimización del Procesamiento de Reportes**: Eliminación de la generación de archivos temporales en disco (utilizada en la v1.0.0) en favor del procesamiento directo en memoria del cliente Electron.
+- **Sincronización en Memoria**: Procesamiento de reportes directamente en memoria del cliente sin escritura en disco temporal.
 
 ### Removed
-- **Servicio Web Local**: Retiro de servidor local innecesario para utilizar mensajería directa en la aplicación de escritorio.
+- **Servidor Web Local**: Eliminación del servidor HTTP embebido en favor de mensajería IPC directa.
 
 ### Fixed
-- **Bloqueos de Archivos**: Liberación segura de conexiones concurrentes en sistemas operativos Windows.
-- **Inicio de Sesión**: Solución a bucles de redirección de inicio de sesión para departamentos municipales específicos.
-- **Rutas de Datos**: Reubicación de archivos de base de datos fuera de directorios del sistema protegidos por Windows en producción.
+- **Manejo de Archivos en Windows**: Liberación de conexiones SQLite para evitar bloqueos por procesos concurrentes.
+- **Inicio de Sesión SSO**: Solución a bucles de redirección durante el inicio de sesión.
+- **Rutas de Almacenamiento**: Reubicación de archivos de base de datos fuera de rutas protegidas del sistema operativo.
 
 ## [1.1.0] - 2026-06-24
 
 ### Added
-- **Sincronización Bidireccional**: Motor de sincronización de datos con resolución de conflictos para soporte offline y online.
-- **Conexión Directa con SharePoint**: Autenticación integrada a través de cuentas de correo institucionales.
-- **Optimización de Cargas**: Ingesta masiva optimizada para soportar planillas de datos de origen muy extensas.
-- **Modo Desconectado**: Habilitación del sistema para realizar búsquedas locales e interacciones básicas sin acceso a Internet.
+- **Motor de Sincronización Bidireccional**: Resolución de conflictos y soporte de operación offline/online.
+- **Conectividad con Almacenamiento Remoto**: Autenticación integrada para sincronización de datos.
+- **Optimización de Carga Masiva**: Soporte para importación de grandes volúmenes de registros.
 
 ## [1.0.0] - 2026-06-22
 
 ### Added
-- **Lanzamiento Inicial**: Publicación de la primera versión de la plataforma de control local para la gestión de audiencias de la Ley de Lobby.
-- **Almacenamiento y Carga**: Estructuras de datos iniciales y scripts para importación y validación de datos.
-
-### Fixed
-- **Diseño del Dashboard**: Ajuste de tablas para evitar desalineación visual ante contenidos extensos.
-- **Normalización de Fechas**: Conversión automática a formatos estables del portal gubernamental.
-- **Control de Duplicados**: Prevención de registros idénticos durante la carga masiva.
-- **Importador de Planillas**: Omisión automática de celdas nulas y registros vacíos.
+- **Lanzamiento Inicial**: Plataforma para la gestión, seguimiento y control de audiencias y solicitudes bajo la Ley de Lobby.
+- **Estructura de Datos y Validaciones**: Modelos de almacenamiento, importador de datos y normalización de registros.
+- **Dashboard de Métricas**: Indicadores de cumplimiento y visualización de estados.

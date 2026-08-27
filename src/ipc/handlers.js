@@ -1,4 +1,4 @@
-const { app, session } = require("electron");
+const { app, session, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { safeIpcHandle } = require("./security");
@@ -419,4 +419,91 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
     }
   });
 });
+
+safeIpcHandle("open-path", async (event, targetPath) => {
+  if (!targetPath || typeof targetPath !== "string") {
+    return { success: false, error: "Ruta no especificada" };
+  }
+  try {
+    const normPath = path.normalize(targetPath);
+    const err = await shell.openPath(normPath);
+    if (err) {
+      return { success: false, error: err };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+safeIpcHandle("open-assistance-window", async (event, id) => {
+  try {
+    const mainModule = require("../../main");
+    if (mainModule && mainModule.toggleOrFocusAssistanceWindow) {
+      mainModule.toggleOrFocusAssistanceWindow(id);
+      return { success: true };
+    }
+    return { success: false, error: "Módulo principal no disponible" };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+safeIpcHandle("toggle-always-on-top", async (event, flag) => {
+  try {
+    const mainModule = require("../../main");
+    const win = mainModule.getAssistanceWindow();
+    if (win && !win.isDestroyed()) {
+      const nextFlag = typeof flag === "boolean" ? flag : !win.isAlwaysOnTop();
+      win.setAlwaysOnTop(nextFlag);
+      return { success: true, alwaysOnTop: win.isAlwaysOnTop() };
+    }
+    return { success: false, error: "Ventana no disponible" };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+safeIpcHandle("notify-assistance-saved", async (event, data) => {
+  try {
+    const mainModule = require("../../main");
+    const mainWindow = mainModule.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("assistance-updated", data);
+    }
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+safeIpcHandle("generate-eml-and-open", async (event, args) => {
+  try {
+    const { to, subject, bodyText, bodyHtml, ticketCodigo } = args || {};
+    const tempDir = app.getPath("temp");
+    const safeTicket = (ticketCodigo || "AST").replace(/[^a-zA-Z0-9-_]/g, "");
+    const fileName = `temp_ast_${safeTicket}_${Date.now()}.eml`;
+    const filePath = path.join(tempDir, fileName);
+
+    const emlContent = [
+      `To: ${to || ""}`,
+      `Subject: ${subject || "Comprobante de Asistencia Técnica LobbyControl"}`,
+      `X-Unsent: 1`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset=UTF-8`,
+      ``,
+      bodyHtml || `<p>${(bodyText || "").replace(/\n/g, "<br>")}</p>`
+    ].join("\r\n");
+
+    fs.writeFileSync(filePath, emlContent, "utf8");
+    const err = await shell.openPath(filePath);
+    if (err) {
+      return { success: false, error: err };
+    }
+    return { success: true, filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
 

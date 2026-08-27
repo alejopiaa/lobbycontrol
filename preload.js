@@ -10,5 +10,16 @@ contextBridge.exposeInMainWorld("api", {
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
   generateSilentPdf: (args) => ipcRenderer.invoke("generate-silent-pdf", args),
   selectSavePath: (args) => ipcRenderer.invoke("select-save-path", args),
-  generateExcelFile: (args) => ipcRenderer.invoke("generate-excel-file", args)
+  generateExcelFile: (args) => ipcRenderer.invoke("generate-excel-file", args),
+  openPath: (targetPath) => ipcRenderer.invoke("open-path", targetPath),
+  openAssistanceWindow: (id) => ipcRenderer.invoke("open-assistance-window", id),
+  toggleAlwaysOnTop: (flag) => ipcRenderer.invoke("toggle-always-on-top", flag),
+  generateEmlAndOpen: (args) => ipcRenderer.invoke("generate-eml-and-open", args),
+  notifyAssistanceSaved: (data) => ipcRenderer.invoke("notify-assistance-saved", data),
+  onAssistanceUpdated: (callback) => {
+    ipcRenderer.on("assistance-updated", (event, ...args) => callback(...args));
+  },
+  onLoadAssistanceForEdit: (callback) => {
+    ipcRenderer.on("load-assistance-for-edit", (event, ...args) => callback(...args));
+  }
 });

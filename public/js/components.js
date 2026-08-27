@@ -48,15 +48,15 @@ function renderSearchInput(options) {
   }
   
   if (disabled) {
-    inputClass += 'glass-input-disabled cursor-not-allowed text-slate-400';
+    inputClass += 'glass-input-disabled cursor-not-allowed text-text-tertiary';
   } else {
-    inputClass += 'text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500';
+    inputClass += 'text-text-primary placeholder:text-text-tertiary';
   }
 
   let iconHtml = '';
   if (icon) {
     iconHtml = `
-      <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-300">
+      <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-text-tertiary">
         <i data-lucide="${icon}" class="h-3.5 w-3.5"></i>
       </span>
     `;
@@ -65,7 +65,7 @@ function renderSearchInput(options) {
   let suggestionsHtml = '';
   if (hasSuggestions) {
     suggestionsHtml = `
-      <div id="suggestions-${fieldName}" class="suggestions-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+      <div id="suggestions-${fieldName}" class="suggestions-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-border-ui shadow-xl overflow-hidden max-h-48 overflow-y-auto">
         <!-- Las sugerencias se inyectarán en tiempo de ejecución -->
       </div>
     `;
@@ -82,13 +82,13 @@ function renderSearchInput(options) {
     const overlayLeftClass = icon ? 'left-9' : 'left-2';
     badgeOverlayHtml = `
       <div data-element="badge-overlay" class="absolute inset-y-0 ${overlayLeftClass} right-2 flex items-center pointer-events-none">
-        <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-200/90 dark:bg-slate-800/95 text-slate-800 dark:text-slate-200 text-[11px] font-semibold border border-slate-300 dark:border-slate-700/60 shadow-sm max-w-[95%] pointer-events-auto">
+        <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-border-ui text-text-primary text-[11px] font-semibold border border-border-ui shadow-sm max-w-[95%] pointer-events-auto">
           <span class="truncate max-w-[150px]">${value}</span>
           <button type="button" 
                   data-action="clear-input-badge" 
                   data-field="${fieldName}" 
                   data-input-id="${id}"
-                  class="text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-300 dark:hover:bg-slate-700/50 rounded p-0.5 transition-colors flex items-center justify-center shrink-0">
+                  class="text-text-tertiary hover:text-text-primary hover:bg-bg-header rounded p-0.5 transition-colors flex items-center justify-center shrink-0">
             <i data-lucide="x" class="h-3 w-3"></i>
           </button>
         </div>
@@ -98,7 +98,7 @@ function renderSearchInput(options) {
 
   return `
     <div class="space-y-1 relative w-full" id="container-filter-${fieldName}">
-      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
+      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-text-tertiary uppercase tracking-wider">${label}</label>` : ''}
       <div class="relative w-full flex items-center">
         ${iconHtml}
         <input type="text" 
@@ -148,7 +148,7 @@ function renderDateInput(options) {
 
   return `
     <div class="space-y-1 w-full">
-      ${label ? `<label for="${id}-display" class="block text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
+      ${label ? `<label for="${id}-display" class="block text-[10px] font-bold text-text-tertiary uppercase tracking-wider">${label}</label>` : ''}
       <div class="relative w-full flex items-center">
         <input type="text"
                id="${id}-display"
@@ -160,10 +160,10 @@ function renderDateInput(options) {
                autocomplete="off"
                readonly
                value="${escapeHtmlAttr(displayValue)}"
-               class="datepicker-display-input w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 tracking-widest cursor-pointer">
+               class="datepicker-display-input w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-text-primary placeholder:text-text-tertiary tracking-widest cursor-pointer">
         <button type="button"
                 data-datepicker-trigger="${id}"
-                class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-400 transition-colors p-0.5">
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-brand-500 transition-colors p-0.5">
           <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
         </button>
         <input type="date"
@@ -181,11 +181,6 @@ function renderDateInput(options) {
 }
 
 
-/**
- * Selector de Opciones Estándar
- * @param {Object} options - Configuración.
- * @returns {string} Marcado HTML.
- */
 /**
  * Selector de Opciones Estándar (Custom Dropdown Premium)
  * @param {Object} options - Configuración.
@@ -210,10 +205,10 @@ function renderSelectInput(options) {
 
   const customOptionsHtml = optionsList.map(opt => {
     const isSelected = String(opt.value) === String(value);
-    const activeClass = isSelected ? 'bg-brand-600/20 font-semibold text-brand-600 dark:text-brand-400' : '';
+    const activeClass = isSelected ? 'bg-brand-500/15 font-semibold text-brand-600 dark:text-brand-400' : '';
     return `
       <div onclick="selectCustomOption(event, '${id}', '${escapeHtmlAttr(opt.value)}', '${escapeHtmlAttr(opt.text)}')"
-           class="custom-select-item px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-600 hover:text-white cursor-pointer transition-colors truncate ${activeClass}">
+           class="custom-select-item px-3 py-2 text-xs text-text-primary hover:bg-brand-500 hover:text-white cursor-pointer transition-colors truncate ${activeClass}">
         ${opt.text}
       </div>
     `;
@@ -221,13 +216,10 @@ function renderSelectInput(options) {
 
   return `
     <div class="space-y-1 w-full relative">
-      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">${label}</label>` : ''}
+      ${label ? `<label for="${id}" class="block text-[10px] font-bold text-text-tertiary uppercase tracking-wider">${label}</label>` : ''}
       <div class="relative w-full font-sans">
         <!-- Select nativo oculto para compatibilidad de eventos y lectura de estado -->
-        <select id="${id}" 
-                data-component="select-input"
-                data-field="${fieldName}"
-                class="hidden">
+        <select id="${id}" class="hidden glass-input" data-component="select-input" data-field="${fieldName}">
           ${optionsHtml}
         </select>
         
@@ -235,16 +227,16 @@ function renderSelectInput(options) {
         <button type="button" 
                 id="custom-select-trigger-${id}"
                 onclick="toggleCustomSelectDropdown(event, '${id}')"
-                class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-slate-800 dark:text-slate-200 text-left relative flex items-center justify-between cursor-pointer hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200">
+                class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-text-primary text-left relative flex items-center justify-between cursor-pointer hover:border-border-ui transition-all duration-200">
           <span class="truncate">${selectedOptionText}</span>
-          <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-300">
+          <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-text-tertiary">
             <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
           </span>
         </button>
         
         <!-- Contenedor desplegable customizado (igual que los dropdowns de autocompletado) -->
         <div id="custom-select-dropdown-${id}" 
-             class="custom-select-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+             class="custom-select-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-border-ui shadow-xl overflow-hidden max-h-48 overflow-y-auto">
           ${customOptionsHtml}
         </div>
       </div>
@@ -332,10 +324,10 @@ window.selectVigenciaOption = function(event, selectId, value, label, onChangeNa
       const optLabel = optEl.getAttribute('data-label') || optEl.textContent.trim();
       const isSelected = optVal === value;
       if (isSelected) {
-        optEl.className = 'px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 bg-brand-600/15 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold';
+        optEl.className = 'px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 bg-brand-500/15 text-brand-600 dark:text-brand-400 font-bold';
         optEl.innerHTML = `<span>${optLabel}</span><i data-lucide="check" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400 shrink-0"></i>`;
       } else {
-        optEl.className = 'px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-brand-600 dark:hover:text-brand-400 font-normal';
+        optEl.className = 'px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors rounded-lg mx-1 my-0.5 text-text-primary hover:bg-border-ui hover:text-brand-500 font-normal';
         optEl.innerHTML = `<span>${optLabel}</span>`;
       }
     });

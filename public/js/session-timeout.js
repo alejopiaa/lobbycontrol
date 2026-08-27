@@ -202,7 +202,9 @@
 
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (_) { /* ignorar */ }
+    } catch (err) {
+      console.warn('No se pudo notificar logout al servidor:', err);
+    }
 
     // Limpiar estado de la app y redirigir al login
     if (typeof currentUser !== 'undefined') currentUser = null;

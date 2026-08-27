@@ -94,10 +94,138 @@ async function downloadAuthenticatedFile(url, destPath, cookieHeader) {
 }
 
 /**
+ * Realiza una fusión a nivel de fila (Row-Level Delta Merge) para asistencias.db.
+ * Garantiza cero pérdida de datos al sincronizar asistencias y contactos desde SharePoint
+ * con remapeo dinámico de contacto_id por clave natural (nombre único).
+ */
+async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
+  const sqlite3 = require('sqlite3').verbose();
+  const sourceDb = new sqlite3.Database(tempDbPath, sqlite3.OPEN_READONLY);
+
+  const queryAll = (dbHandle, sql, params = []) => new Promise((resolve, reject) => {
+    dbHandle.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+
+  const queryGet = (dbHandle, sql, params = []) => new Promise((resolve, reject) => {
+    dbHandle.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+
+  try {
+    const remoteCategories = await queryAll(sourceDb, "SELECT * FROM asistencia_categorias");
+    const remoteContacts = await queryAll(sourceDb, "SELECT * FROM contactos_asistencia");
+    const remoteBitacoras = await queryAll(sourceDb, "SELECT * FROM bitacora_asistencias");
+
+    // 1. Sincronizar Categorías
+    for (const cat of remoteCategories) {
+      await new Promise((resolve, reject) => {
+        targetAsistenciasDb.run(`
+          INSERT INTO asistencia_categorias (nombre, descripcion, activo, orden, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(nombre) DO UPDATE SET
+            descripcion = COALESCE(excluded.descripcion, asistencia_categorias.descripcion),
+            activo = COALESCE(excluded.activo, asistencia_categorias.activo),
+            orden = COALESCE(excluded.orden, asistencia_categorias.orden),
+            updated_at = excluded.updated_at
+          WHERE excluded.updated_at > asistencia_categorias.updated_at
+        `, [cat.nombre, cat.descripcion, cat.activo !== undefined ? cat.activo : 1, cat.orden || 0, cat.created_at, cat.updated_at], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    // 2. Sincronizar Contactos (Identificador Universal: uuid)
+    const crypto = require('crypto');
+    for (const c of remoteContacts) {
+      const contactUuid = c.uuid || crypto.randomUUID();
+      await new Promise((resolve, reject) => {
+        targetAsistenciasDb.run(`
+          INSERT INTO contactos_asistencia (uuid, nombre, depto_habitual, correo, telefono_anexo, notas, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(uuid) DO UPDATE SET
+            nombre = excluded.nombre,
+            depto_habitual = COALESCE(excluded.depto_habitual, contactos_asistencia.depto_habitual),
+            correo = COALESCE(excluded.correo, contactos_asistencia.correo),
+            telefono_anexo = COALESCE(excluded.telefono_anexo, contactos_asistencia.telefono_anexo),
+            notas = COALESCE(excluded.notas, contactos_asistencia.notas),
+            updated_at = excluded.updated_at
+          WHERE excluded.updated_at > contactos_asistencia.updated_at
+        `, [contactUuid, c.nombre, c.depto_habitual, c.correo, c.telefono_anexo, c.notas, c.created_at, c.updated_at], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    // 3. Sincronizar Bitácora con Enlace Inequívoco por contacto_uuid y resolución LWW
+    for (const b of remoteBitacoras) {
+      let resolvedContactId = null;
+      let resolvedContactUuid = b.contacto_uuid || null;
+
+      if (resolvedContactUuid) {
+        const contactRow = await queryGet(targetAsistenciasDb, "SELECT id FROM contactos_asistencia WHERE uuid = ?", [resolvedContactUuid]);
+        if (contactRow) resolvedContactId = contactRow.id;
+      } else if (b.solicitante_nombre && b.solicitante_nombre.trim()) {
+        const contactRow = await queryGet(targetAsistenciasDb, "SELECT id, uuid FROM contactos_asistencia WHERE nombre = ? COLLATE NOCASE", [b.solicitante_nombre.trim()]);
+        if (contactRow) {
+          resolvedContactId = contactRow.id;
+          resolvedContactUuid = contactRow.uuid;
+        }
+      }
+
+      await new Promise((resolve, reject) => {
+        targetAsistenciasDb.run(`
+          INSERT INTO bitacora_asistencias (
+            ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_cargo_depto,
+            solicitante_correo, solicitante_contacto, categoria, folio_lobby, sujeto_pasivo,
+            motivo_consulta, solucion_orientacion, estado, duracion_minutos, creado_por, updated_by, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(ticket_codigo) DO UPDATE SET
+            contacto_id = excluded.contacto_id,
+            contacto_uuid = excluded.contacto_uuid,
+            solicitante_nombre = excluded.solicitante_nombre,
+            solicitante_cargo_depto = excluded.solicitante_cargo_depto,
+            solicitante_correo = excluded.solicitante_correo,
+            solicitante_contacto = excluded.solicitante_contacto,
+            canal = excluded.canal,
+            categoria = excluded.categoria,
+            folio_lobby = excluded.folio_lobby,
+            sujeto_pasivo = excluded.sujeto_pasivo,
+            motivo_consulta = excluded.motivo_consulta,
+            solucion_orientacion = excluded.solucion_orientacion,
+            estado = excluded.estado,
+            duracion_minutos = excluded.duracion_minutos,
+            updated_by = excluded.updated_by,
+            updated_at = excluded.updated_at
+          WHERE excluded.updated_at > bitacora_asistencias.updated_at
+        `, [
+          b.ticket_codigo, resolvedContactId, resolvedContactUuid, b.fecha_hora, b.canal || 'telefono', b.solicitante_nombre, b.solicitante_cargo_depto,
+          b.solicitante_correo, b.solicitante_contacto, b.categoria, b.folio_lobby,
+          b.sujeto_pasivo || b.sujeto_pasivo_nombre, b.motivo_consulta, b.solucion_orientacion, b.estado,
+          b.duracion_minutos || 5, b.creado_por || b.created_by, b.updated_by, b.created_at, b.updated_at
+        ], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+    console.log(`✓ Delta merge de asistencias.db completado: ${remoteContacts.length} contactos y ${remoteBitacoras.length} asistencias procesadas con UUID.`);
+  } finally {
+    sourceDb.close();
+  }
+}
+
+/**
  * Ejecuta la verificación y sincronización de base de datos desde SharePoint.
  * @param {Object} db - Instancia del proxy de la base de datos
  * @param {String} cookieHeader - Cookies de sesión válidas de SharePoint
- * @param {String} type - Tipo de base de datos a sincronizar ('lobby' o 'usuarios')
+ * @param {String} type - Tipo de base de datos a sincronizar ('lobby', 'usuarios', 'asistencias' o 'local')
  * @returns {Promise<Boolean>} - Retorna true si hubo actualización, false de lo contrario.
  */
 async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
@@ -110,8 +238,17 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
   }
 
   const isLobby = type === 'lobby';
-  const remoteDbName = isLobby ? 'lobby_control.db' : 'usuarios.db';
-  const remoteVersionName = isLobby ? 'version_lobby.json' : 'version_users.json';
+  const isAsistencias = type === 'asistencias' || type === 'local';
+  
+  let remoteDbName = 'lobby_control.db';
+  let remoteVersionName = 'version_lobby.json';
+  if (type === 'usuarios') {
+    remoteDbName = 'usuarios.db';
+    remoteVersionName = 'version_users.json';
+  } else if (isAsistencias) {
+    remoteDbName = 'asistencias.db';
+    remoteVersionName = 'version_asistencias.json';
+  }
 
   // Construir las URLs de la API REST de SharePoint
   const cleanSiteUrl = siteUrl.replace(/\/$/, '');
@@ -186,7 +323,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
       if (isSignatureDifferent) {
         shouldDownload = true;
         isSecurityAlert = true;
-        logMessage = `⚠️ ALERTA: La base de datos local ${remoteDbName} difiere en firma digital. Forzando descarga limpia desde SharePoint...`;
+        logMessage = `⚠️ ALERTA: La base de datos local ${remoteDbName} difiere en firma digital. Forzando sincronización desde SharePoint...`;
       } else {
         console.log(`Base de datos local ${remoteDbName} al día y firma validada.`);
         shouldDownload = false;
@@ -233,8 +370,28 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
       if (downloadedSignature !== remoteVersion.db_signature) {
         throw new Error(`La firma de ${remoteDbName} descargada no coincide con el servidor.`);
       }
+
+      // Si es asistencias.db, ejecutar Delta Merge para no perder registros locales
+      if (isAsistencias) {
+        console.log(`Ejecutando Row-Level Delta Merge en asistencias.db...`);
+        await mergeAsistenciasDatabase(db, tempDbPath);
+        fs.copyFileSync(tempVersionPath, localVersionPath);
+        try { fs.unlinkSync(tempDbPath); } catch (e) {}
+        try { fs.unlinkSync(tempVersionPath); } catch (e) {}
+
+        const timestampStr = remoteVersion.last_import_timestamp;
+        const database = require('./database');
+        await new Promise((resolve, reject) => {
+          database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES ('asistencias_last_update', ?)", [timestampStr], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        console.log(`✓ Delta Merge de ${remoteDbName} completado con éxito.`);
+        return true;
+      }
       
-      // 6. Intercambio seguro en caliente (Cerrar conexión, reemplazar, reabrir)
+      // 6. Intercambio seguro en caliente para lobby_control.db y usuarios.db
       console.log(`Reemplazando base de datos local ${remoteDbName} SQLite...`);
       await db.closeConnection();
       
@@ -345,8 +502,16 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
   }
 
   const isLobby = type === 'lobby';
-  const remoteDbName = isLobby ? 'lobby_control.db' : 'usuarios.db';
-  const remoteVersionName = isLobby ? 'version_lobby.json' : 'version_users.json';
+  const isAsistencias = type === 'asistencias' || type === 'local';
+  let remoteDbName = 'lobby_control.db';
+  let remoteVersionName = 'version_lobby.json';
+  if (type === 'usuarios') {
+    remoteDbName = 'usuarios.db';
+    remoteVersionName = 'version_users.json';
+  } else if (isAsistencias) {
+    remoteDbName = 'asistencias.db';
+    remoteVersionName = 'version_asistencias.json';
+  }
 
   const dbDir = db.getUserDataDir();
   const localDbPath = db.getDbPath();
@@ -485,6 +650,14 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
         else resolve();
       });
     });
+  } else if (isLocal) {
+    const database = require('./database');
+    await new Promise((resolve, reject) => {
+      database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES ('asistencias_last_update', ?)", [timestampStr], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
   } else {
     const database = require('./database');
     await new Promise((resolve, reject) => {
@@ -558,4 +731,4 @@ async function downloadUsersDatabaseTemp(cookieHeader, tempDbPath, tempVersionPa
   }
 }
 
-module.exports = { checkAndSyncDatabase, uploadDatabaseToSharePoint, downloadUsersDatabaseTemp };
+module.exports = { checkAndSyncDatabase, uploadDatabaseToSharePoint, downloadUsersDatabaseTemp, mergeAsistenciasDatabase };

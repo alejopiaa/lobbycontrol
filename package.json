@@ -1,6 +1,6 @@
 {
   "name": "lobbycontrol",
-  "version": "2.9.1",
+  "version": "2.10.0",
   "description": "Sistema local para la gestión y control de audiencias de la Ley de Lobby",
   "main": "main.js",
   "scripts": {
@@ -30,6 +30,8 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
+    "acorn": "^8.18.0",
+    "acorn-walk": "^8.3.5",
     "electron": "^42.5.0",
     "electron-builder": "^26.15.3",
     "preline": "^4.2.0"

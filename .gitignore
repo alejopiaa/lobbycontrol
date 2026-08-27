@@ -25,7 +25,9 @@ data/*.db-shm
 data/*.db-wal
 data/*.json
 data/*.bak
+data/*.backup*
 data/*.tmp*
+data/
 *.bak
 data/backup/
 data/sharepoint_upload/

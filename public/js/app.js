@@ -420,8 +420,6 @@ async function triggerSsoLogin() {
       fetchAlertas();
       if (typeof initSessionTimeout === 'function') initSessionTimeout();
       switchView('dashboard');
-      // Recargar la app para sincronizar los nuevos datos de base de datos
-      window.location.reload();
     } else {
       if (loginErrorEl && loginErrorTextEl) {
         const rawMsg = data.message || data.error || 'No se pudo iniciar sesión con Microsoft.';
@@ -857,7 +855,7 @@ ${message}
   if (persistent) {
     htmlContent += `
       <button onclick="const t = this.closest('.toast-animate-in, div'); t.classList.remove('toast-animate-in'); t.classList.add('toast-animate-out'); setTimeout(() => t.remove(), 190);" 
-              class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center">
+              class="text-text-tertiary hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center">
         <i data-lucide="x" class="h-4 w-4"></i>
       </button>
     `;
@@ -917,6 +915,12 @@ async function switchView(viewName) {
 
   currentView = viewName;
   localStorage.setItem('lobby_current_view', viewName);
+
+  if (viewName === 'administracion') {
+    const rol = (currentUser && currentUser.rol) || '';
+    window.activeAdminScope = 'gestion';
+    window.activeAdminTab = rol === 'Auditor' ? 'sujetos' : 'auditoria';
+  }
   
   // Controlar visibilidad del Header y Cápsula según si es vista de Login o no
   const header = document.querySelector('header');
@@ -951,7 +955,7 @@ async function switchView(viewName) {
     if (viewName === 'administracion') {
       settingsEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-brand-500 bg-brand-500/10 text-brand-500 dark:text-brand-400 transition-all duration-200";
     } else {
-      settingsEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-100 dark:bg-slate-950/40 text-slate-650 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-200";
+      settingsEl.className = "h-8 w-8 rounded-xl flex items-center justify-center border border-border-ui  hover:border-border-ui dark:hover:border-border-ui bg-border-ui  text-text-secondary  hover:text-text-primary  transition-all duration-200";
     }
   }
 
@@ -1093,7 +1097,7 @@ function renderError() {
         <i data-lucide="alert-triangle" class="h-6 w-6"></i>
       </div>
       <div>
-        <h3 class="text-md font-semibold text-heading">Error en Servidor Local</h3>
+        <h3 class="text-sm font-semibold text-heading">Error en Servidor Local</h3>
         <p class="text-xs text-body-muted max-w-sm mt-1">No se pudo establecer conexión con el servidor Node.js. Asegúrate de ejecutar "npm start" y que el puerto 3000 esté libre.</p>
       </div>
       <button onclick="switchView('${currentView}')" class="px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 btn-secondary">
@@ -1454,7 +1458,7 @@ function showDashboardSuggestions(fieldName) {
 
   if (filtered.length === 0) {
     suggestionsDiv.innerHTML = `
-      <div class="px-3 py-2 text-xs text-slate-400 italic">
+      <div class="px-3 py-2 text-xs text-text-tertiary italic">
         Sin coincidencias
       </div>
     `;
@@ -1467,9 +1471,9 @@ function showDashboardSuggestions(fieldName) {
   let headerHtml = '';
   if (isReportesNombre) {
     if (val.length === 0) {
-      headerHtml = `<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-400 border-b border-slate-700/60 flex items-center gap-1.5"><i data-lucide="shield-check" class="h-3 w-3"></i> Sujetos Pasivos Vigentes</div>`;
+      headerHtml = `<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-400 border-b border-border-ui flex items-center gap-1.5"><i data-lucide="shield-check" class="h-3 w-3"></i> Sujetos Pasivos Vigentes</div>`;
     } else {
-      headerHtml = `<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700/60">Resultados de búsqueda</div>`;
+      headerHtml = `<div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-text-tertiary border-b border-border-ui">Resultados de búsqueda</div>`;
     }
   }
 
@@ -1478,7 +1482,7 @@ function showDashboardSuggestions(fieldName) {
       <div data-action="select-suggestion"
            data-field="${fieldName}"
            data-value="${escapeHtmlAttr(item)}"
-           class="suggestion-item px-3 py-2 text-xs text-slate-200 hover:bg-brand-600 hover:text-white cursor-pointer transition-colors truncate">
+           class="suggestion-item px-3 py-2 text-xs text-text-secondary hover:bg-brand-600 hover:text-text-primary cursor-pointer transition-colors truncate">
         ${escapeHtml(item)}
       </div>
     `;
@@ -1508,13 +1512,13 @@ function selectDashboardSuggestion(fieldName, value) {
         cargoInput.disabled = true;
         cargoInput.placeholder = 'Seleccione nombre primero...';
         cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
-        cargoInput.classList.remove('text-slate-200');
+        cargoInput.classList.remove('text-text-secondary');
         cargoInput.value = '';
       } else {
         cargoInput.disabled = false;
         cargoInput.placeholder = 'Escribir cargo...';
         cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
-        cargoInput.classList.add('text-slate-200');
+        cargoInput.classList.add('text-text-secondary');
       }
     }
   }
@@ -1603,7 +1607,7 @@ function hideDashboardSuggestions(fieldName) {
               cargoInput.disabled = true;
               cargoInput.placeholder = 'Seleccione nombre primero...';
               cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
-              cargoInput.classList.remove('text-slate-200');
+              cargoInput.classList.remove('text-text-secondary');
               cargoInput.value = '';
             }
           }
@@ -1630,7 +1634,7 @@ function hideDashboardSuggestions(fieldName) {
                 cargoInput.disabled = false;
                 cargoInput.placeholder = 'Escribir cargo...';
                 cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
-                cargoInput.classList.add('text-slate-200');
+                cargoInput.classList.add('text-text-secondary');
               }
             }
             if (fieldName === 'anio') {
@@ -1652,7 +1656,7 @@ function hideDashboardSuggestions(fieldName) {
               cargoInput.disabled = false;
               cargoInput.placeholder = 'Escribir cargo...';
               cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
-              cargoInput.classList.add('text-slate-200');
+              cargoInput.classList.add('text-text-secondary');
             }
           }
           triggerRenderOrFetch();
@@ -1687,7 +1691,7 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
           cargoInput.disabled = true;
           cargoInput.placeholder = 'Seleccione nombre primero...';
           cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
-          cargoInput.classList.remove('text-slate-200');
+          cargoInput.classList.remove('text-text-secondary');
           cargoInput.value = '';
         }
       }
@@ -1710,7 +1714,7 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
           cargoInput.disabled = false;
           cargoInput.placeholder = 'Escribir cargo...';
           cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
-          cargoInput.classList.add('text-slate-200');
+          cargoInput.classList.add('text-text-secondary');
         }
       }
       
@@ -1819,11 +1823,11 @@ function updateHighlightedSuggestion(items) {
   items.forEach((item, idx) => {
     if (idx === activeSuggestionIndex) {
       item.classList.add('bg-brand-600', 'text-white');
-      item.classList.remove('text-slate-200');
+      item.classList.remove('text-text-secondary');
       item.scrollIntoView({ block: 'nearest' });
     } else {
       item.classList.remove('bg-brand-600', 'text-white');
-      item.classList.add('text-slate-200');
+      item.classList.add('text-text-secondary');
     }
   });
 }
@@ -1938,7 +1942,7 @@ function updateReporteEstadoPillStyle(checkbox) {
   const isChecked = checkbox.checked;
   
   const activeClasses = ['border-brand-500', 'bg-blue-500/10', 'text-blue-600', 'dark:text-blue-400', 'shadow-sm', 'shadow-brand-500/20'];
-  const inactiveClasses = ['text-slate-500', 'dark:text-slate-300', 'border-slate-200', 'dark:border-slate-800/80', 'bg-slate-100/40', 'dark:bg-slate-900/40'];
+  const inactiveClasses = ['text-text-tertiary', '', 'border-border-ui', '', 'bg-border-ui', ''];
 
   if (isChecked) {
     inactiveClasses.forEach(c => label.classList.remove(c));
@@ -2036,9 +2040,6 @@ function renderView(forceAnimateCards = false) {
     requestAnimationFrame(() => syncAllLinkedDatepickers());
   }
   
-  if (typeof HSStaticMethods !== 'undefined' && HSStaticMethods.autoInit) {
-    HSStaticMethods.autoInit();
-  }
   hideLoader(!!window.activeInputId || !window.isSwitchingView);
   window.isSwitchingView = false;
 }
@@ -2334,7 +2335,7 @@ function openConfirmModal(title, message, onConfirm) {
   modal.classList.add('backdrop-animate-in');
 
   modal.innerHTML = `
-    <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-slate-200 dark:border-slate-800">
+    <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-border-ui">
       <!-- Icono de advertencia premium -->
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 flex items-center justify-center shrink-0">
@@ -2386,7 +2387,7 @@ function renderAlertasWidget() {
   const hasWarnings = warnings.length > 0;
 
   container.innerHTML = `
-    <button id="alerts-toggle-btn" onclick="toggleAlertsDropdown(event)" class="relative h-8 w-8 rounded-xl flex items-center justify-center border border-slate-800 hover:border-slate-700 bg-slate-950/40 text-slate-300 hover:text-white transition-all duration-200" title="Alertas de Plazos">
+    <button id="alerts-toggle-btn" onclick="toggleAlertsDropdown(event)" class="relative h-8 w-8 rounded-xl flex items-center justify-center border border-border-ui hover:border-border-ui bg-bg-main text-text-secondary hover:text-text-primary transition-all duration-200" title="Alertas de Plazos">
       <i data-lucide="bell" class="h-4 w-4"></i>
       ${hasWarnings ? `
         <span class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-[var(--bg-header)] animate-pulse">
@@ -2418,20 +2419,8 @@ function renderAlertasWidget() {
             <p class="text-[10px] text-[var(--text-tertiary)] mt-0.5">Todos los plazos están al día</p>
           </div>
         ` : warnings.map(w => `
-          <div class="p-2.5 rounded-xl border border-[var(--border-ui)] border-l-4 ${
-            w.color === 'red' 
-              ? 'border-l-rose-500 bg-rose-500/[0.03] dark:bg-rose-950/10' 
-              : w.color === 'blue'
-                ? 'border-l-blue-500 bg-blue-500/[0.03] dark:bg-blue-950/10'
-                : 'border-l-amber-500 bg-amber-500/[0.03] dark:bg-amber-950/10'
-          } hover:bg-slate-50/50 dark:hover:bg-slate-900/20 transition-colors flex gap-2.5 items-start text-left relative group">
-            <span class="flex h-2 w-2 rounded-full mt-1.5 shrink-0 ${
-              w.color === 'red' 
-                ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse' 
-                : w.color === 'blue'
-                  ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse'
-                  : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-            }"></span>
+          <div class="p-2.5 rounded-xl border border-[var(--border-ui)] border-l-4 ${ w.color === 'red' ? 'border-l-rose-500 bg-rose-500/[0.03] dark:bg-rose-950/10' : w.color === 'blue' ? 'border-l-blue-500 bg-blue-500/[0.03] dark:bg-blue-950/10' : 'border-l-amber-500 bg-amber-500/[0.03] dark:bg-amber-950/10' } hover:bg-border-ui dark:hover:bg-border-ui/20 transition-colors flex gap-2.5 items-start text-left relative group">
+            <span class="flex h-2 w-2 rounded-full mt-1.5 shrink-0 ${ w.color === 'red' ? 'bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse' : w.color === 'blue' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' }"></span>
             <div class="flex-1 min-w-0">
               <div class="text-xs font-semibold text-[var(--text-primary)] mb-0.5 flex justify-between gap-2">
                 <span class="truncate pr-4">${w.sujeto_pasivo || 'Sujeto Pasivo'}</span>
@@ -2514,17 +2503,17 @@ function openUsuarioModal(id = null) {
       <form id="usuario-form" onsubmit="saveUsuario(event, ${id})" class="space-y-4">
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">Nombre Completo</label>
-          <input type="text" id="user-nombre" value="${user.nombre}" required class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400">
+          <input type="text" id="user-nombre" value="${user.nombre}" required class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
         </div>
 
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">RUT</label>
-          <input type="text" id="user-rut" value="${user.rut || ''}" placeholder="12.345.678-9" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400">
+          <input type="text" id="user-rut" value="${user.rut || ''}" placeholder="12.345.678-9" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
         </div>
 
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">Correo Electrónico</label>
-          <input type="email" id="user-correo" value="${user.correo}" required placeholder="ejemplo@correo.com" ${isEdit ? 'readonly class="w-full px-3 py-2 rounded-xl text-xs glass-input glass-input-disabled cursor-not-allowed"' : 'class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400"'}>
+          <input type="email" id="user-correo" value="${user.correo}" required placeholder="ejemplo@correo.com" ${isEdit ? 'readonly class="w-full px-3 py-2 rounded-xl text-xs glass-input glass-input-disabled cursor-not-allowed"' : 'class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary"'}>
         </div>
 
         <div class="space-y-1">
@@ -2593,7 +2582,7 @@ async function saveUsuario(event, id) {
 function confirmarSincronizacionUsuarios(btn) {
   openConfirmModal(
     'Sincronizar Usuarios',
-    '¿Está seguro de que desea subir y sincronizar la base de datos de usuarios actual con SharePoint? Esto actualizará la versión oficial para todos los computadores de la red.',
+    '¿Está seguro de que desea subir y sincronizar la base de datos de usuarios actual con SharePoint? Esto actualizará la versión compartida para todos los computadores de la red.',
     () => {
       sincronizarUsuariosASharepoint(btn);
     }
@@ -2658,7 +2647,7 @@ function openProfileModal() {
           <label class="text-[10px] font-bold text-body-muted uppercase">Nombre Completo</label>
           <input type="text" id="profile-nombre" value="${currentUser.nombre || ''}" 
                  ${isAdmin ? 'required' : 'readonly'} 
-                 class="w-full px-3 py-2 rounded-xl text-xs glass-input ${isAdmin ? 'text-slate-200 placeholder-slate-400' : 'glass-input-disabled cursor-not-allowed'}">
+                 class="w-full px-3 py-2 rounded-xl text-xs glass-input ${isAdmin ? 'text-text-secondary placeholder:text-text-tertiary' : 'glass-input-disabled cursor-not-allowed'}">
         </div>
 
         <!-- RUT -->
@@ -2666,7 +2655,7 @@ function openProfileModal() {
           <label class="text-[10px] font-bold text-body-muted uppercase">RUT</label>
           <input type="text" id="profile-rut" value="${currentUser.rut || ''}" placeholder="12.345.678-9"
                  ${isAdmin ? '' : 'readonly'} 
-                 class="w-full px-3 py-2 rounded-xl text-xs glass-input ${isAdmin ? 'text-slate-200 placeholder-slate-400' : 'glass-input-disabled cursor-not-allowed'}">
+                 class="w-full px-3 py-2 rounded-xl text-xs glass-input ${isAdmin ? 'text-text-secondary placeholder:text-text-tertiary' : 'glass-input-disabled cursor-not-allowed'}">
         </div>
 
         <!-- ROL -->
@@ -2680,7 +2669,7 @@ function openProfileModal() {
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">Correo Electrónico</label>
           <input type="email" id="profile-correo" value="${currentUser.correo || ''}" required placeholder="ejemplo@correo.com"
-                 class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400">
+                 class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
         </div>
 
         <div class="flex justify-end gap-3 pt-2">
@@ -2806,7 +2795,7 @@ document.addEventListener('click', (e) => {
         cargoInput.disabled = true;
         cargoInput.placeholder = 'Seleccione nombre primero...';
         cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
-        cargoInput.classList.remove('text-slate-200');
+        cargoInput.classList.remove('text-text-secondary');
         cargoInput.value = '';
       }
     }
@@ -3056,7 +3045,7 @@ function buildReportPDFHtml({ processedData, filtersSnapshot, sujetoPasivoNombre
 
   const rfechas = `${filtersSnapshot.fechaInicio ? `Desde: ${filtersSnapshot.fechaInicio}` : ''} ${filtersSnapshot.fechaTermino ? `Hasta: ${filtersSnapshot.fechaTermino}` : ''}`;
   const rfechasStr = rfechas.trim() !== '' ? rfechas : 'Cualquier fecha';
-  const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+  const generadoFechaHora = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago', hour12: false });
   const displayNombre = sujetoPasivoNombre || normalizeName(filtersSnapshot.nombre) || 'Todos los Sujetos Pasivos';
   const displayCargo = sujetoPasivoCargo || filtersSnapshot.cargo || 'Todos los Cargos';
 
@@ -3776,7 +3765,7 @@ function triggerImport() {
       // 1. Bloquear interfaz
       btn.disabled = true;
       btn.classList.add('glass-input-disabled', 'cursor-not-allowed', 'opacity-60');
-      btn.innerHTML = `<span class="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin"></span> <span>Procesando...</span>`;
+      btn.innerHTML = `<span class="w-4 h-4 border-2 border-border-ui border-t-transparent rounded-full animate-spin"></span> <span>Procesando...</span>`;
 
       if (btnRegistrar) {
         btnRegistrar.disabled = true;
@@ -3863,7 +3852,7 @@ function triggerImport() {
         // 2. Desbloquear y restaurar interfaz en estado inactivo
         if (btn) {
           btn.disabled = true;
-          btn.className = 'flex-1 py-3 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
+          btn.className = 'flex-1 py-3 bg-border-ui/50 text-text-tertiary rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
           btn.innerHTML = `<i data-lucide="file-up" class="h-4 w-4"></i> <span>Procesar e Importar Excel</span>`;
         }
 
@@ -3987,7 +3976,7 @@ async function refreshAdminLogs(force = false) {
   if (!container) return;
   
   if (force || _logEntries.length === 0) {
-    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">Cargando registros...</td></tr>`;
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-text-tertiary text-xs font-semibold">Cargando registros...</td></tr>`;
     try {
       const res = await fetch('/api/admin/logs');
       const data = await res.json();
@@ -4000,7 +3989,7 @@ async function refreshAdminLogs(force = false) {
   }
 
   if (_logEntries.length === 0) {
-    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-text-tertiary text-xs font-semibold">
       <div class="flex flex-col items-center gap-2">
         <i data-lucide="check-circle" class="h-8 w-8 text-emerald-600/40"></i>
         <span>No hay logs registrados. ¡Todo en orden!</span>
@@ -4036,7 +4025,7 @@ async function refreshAdminLogs(force = false) {
   if (countEl) countEl.textContent = String(filtered.length);
 
   if (filtered.length === 0) {
-    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-500 text-xs font-semibold">No hay registros que coincidan con el filtro seleccionado.</td></tr>`;
+    container.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-text-tertiary text-xs font-semibold">No hay registros que coincidan con el filtro seleccionado.</td></tr>`;
     const paginationContainer = document.getElementById('logs-pagination-container');
     if (paginationContainer) paginationContainer.innerHTML = '';
     if (window.lucide) lucide.createIcons();
@@ -4061,18 +4050,18 @@ async function refreshAdminLogs(force = false) {
     if (code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC')) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 dark:border-amber-800/40';
     if (code.startsWith('ERR-AUTH') || code.startsWith('AUTH-')) return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 dark:border-sky-800/40';
     if (code.startsWith('ERR-')) return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 dark:border-rose-800/40';
-    return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 dark:border-slate-700/40';
+    return 'bg-border-ui/40 text-text-secondary  border-border-ui ';
   };
 
   container.innerHTML = paginated.map((entry) => {
     const originalIndex = _logEntries.indexOf(entry);
     return `
-      <tr class="border-b border-slate-200/60 dark:border-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group" onclick="openLogDetailModal(${originalIndex})">
-        <td class="py-2.5 px-3 text-[10px] text-slate-450 dark:text-slate-500 font-mono whitespace-nowrap">${entry.timestamp}</td>
+      <tr class="border-b border-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors cursor-pointer group" onclick="openLogDetailModal(${originalIndex})">
+        <td class="py-2.5 px-3 text-[10px] text-text-secondary font-mono whitespace-nowrap">${entry.timestamp}</td>
         <td class="py-2.5 px-3">
           <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold border ${severityColor(entry.code)}">${entry.code}</span>
         </td>
-        <td class="py-2.5 px-3 text-[11px] text-slate-700 dark:text-slate-350 max-w-[350px] truncate font-medium">${entry.message}</td>
+        <td class="py-2.5 px-3 text-[11px] text-text-secondary max-w-[350px] truncate font-medium">${entry.message}</td>
         <td class="py-2.5 px-3 text-right">
           <span class="opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-brand-600 dark:text-brand-400 font-bold">Ver detalle →</span>
         </td>
@@ -4150,7 +4139,7 @@ function openSyncSummaryModal(statsObj, dateStr) {
     `;
   } else {
     spStatusHtml = `
-      <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-500/10 border border-slate-500/20 text-slate-600 dark:text-slate-400 text-xs font-medium">
+      <div class="flex items-center gap-2.5 p-3 rounded-2xl bg-border-ui/40 border border-border-ui text-text-secondary text-xs font-medium">
         <i data-lucide="database" class="h-4 w-4 text-brand-500 shrink-0"></i>
         <span>Base de datos local actualizada correctamente.</span>
       </div>
@@ -4158,7 +4147,7 @@ function openSyncSummaryModal(statsObj, dateStr) {
   }
 
   modal.innerHTML = `
-    <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+    <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-border-ui flex flex-col overflow-hidden">
       <!-- Header -->
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-3">
@@ -4166,32 +4155,32 @@ function openSyncSummaryModal(statsObj, dateStr) {
             <i data-lucide="check-circle-2" class="h-6 w-6"></i>
           </div>
           <div>
-            <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">¡Importación Completada!</h3>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${dateStr}</p>
+            <h3 class="text-base font-bold text-text-primary">¡Importación Completada!</h3>
+            <p class="text-[11px] text-text-tertiary mt-0.5">${dateStr}</p>
           </div>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+        <button onclick="closeModal()" class="text-text-tertiary hover:text-text-primary dark:hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-1">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
       </div>
 
       <!-- KPI Grid -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+        <div class="bg-bg-main border border-border-ui rounded-2xl p-3 text-center">
           <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Creados</span>
-          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">+${inserts}</span>
+          <span class="text-xl font-black text-text-primary mt-0.5 block">+${inserts}</span>
         </div>
-        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+        <div class="bg-bg-main border border-border-ui rounded-2xl p-3 text-center">
           <span class="block text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Modificados</span>
-          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">${updates}</span>
+          <span class="text-xl font-black text-text-primary mt-0.5 block">${updates}</span>
         </div>
-        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
+        <div class="bg-bg-main border border-border-ui rounded-2xl p-3 text-center">
           <span class="block text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Eliminados</span>
-          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">${deletes}</span>
+          <span class="text-xl font-black text-text-primary mt-0.5 block">${deletes}</span>
         </div>
-        <div class="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 text-center">
-          <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sin cambio</span>
-          <span class="text-xl font-black text-slate-800 dark:text-slate-100 mt-0.5 block">${skipped.toLocaleString('es-CL')}</span>
+        <div class="bg-bg-main border border-border-ui rounded-2xl p-3 text-center">
+          <span class="block text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Sin cambio</span>
+          <span class="text-xl font-black text-text-primary mt-0.5 block">${skipped.toLocaleString('es-CL')}</span>
         </div>
       </div>
 
@@ -4199,9 +4188,9 @@ function openSyncSummaryModal(statsObj, dateStr) {
       ${spStatusHtml}
 
       <!-- Footer Buttons -->
-      <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0">
+      <div class="flex items-center justify-between gap-3 pt-2 border-t border-border-ui shrink-0">
         ${totalChanges > 0 ? `
-          <button onclick="openSyncDetailsModal(window._activeSyncStats, window._activeSyncDateStr, true)" class="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-2 cursor-pointer transition-all">
+          <button onclick="openSyncDetailsModal(window._activeSyncStats, window._activeSyncDateStr, true)" class="px-4 py-2.5 rounded-xl text-xs font-bold border border-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary flex items-center gap-2 cursor-pointer transition-all">
             <i data-lucide="eye" class="h-4 w-4 text-brand-500"></i>
             <span>Ver desglose detallado</span>
           </button>
@@ -4265,21 +4254,21 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
   // Renderizar Agregados
   let agregadosHtml = '';
   if (inserts.length === 0) {
-    agregadosHtml = `<p class="text-center text-xs text-slate-500 py-10">Ningún registro fue agregado en este proceso.</p>`;
+    agregadosHtml = `<p class="text-center text-xs text-text-tertiary py-10">Ningún registro fue agregado en este proceso.</p>`;
   } else {
     agregadosHtml = `
       <div class="space-y-2.5">
         ${inserts.map(item => `
-          <div class="sync-item-card bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
+          <div class="sync-item-card bg-bg-main border border-border-ui rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
                 <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">${item.section}</span>
-                <span class="font-mono font-bold text-xs text-slate-800 dark:text-slate-100">${item.folio || item.nombre || `ID: ${item.id}`}</span>
+                <span class="font-mono font-bold text-xs text-text-primary">${item.folio || item.nombre || `ID: ${item.id}`}</span>
               </div>
-              <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                ${item.pasivo ? `<strong class="text-slate-700 dark:text-slate-300">Sujeto:</strong> ${item.pasivo}` : ''}
-                ${item.activo ? ` &bull; <strong class="text-slate-700 dark:text-slate-300">Solicitante:</strong> ${item.activo}` : ''}
-                ${item.cargo ? `<strong class="text-slate-700 dark:text-slate-300">Cargo:</strong> ${item.cargo}` : ''}
+              <p class="text-[11px] text-text-tertiary leading-snug">
+                ${item.pasivo ? `<strong class="text-text-secondary">Sujeto:</strong> ${item.pasivo}` : ''}
+                ${item.activo ? ` &bull; <strong class="text-text-secondary">Solicitante:</strong> ${item.activo}` : ''}
+                ${item.cargo ? `<strong class="text-text-secondary">Cargo:</strong> ${item.cargo}` : ''}
               </p>
             </div>
             <span class="shrink-0 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] self-start sm:self-auto border border-emerald-500/20">
@@ -4294,7 +4283,7 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
   // Renderizar Modificados (Tarjetas Diff con buen formato y sin cortes)
   let modificadosHtml = '';
   if (updates.length === 0) {
-    modificadosHtml = `<p class="text-center text-xs text-slate-500 py-10">Ningún registro fue modificado en este proceso.</p>`;
+    modificadosHtml = `<p class="text-center text-xs text-text-tertiary py-10">Ningún registro fue modificado en este proceso.</p>`;
   } else {
     modificadosHtml = `
       <div class="space-y-3">
@@ -4304,28 +4293,28 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
             diffsHtml = Object.keys(item.changes).map(field => {
               const diff = item.changes[field];
               return `
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-3 py-2 border-b border-slate-200/60 dark:border-slate-800/60 last:border-0 items-start text-xs">
-                  <span class="sm:col-span-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pt-0.5">${field}</span>
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-1.5 sm:gap-3 py-2 border-b border-border-ui last:border-0 items-start text-xs">
+                  <span class="sm:col-span-3 text-[10px] font-bold text-text-tertiary uppercase tracking-wider pt-0.5">${field}</span>
                   <div class="sm:col-span-9 flex flex-wrap items-center gap-2">
                     <span class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 line-through text-[11px] font-medium max-w-full break-words" title="${diff.old}">${diff.old || '(vacío)'}</span>
-                    <span class="text-slate-400 font-bold">→</span>
+                    <span class="text-text-tertiary font-bold">→</span>
                     <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px] max-w-full break-words" title="${diff.new}">${diff.new || '(vacío)'}</span>
                   </div>
                 </div>
               `;
             }).join('');
           } else {
-            diffsHtml = `<p class="text-[11px] text-slate-450 dark:text-slate-500 italic">Campos actualizados en base de datos.</p>`;
+            diffsHtml = `<p class="text-[11px] text-text-secondary italic">Campos actualizados en base de datos.</p>`;
           }
 
           return `
-            <div class="sync-item-card bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 space-y-2.5 transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
-              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <div class="sync-item-card bg-bg-main border border-border-ui rounded-2xl p-4 space-y-2.5 transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-border-ui pb-2.5">
                 <div class="flex items-center gap-2">
                   <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">${item.section}</span>
-                  <span class="font-mono font-bold text-xs text-slate-800 dark:text-slate-100">${item.folio || item.nombre || `ID: ${item.id}`}</span>
+                  <span class="font-mono font-bold text-xs text-text-primary">${item.folio || item.nombre || `ID: ${item.id}`}</span>
                 </div>
-                ${item.pasivo ? `<span class="text-[11px] text-slate-500 dark:text-slate-400"><strong class="text-slate-700 dark:text-slate-300">Sujeto:</strong> ${item.pasivo}</span>` : ''}
+                ${item.pasivo ? `<span class="text-[11px] text-text-tertiary"><strong class="text-text-secondary">Sujeto:</strong> ${item.pasivo}</span>` : ''}
               </div>
               <div class="space-y-1">
                 ${diffsHtml}
@@ -4340,20 +4329,20 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
   // Renderizar Eliminados
   let eliminadosHtml = '';
   if (deletes.length === 0) {
-    eliminadosHtml = `<p class="text-center text-xs text-slate-500 py-10">Ningún registro fue eliminado en este proceso.</p>`;
+    eliminadosHtml = `<p class="text-center text-xs text-text-tertiary py-10">Ningún registro fue eliminado en este proceso.</p>`;
   } else {
     eliminadosHtml = `
       <div class="space-y-2.5">
         ${deletes.map(item => `
-          <div class="sync-item-card bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '')}">
+          <div class="sync-item-card bg-bg-main border border-border-ui rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '')}">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
                 <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">${item.section}</span>
-                <span class="font-mono font-bold text-xs text-slate-800 dark:text-slate-100">${item.folio || item.nombre || `ID: ${item.id}`}</span>
+                <span class="font-mono font-bold text-xs text-text-primary">${item.folio || item.nombre || `ID: ${item.id}`}</span>
               </div>
-              <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                ${item.pasivo ? `<strong class="text-slate-700 dark:text-slate-300">Sujeto Pasivo:</strong> ${item.pasivo}` : ''}
-                ${item.nombre ? `<strong class="text-slate-700 dark:text-slate-300">Nombre:</strong> ${item.nombre}` : ''}
+              <p class="text-[11px] text-text-tertiary leading-snug">
+                ${item.pasivo ? `<strong class="text-text-secondary">Sujeto Pasivo:</strong> ${item.pasivo}` : ''}
+                ${item.nombre ? `<strong class="text-text-secondary">Nombre:</strong> ${item.nombre}` : ''}
               </p>
             </div>
             <span class="shrink-0 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-[10px] self-start sm:self-auto border border-rose-500/20">
@@ -4366,7 +4355,7 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
   }
 
   modal.innerHTML = `
-    <div class="glass-card w-full max-w-4xl p-6 rounded-3xl space-y-4 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800 max-h-[88vh] flex flex-col overflow-hidden">
+    <div class="glass-card w-full max-w-4xl p-6 rounded-3xl space-y-4 shadow-2xl relative animate-fade-in border border-border-ui max-h-[88vh] flex flex-col overflow-hidden">
       <!-- Header -->
       <div class="flex items-start justify-between shrink-0">
         <div class="flex items-center gap-3">
@@ -4374,30 +4363,30 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
             <i data-lucide="clipboard-list" class="h-5 w-5"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Desglose Detallado de Cambios</h3>
-            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">${dateStr}</p>
+            <h3 class="text-sm font-bold text-text-primary">Desglose Detallado de Cambios</h3>
+            <p class="text-[10px] text-text-tertiary mt-0.5">${dateStr}</p>
           </div>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+        <button onclick="closeModal()" class="text-text-tertiary hover:text-text-primary dark:hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-1">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
       </div>
 
       <!-- Search Filter -->
       <div class="relative w-full shrink-0">
-        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400"></i>
-        <input type="text" id="sync-detail-search" oninput="filterSyncDetailCards(this.value)" placeholder="Buscar por folio, sujeto pasivo, solicitante o RUT..." class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary"></i>
+        <input type="text" id="sync-detail-search" oninput="filterSyncDetailCards(this.value)" placeholder="Buscar por folio, sujeto pasivo, solicitante o RUT..." class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-border-ui border border-border-ui text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
       </div>
 
       <!-- Tabs Header -->
-      <div class="flex border-b border-slate-200 dark:border-slate-800 shrink-0 gap-1">
-        <button data-tab="agregados" onclick="changeSyncDetailTab('agregados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'agregados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'} text-xs font-bold transition-all bg-transparent cursor-pointer">
+      <div class="flex border-b border-border-ui shrink-0 gap-1">
+        <button data-tab="agregados" onclick="changeSyncDetailTab('agregados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'agregados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-text-tertiary hover:text-text-primary dark:hover:text-text-primary'} text-xs font-bold transition-all bg-transparent cursor-pointer">
           Agregados (${inserts.length})
         </button>
-        <button data-tab="modificados" onclick="changeSyncDetailTab('modificados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'modificados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'} text-xs font-bold transition-all bg-transparent cursor-pointer">
+        <button data-tab="modificados" onclick="changeSyncDetailTab('modificados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'modificados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-text-tertiary hover:text-text-primary dark:hover:text-text-primary'} text-xs font-bold transition-all bg-transparent cursor-pointer">
           Modificados (${updates.length})
         </button>
-        <button data-tab="eliminados" onclick="changeSyncDetailTab('eliminados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'eliminados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'} text-xs font-bold transition-all bg-transparent cursor-pointer">
+        <button data-tab="eliminados" onclick="changeSyncDetailTab('eliminados')" class="sync-tab-header px-4 py-2 border-b-2 ${defaultTab === 'eliminados' ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-text-tertiary hover:text-text-primary dark:hover:text-text-primary'} text-xs font-bold transition-all bg-transparent cursor-pointer">
           Eliminados (${deletes.length})
         </button>
       </div>
@@ -4419,9 +4408,9 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 shrink-0">
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-border-ui shrink-0">
         ${showBackBtn ? `
-          <button onclick="openSyncSummaryModal(window._activeSyncStats, window._activeSyncDateStr)" class="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer transition-all">
+          <button onclick="openSyncSummaryModal(window._activeSyncStats, window._activeSyncDateStr)" class="px-4 py-2 rounded-xl text-xs font-bold border border-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary flex items-center gap-1.5 cursor-pointer transition-all">
             <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
             <span>Volver al resumen</span>
           </button>
@@ -4445,7 +4434,7 @@ window.changeSyncDetailTab = (tabName) => {
     if (el.getAttribute('data-tab') === tabName) {
       el.className = 'sync-tab-header px-4 py-2 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 text-xs font-bold transition-all bg-transparent cursor-pointer';
     } else {
-      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-xs font-bold transition-all bg-transparent cursor-pointer';
+      el.className = 'sync-tab-header px-4 py-2 border-b-2 border-transparent text-text-tertiary  hover:text-text-primary dark:hover:text-text-primary text-xs font-bold transition-all bg-transparent cursor-pointer';
     }
   });
 
@@ -4481,7 +4470,9 @@ window.viewSyncDetails = (id) => {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     });
-  } catch(e) {}
+  } catch (err) {
+    console.warn('No se pudo formatear timestamp:', err);
+  }
   
   try {
     const statsObj = JSON.parse(item.detalles);
@@ -4503,7 +4494,7 @@ function openLogDetailModal(index) {
     if (code.startsWith('ERR-GEN') || code.startsWith('ERR-DB-5')) return { text: 'CRÍTICO', cls: 'bg-rose-500/20 text-rose-400 border-rose-500/40' };
     if (code.startsWith('ERR-NET') || code.startsWith('ERR-SYNC')) return { text: 'ADVERTENCIA', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/40' };
     if (code.startsWith('ERR-AUTH')) return { text: 'AUTENTICACIÓN', cls: 'bg-sky-500/20 text-sky-400 border-sky-500/40' };
-    return { text: 'INFO', cls: 'bg-slate-500/20 text-slate-400 border-slate-500/40' };
+    return { text: 'INFO', cls: 'bg-border-ui/40 text-text-tertiary border-border-ui' };
   };
   
   const severity = severityLabel(entry.code);
@@ -4511,7 +4502,7 @@ function openLogDetailModal(index) {
   const escapedFull = JSON.stringify(`[${entry.timestamp}] [${entry.code}] ${entry.message}${hasDetails ? ' | ' + entry.details : ''}`).slice(1, -1);
   
   modal.innerHTML = `
-    <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-slate-200 dark:border-slate-800">
+    <div class="glass-card w-full max-w-lg p-6 rounded-3xl space-y-5 shadow-2xl relative animate-fade-in border border-border-ui">
       <!-- Header -->
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-3">
@@ -4520,10 +4511,10 @@ function openLogDetailModal(index) {
           </div>
           <div>
             <h3 class="text-sm font-bold text-heading">Detalle del Evento</h3>
-            <p class="text-[10px] text-slate-500 mt-0.5">${entry.timestamp}</p>
+            <p class="text-[10px] text-text-tertiary mt-0.5">${entry.timestamp}</p>
           </div>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-200 transition-colors bg-transparent border-none cursor-pointer p-1">
+        <button onclick="closeModal()" class="text-text-tertiary hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-1">
           <i data-lucide="x" class="h-4 w-4"></i>
         </button>
       </div>
@@ -4531,20 +4522,20 @@ function openLogDetailModal(index) {
       <!-- Badges -->
       <div class="flex items-center gap-2">
         <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold border ${severity.cls}">${severity.text}</span>
-        <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">${entry.code}</span>
+        <span class="inline-block px-2.5 py-1 rounded-lg text-[10px] font-bold bg-border-ui/50 text-text-secondary border border-border-ui font-mono">${entry.code}</span>
       </div>
       
       <!-- Mensaje -->
       <div class="space-y-1.5">
-        <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Mensaje</label>
-        <p class="text-xs text-slate-200 leading-relaxed bg-black/20 rounded-xl px-4 py-3 border border-slate-800/60">${entry.message}</p>
+        <label class="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Mensaje</label>
+        <p class="text-xs text-text-secondary leading-relaxed bg-black/50 rounded-xl px-4 py-3 border border-border-ui">${entry.message}</p>
       </div>
       
       <!-- Detalle Técnico -->
       ${hasDetails ? `
       <div class="space-y-1.5">
-        <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Detalle Técnico</label>
-        <pre class="text-[10px] text-slate-400 font-mono leading-relaxed bg-black/30 rounded-xl px-4 py-3 border border-slate-800/60 max-h-48 overflow-y-auto whitespace-pre-wrap break-all">${entry.details}</pre>
+        <label class="text-[9px] font-bold text-text-tertiary uppercase tracking-widest">Detalle Técnico</label>
+        <pre class="text-[10px] text-text-tertiary font-mono leading-relaxed bg-black/50 rounded-xl px-4 py-3 border border-border-ui max-h-48 overflow-y-auto whitespace-pre-wrap break-all">${entry.details}</pre>
       </div>
       ` : ''}
       
@@ -4580,7 +4571,7 @@ function handleExcelFileSelected(event) {
     if (clearBtn) clearBtn.classList.add('hidden');
     if (btn) {
       btn.disabled = true;
-      btn.className = 'flex-1 py-3 bg-slate-800 text-slate-500 rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
+      btn.className = 'flex-1 py-3 bg-border-ui/50 text-text-tertiary rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2';
       btn.innerHTML = `<i data-lucide="file-up" class="h-4 w-4"></i> <span>Procesar e Importar Excel</span>`;
       lucide.createIcons();
     }
@@ -4689,9 +4680,9 @@ async function openAuditoriaModal(id = null) {
               <div class="space-y-1">
                 <div class="flex justify-between items-center">
                   <label class="text-[10px] font-bold text-body-muted uppercase">${f.label}</label>
-                  <span id="sys-val-${f.key}" class="text-[9px] text-slate-400 font-semibold ${isEnProceso ? '' : 'hidden'}">Cargando...</span>
+                  <span id="sys-val-${f.key}" class="text-[9px] text-text-tertiary font-semibold ${isEnProceso ? '' : 'hidden'}">Cargando...</span>
                 </div>
-                <input type="number" id="aud-${f.key}" value="${val !== '' ? val : ''}" required min="0" oninput="validateAuditForm(); compareFieldDiscrepancy('${f.key}')" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-slate-200 placeholder-slate-400 ${isTotal ? 'font-bold border-brand-500/30' : ''}">
+                <input type="number" id="aud-${f.key}" value="${val !== '' ? val : ''}" required min="0" oninput="validateAuditForm(); compareFieldDiscrepancy('${f.key}')" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary ${isTotal ? 'font-bold border-brand-500/30' : ''}">
                 <div id="discrepancy-info-${f.key}" class="text-[9px] font-bold hidden mt-0.5"></div>
               </div>
             `;
@@ -4931,19 +4922,19 @@ function initDashboardCharts() {
 
   // Destruir instancias previas para evitar superposiciones o fugas de memoria
   if (chartDistribucionInstance) {
-    try { chartDistribucionInstance.destroy(); } catch(e){}
+    try { chartDistribucionInstance.destroy(); } catch (err) { console.debug('chartDistribucion ya liberado:', err); }
     chartDistribucionInstance = null;
   }
   if (chartEvolucionInstance) {
-    try { chartEvolucionInstance.destroy(); } catch(e){}
+    try { chartEvolucionInstance.destroy(); } catch (err) { console.debug('chartEvolucion ya liberado:', err); }
     chartEvolucionInstance = null;
   }
   if (chartCumplimientoInstance) {
-    try { chartCumplimientoInstance.destroy(); } catch(e){}
+    try { chartCumplimientoInstance.destroy(); } catch (err) { console.debug('chartCumplimiento ya liberado:', err); }
     chartCumplimientoInstance = null;
   }
   if (chartTopAutoridadesInstance) {
-    try { chartTopAutoridadesInstance.destroy(); } catch(e){}
+    try { chartTopAutoridadesInstance.destroy(); } catch (err) { console.debug('chartTopAutoridades ya liberado:', err); }
     chartTopAutoridadesInstance = null;
   }
 
@@ -4963,11 +4954,11 @@ function initDashboardCharts() {
   const colorSky = isDark ? '#38bdf8' : '#0284c7';
   const colorRose = isDark ? '#fda4af' : '#f43f5e';
   const colorPurple = isDark ? '#c084fc' : '#a78bfa';
-  const colorSlate = isDark ? '#64748b' : '#94a3b8';
+  const colorSlate = isDark ? '#9a95b0' : '#9d8dbf';
   const colorAmber = isDark ? '#fbbf24' : '#d97706';
 
-  const textColor = isDark ? '#cbd5e1' : '#334155'; // slate-300 vs slate-700
-  const gridColor = isDark ? '#1e293b' : '#e2e8f0'; // slate-800 vs slate-200
+  const textColor = isDark ? '#e2e0ed' : '#18112b'; // slate-300 vs slate-700
+  const gridColor = isDark ? '#221e33' : '#edeaf5'; // slate-800 vs slate-200
 
   // Obtener datos y calcular estadísticas
   const rawData = dataStore.dashboardRawData || [];
@@ -5869,7 +5860,7 @@ async function generarReportesMasivos() {
   if (modal) {
     modal.classList.remove('hidden');
     modal.innerHTML = `
-      <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative border border-slate-200 dark:border-slate-800">
+      <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-5 shadow-2xl relative border border-border-ui">
         <div class="flex items-center gap-3">
           <div class="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5878,23 +5869,23 @@ async function generarReportesMasivos() {
             </svg>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-100 uppercase tracking-wider">Generación Masiva</h3>
-            <p class="text-[10px] text-slate-400 mt-0.5">Exportando reportes a PDF silenciosamente...</p>
+            <h3 class="text-sm font-bold text-text-primary uppercase tracking-wider">Generación Masiva</h3>
+            <p class="text-[10px] text-text-tertiary mt-0.5">Exportando reportes a PDF silenciosamente...</p>
           </div>
         </div>
         
         <div class="space-y-2">
-          <div class="w-full bg-slate-850 rounded-full h-1.5 overflow-hidden">
+          <div class="w-full bg-bg-card rounded-full h-1.5 overflow-hidden">
             <div id="batch-progress-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-250" style="width: 0%"></div>
           </div>
-          <div class="flex justify-between text-[10px] text-slate-400 font-semibold">
+          <div class="flex justify-between text-[10px] text-text-tertiary font-semibold">
             <span id="batch-progress-text" class="truncate max-w-[240px]">Iniciando cola...</span>
             <span id="batch-progress-percent">0%</span>
           </div>
         </div>
 
         <div class="flex justify-end pt-2">
-          <button id="cancel-batch-btn" class="px-4 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-[10px] uppercase tracking-wider transition-colors">
+          <button id="cancel-batch-btn" class="px-4 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 font-bold text-[10px] uppercase tracking-wider transition-colors">
             Cancelar
           </button>
         </div>
@@ -5907,8 +5898,8 @@ async function generarReportesMasivos() {
         isCancelled = true;
         cancelBtn.textContent = 'Cancelando...';
         cancelBtn.disabled = true;
-        cancelBtn.classList.remove('bg-red-500/10', 'text-red-500');
-        cancelBtn.classList.add('bg-slate-500/10', 'text-slate-400');
+        cancelBtn.classList.remove('bg-rose-500/10', 'text-rose-500');
+        cancelBtn.classList.add('bg-border-ui/40', 'text-text-tertiary');
         showToast('Cancelando exportación masiva...', 'info');
       });
     }
@@ -6105,3 +6096,1527 @@ async function generarReportesMasivos() {
   }).catch(err => console.error('Error al registrar log de generación masiva:', err));
 }
 
+
+
+
+// ============================================================================
+// MÓDULO DE ASISTENCIA TÉCNICA Y DIRECTORIO (ADMINISTRACIÓN) - FASE 3
+// ============================================================================
+
+window.asistenciaPaginationState = {
+  page: 1,
+  limit: 15,
+  total: 0,
+  totalPages: 1
+};
+
+let asistenciaFilterTimeout = null;
+let contactosFilterTimeout = null;
+
+// Abrir la consola auxiliar flotante
+async function openAssistanceConsole() {
+  if (window.api && window.api.openAssistanceWindow) {
+    await window.api.openAssistanceWindow();
+  }
+}
+window.openAssistanceConsole = openAssistanceConsole;
+
+// Atajos globales dentro de la ventana principal (F9 y Ctrl+Shift+A)
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'F9' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a'))) {
+    e.preventDefault();
+    openAssistanceConsole();
+  }
+});
+
+// Reactividad IPC: Si se guarda una asistencia desde la ventana auxiliar, refrescar la vista
+if (window.api && window.api.onAssistanceUpdated) {
+  window.api.onAssistanceUpdated(() => {
+    if (typeof activeAdminTab !== 'undefined' && activeAdminTab === 'asistencia') {
+      loadAsistenciaStats();
+      if (window.activeAsistenciaSubTab === 'contactos') {
+        loadContactosData();
+      } else {
+        loadAsistenciasData();
+      }
+    }
+  });
+}
+
+// Cambiar entre sub-pestañas (Bitácora vs Directorio)
+function changeAsistenciaSubTab(subTab) {
+  window.activeAsistenciaSubTab = subTab;
+  const container = document.getElementById('asistencia-subtab-content');
+  if (!container) return;
+
+  if (subTab === 'contactos') {
+    container.innerHTML = renderAsistenciaContactosViewHtml();
+    loadContactosData();
+  } else if (subTab === 'categorias') {
+    container.innerHTML = renderAsistenciaCategoriasViewHtml();
+    loadCategoriasData();
+  } else {
+    container.innerHTML = renderAsistenciaBitacoraViewHtml();
+    loadAsistenciaStats();
+    loadAsistenciasData();
+  }
+
+  // Actualizar estilos de los botones de sub-pestaña
+  const navButtons = document.querySelectorAll('button[onclick*="changeAsistenciaSubTab"]');
+  navButtons.forEach(btn => {
+    const isTarget = btn.getAttribute('onclick').includes(`'${subTab}'`);
+    btn.className = isTarget
+      ? "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-2xs flex items-center gap-2 transition-all"
+      : "px-4 py-2 rounded-xl text-xs font-semibold text-text-tertiary hover:text-text-primary hover:bg-border-ui/50 flex items-center gap-2 transition-all cursor-pointer";
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+window.changeAsistenciaSubTab = changeAsistenciaSubTab;
+
+// Inicializador al entrar a la pestaña Asistencia Técnica
+function initAsistenciaTab() {
+  if (window.activeAsistenciaSubTab === 'contactos') {
+    loadContactosData();
+  } else {
+    loadAsistenciaStats();
+    loadAsistenciasData();
+  }
+}
+window.initAsistenciaTab = initAsistenciaTab;
+
+let chartAsistenciaDireccionesInstance = null;
+let chartAsistenciaEvolucionInstance = null;
+let currentAsistenciaEvolucionView = 'mensual';
+window.asistenciaStatsData = null;
+
+function setAsistenciaEvolucionView(view) {
+  currentAsistenciaEvolucionView = view;
+  ['semanal', 'mensual', 'anual'].forEach(v => {
+    const btn = document.getElementById(`btn-evol-${v}`);
+    if (btn) {
+      if (v === view) {
+        btn.className = "px-2 py-0.5 rounded-md bg-bg-card  text-brand-600 dark:text-brand-400 shadow-xs cursor-pointer";
+      } else {
+        btn.className = "px-2 py-0.5 rounded-md text-text-secondary  hover:text-text-primary dark:hover:text-text-primary cursor-pointer";
+      }
+    }
+  });
+  if (window.asistenciaStatsData) {
+    renderAsistenciaEvolucionChart(window.asistenciaStatsData);
+  }
+}
+window.setAsistenciaEvolucionView = setAsistenciaEvolucionView;
+
+function renderAsistenciaDireccionesChart(stats) {
+  const container = document.getElementById('chart-asistencia-direcciones');
+  if (!container) return;
+
+  if (chartAsistenciaDireccionesInstance) {
+    try { chartAsistenciaDireccionesInstance.destroy(); } catch (err) { console.debug('chartAsistenciaDirecciones ya liberado:', err); }
+    chartAsistenciaDireccionesInstance = null;
+  }
+
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#e2e0ed' : '#18112b';
+  const gridColor = isDark ? '#221e33' : '#edeaf5';
+  const brandColor = isDark ? '#a78bfa' : '#7c3aed';
+
+  const deptos = (stats && Array.isArray(stats.por_direccion) && stats.por_direccion.length > 0)
+    ? stats.por_direccion.slice(0, 8)
+    : [];
+
+  if (deptos.length === 0) {
+    container.innerHTML = '<div class="text-center text-text-tertiary text-xs py-10">Sin atenciones registradas todavía.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  const categories = deptos.map(d => d.depto);
+  const seriesData = deptos.map(d => d.count);
+
+  const options = {
+    chart: {
+      type: 'bar',
+      height: 240,
+      fontFamily: 'Inter, sans-serif',
+      foreColor: textColor,
+      toolbar: { show: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        barHeight: '35%',
+        borderRadius: 4,
+        borderRadiusApplication: 'end'
+      }
+    },
+    colors: [brandColor],
+    dataLabels: {
+      enabled: false
+    },
+    series: [{
+      name: 'Atenciones',
+      data: seriesData
+    }],
+    xaxis: {
+      categories: categories,
+      labels: {
+        style: { colors: textColor, fontSize: '10px' },
+        formatter: (val) => Math.floor(val)
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      labels: {
+        style: { colors: textColor, fontSize: '11px', fontWeight: 500 },
+        maxWidth: 140
+      }
+    },
+    grid: {
+      borderColor: gridColor,
+      strokeDashArray: 4,
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: false } }
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light',
+      y: {
+        formatter: (val) => `${val} atenciones`
+      }
+    }
+  };
+
+  chartAsistenciaDireccionesInstance = new ApexCharts(container, options);
+  chartAsistenciaDireccionesInstance.render();
+}
+
+function renderAsistenciaEvolucionChart(stats) {
+  const container = document.getElementById('chart-asistencia-evolucion');
+  if (!container) return;
+
+  if (chartAsistenciaEvolucionInstance) {
+    try { chartAsistenciaEvolucionInstance.destroy(); } catch (err) { console.debug('chartAsistenciaEvolucion ya liberado:', err); }
+    chartAsistenciaEvolucionInstance = null;
+  }
+
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#e2e0ed' : '#18112b';
+  const gridColor = isDark ? '#221e33' : '#edeaf5';
+  const brandColor = isDark ? '#a78bfa' : '#7c3aed';
+  const slateColor = isDark ? '#9a95b0' : '#9d8dbf';
+
+  const fechas = (stats && Array.isArray(stats.fechas)) ? stats.fechas : [];
+
+  if (fechas.length === 0) {
+    container.innerHTML = '<div class="text-center text-text-tertiary text-xs py-10">Sin datos temporales registrados.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+
+  let categories = [];
+  let series = [];
+
+  const view = currentAsistenciaEvolucionView || 'mensual';
+
+  if (view === 'semanal') {
+    const weeksMap = {};
+    const now = new Date();
+    for (let i = 7; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+      const year = d.getFullYear();
+      const firstDayOfYear = new Date(year, 0, 1);
+      const pastDaysOfYear = (d - firstDayOfYear) / 86400000;
+      const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+      const key = `Sem ${weekNum}`;
+      weeksMap[key] = 0;
+    }
+    fechas.forEach(fStr => {
+      const d = new Date(fStr);
+      if (!isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const firstDayOfYear = new Date(year, 0, 1);
+        const pastDaysOfYear = (d - firstDayOfYear) / 86400000;
+        const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        const key = `Sem ${weekNum}`;
+        if (weeksMap[key] !== undefined) {
+          weeksMap[key]++;
+        }
+      }
+    });
+    categories = Object.keys(weeksMap);
+    series = [{
+      name: 'Atenciones (Semanales)',
+      data: Object.values(weeksMap)
+    }];
+  } else if (view === 'anual') {
+    const yearsMap = {};
+    fechas.forEach(fStr => {
+      const year = fStr.substring(0, 4);
+      if (year) {
+        yearsMap[year] = (yearsMap[year] || 0) + 1;
+      }
+    });
+    categories = Object.keys(yearsMap).sort();
+    const counts = categories.map(y => yearsMap[y]);
+    if (categories.length === 1) {
+      categories = [String(parseInt(categories[0]) - 1), categories[0]];
+      series = [{
+        name: 'Atenciones Anuales',
+        data: [0, counts[0]]
+      }];
+    } else {
+      series = [{
+        name: 'Atenciones Anuales',
+        data: counts
+      }];
+    }
+  } else {
+    // mensual estándar de 12 meses idéntico al dashboard
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const currentYear = new Date().getFullYear();
+    const previousYear = currentYear - 1;
+    const currentYearMonthly = Array(12).fill(0);
+    const previousYearMonthly = Array(12).fill(0);
+
+    fechas.forEach(fStr => {
+      const d = new Date(fStr);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        if (y === currentYear && m >= 0 && m < 12) {
+          currentYearMonthly[m]++;
+        } else if (y === previousYear && m >= 0 && m < 12) {
+          previousYearMonthly[m]++;
+        }
+      }
+    });
+
+    categories = months;
+    series = [
+      {
+        name: `${currentYear} (Año Actual)`,
+        data: currentYearMonthly
+      },
+      {
+        name: `${previousYear} (Año Anterior)`,
+        data: previousYearMonthly
+      }
+    ];
+  }
+
+  const options = {
+    chart: {
+      type: 'area',
+      height: 240,
+      fontFamily: 'Inter, sans-serif',
+      foreColor: textColor,
+      toolbar: { show: false }
+    },
+    series: series,
+    colors: [brandColor, slateColor],
+    stroke: {
+      curve: 'smooth',
+      width: series.length > 1 ? [2, 1.5] : [2],
+      dashArray: series.length > 1 ? [0, 4] : [0]
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: series.length > 1 ? [0.25, 0] : [0.25],
+        opacityTo: series.length > 1 ? [0.05, 0] : [0.05],
+        stops: [0, 90, 100]
+      }
+    },
+    xaxis: {
+      categories: categories,
+      labels: {
+        style: { colors: textColor, fontSize: '10px' }
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      labels: {
+        style: { colors: textColor, fontSize: '10px' },
+        formatter: (val) => Math.floor(val)
+      },
+      min: 0,
+      forceNiceScale: true
+    },
+    grid: {
+      borderColor: gridColor,
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } }
+    },
+    dataLabels: {
+      enabled: false
+    },
+    legend: {
+      show: series.length > 1,
+      position: 'bottom',
+      fontSize: '11px',
+      markers: { width: 8, height: 8, radius: 8 }
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light'
+    }
+  };
+
+  chartAsistenciaEvolucionInstance = new ApexCharts(container, options);
+  chartAsistenciaEvolucionInstance.render();
+}
+
+function renderAsistenciaCharts(stats) {
+  if (typeof ApexCharts === 'undefined') return;
+  renderAsistenciaDireccionesChart(stats);
+  renderAsistenciaEvolucionChart(stats);
+}
+
+// 1. Cargar Estadísticas y KPIs Mensuales
+async function loadAsistenciaStats() {
+  try {
+    const res = await window.api.invokeRoute({
+      url: '/api/asistencias/stats',
+      method: 'GET'
+    });
+
+    if (res && res.status === 200 && res.data) {
+      const stats = res.data;
+      window.asistenciaStatsData = stats;
+
+      const elTotal = document.getElementById('kpi-asistencia-total');
+      const elPctTel = document.getElementById('kpi-asistencia-pct-tel');
+      const elPend = document.getElementById('kpi-asistencia-pendientes');
+      const elTopCat = document.getElementById('kpi-asistencia-top-cat');
+
+      if (elTotal) elTotal.textContent = (stats.total_mes || 0).toLocaleString('es-CL');
+      if (elPctTel) elPctTel.textContent = `${stats.tasa_resolucion !== undefined ? stats.tasa_resolucion : 100}%`;
+      if (elPend) elPend.textContent = (stats.en_seguimiento || 0).toLocaleString('es-CL');
+      if (elTopCat) elTopCat.textContent = stats.top_direccion || 'Sin registros';
+
+      renderAsistenciaCharts(stats);
+    }
+  } catch (err) {
+    console.warn('Error al cargar KPIs de asistencia:', err);
+  }
+}
+window.loadAsistenciaStats = loadAsistenciaStats;
+
+// 2. Cargar Listado Paginado de la Bitácora
+async function loadAsistenciasData() {
+  const tbody = document.getElementById('tabla-asistencias-body');
+  if (!tbody) return;
+
+  const search = document.getElementById('filter-asistencia-search')?.value.trim() || '';
+  const canal = document.getElementById('filter-asistencia-canal')?.value || 'todos';
+  const categoria = document.getElementById('filter-asistencia-categoria')?.value || 'todas';
+  const estado = document.getElementById('filter-asistencia-estado')?.value || 'todos';
+
+  const params = new URLSearchParams({
+    page: window.asistenciaPaginationState.page,
+    limit: window.asistenciaPaginationState.limit
+  });
+
+  if (search) params.append('search', search);
+  if (canal !== 'todos') params.append('canal', canal);
+  if (categoria !== 'todas') params.append('categoria', categoria);
+  if (estado !== 'todos') params.append('estado', estado);
+
+  try {
+    const res = await window.api.invokeRoute({
+      url: `/api/asistencias?${params.toString()}`,
+      method: 'GET'
+    });
+
+    if (res && res.status === 200 && res.data) {
+      const total = res.data.total || 0;
+      const page = res.data.page || 1;
+      const totalPages = res.data.totalPages || res.data.total_pages || Math.ceil(total / (window.asistenciaPaginationState.limit || 10)) || 1;
+      const rows = res.data.rows || [];
+
+      window.asistenciaPaginationState.total = total;
+      window.asistenciaPaginationState.page = page;
+      window.asistenciaPaginationState.totalPages = totalPages;
+
+      // Actualizar información de paginación
+      const pageInfo = document.getElementById('asistencia-page-info');
+      if (pageInfo) {
+        const start = total === 0 ? 0 : (page - 1) * window.asistenciaPaginationState.limit + 1;
+        const end = Math.min(page * window.asistenciaPaginationState.limit, total);
+        pageInfo.textContent = `Mostrando ${start}-${end} de ${total} registros (Pág. ${page} de ${totalPages})`;
+      }
+
+      const btnPrev = document.getElementById('btn-asistencia-prev');
+      const btnNext = document.getElementById('btn-asistencia-next');
+      if (btnPrev) btnPrev.disabled = page <= 1;
+      if (btnNext) btnNext.disabled = page >= totalPages;
+
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-10 text-text-tertiary">
+              <i data-lucide="inbox" class="h-6 w-6 mx-auto mb-2 text-text-tertiary"></i>
+              No se encontraron registros de asistencias con los filtros seleccionados.
+            </td>
+          </tr>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const canalBadges = {
+          'telefono': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"><i data-lucide="phone" class="h-2.5 w-2.5"></i> Teléfono</span>',
+          'correo': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"><i data-lucide="mail" class="h-2.5 w-2.5"></i> Correo</span>',
+          'presencial': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"><i data-lucide="users" class="h-2.5 w-2.5"></i> Presencial</span>',
+          'teams': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"><i data-lucide="message-square" class="h-2.5 w-2.5"></i> Teams</span>'
+        };
+
+        const estadoBadges = {
+          'resuelta': '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Resuelta</span>',
+          'en_seguimiento': '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>En Seguimiento</span>',
+          'derivada': '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"><span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span>Derivada</span>'
+        };
+
+        const catNames = {
+          'plazos': 'Plazos Legales',
+          'plataforma': 'Uso Plataforma',
+          'sujetos_pasivos': 'Sujetos Pasivos',
+          'derivaciones': 'Derivaciones',
+          'actas': 'Carga Actas',
+          'normativa': 'Normativa Ley',
+          'otro': 'General'
+        };
+
+        const fechaFmt = r.fecha_hora ? r.fecha_hora.replace('T', ' ').substring(0, 16) : '--';
+
+        return `
+          <tr class="hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors">
+            <!-- 1. TICKET / FECHA -->
+            <td class="px-4 py-3 align-middle text-left w-32">
+              <span class="font-mono font-bold text-brand-600 dark:text-brand-400 block">${r.ticket_codigo}</span>
+              <span class="text-[10px] text-text-tertiary">${fechaFmt}</span>
+            </td>
+
+            <!-- 2. CANAL -->
+            <td class="px-3 py-3 align-middle text-center w-24">
+              <div class="flex justify-center">
+                ${canalBadges[r.canal] || r.canal}
+              </div>
+            </td>
+
+            <!-- 3. FUNCIONARIO SOLICITANTE -->
+            <td class="px-4 py-3 align-middle text-left min-w-[150px]">
+              <div class="font-bold text-text-primary">${r.solicitante_nombre}</div>
+              <div class="text-[10px] text-text-tertiary">${r.solicitante_correo || ''} ${r.solicitante_contacto ? '· ' + r.solicitante_contacto : ''}</div>
+            </td>
+
+            <!-- 4. DIRECCIÓN / DEPTO -->
+            <td class="px-4 py-3 align-middle text-left w-28">
+              <span class="font-semibold text-text-primary">${r.solicitante_cargo_depto || '<span class="text-text-tertiary italic font-normal">General</span>'}</span>
+            </td>
+
+            <!-- 5. MATERIA (Limpio y legible estilo shadcn/ui) -->
+            <td class="px-3 py-3 align-middle text-left w-36">
+              <span class="text-xs font-medium text-text-secondary line-clamp-2 leading-tight" title="${catNames[r.categoria] || r.categoria}">
+                ${catNames[r.categoria] || r.categoria}
+              </span>
+            </td>
+
+            <!-- 6. MOTIVO & ORIENTACIÓN (UNIFICADO) -->
+            <td class="px-4 py-3 align-middle text-left min-w-[220px]">
+              <p class="text-text-primary line-clamp-2 text-xs leading-relaxed" title="${r.motivo_consulta}">${r.motivo_consulta || '<span class="text-text-tertiary italic">Sin motivo especificado</span>'}</p>
+              ${r.solucion_orientacion ? `<p class="text-[10px] text-emerald-600 dark:text-emerald-400 line-clamp-1 mt-1 font-medium" title="${r.solucion_orientacion}">↳ ${r.solucion_orientacion}</p>` : ''}
+            </td>
+
+            <!-- 7. ESTADO -->
+            <td class="px-3 py-3 align-middle text-center w-36">
+              <div class="flex justify-center">
+                ${estadoBadges[r.estado] || r.estado}
+              </div>
+            </td>
+
+            <!-- 8. ACCIONES (Ver Detalle + Eliminar) -->
+            <td class="px-4 py-3 align-middle text-right w-36">
+              <div class="flex items-center justify-end gap-1.5">
+                <button onclick="openModalDetalleAsistencia(${r.id})" class="h-7 px-2.5 rounded-lg text-xs font-semibold bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/50 dark:hover:bg-brand-900/60 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800 transition-colors shadow-2xs cursor-pointer inline-flex items-center gap-1.5 active:scale-95 whitespace-nowrap" title="Ver detalle de la atención">
+                  <i data-lucide="eye" class="h-3.5 w-3.5 shrink-0"></i>
+                  <span>Ver Detalle</span>
+                </button>
+                <button onclick="eliminarAsistencia(${r.id}, '${r.ticket_codigo}')" class="h-7 w-7 rounded-lg text-text-tertiary hover:text-rose-600 dark:hover:text-rose-400 bg-border-ui hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-border-ui hover:border-rose-200 dark:hover:border-rose-800 transition-colors cursor-pointer inline-flex items-center justify-center active:scale-95 shrink-0" title="Eliminar registro">
+                  <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+  } catch (err) {
+    console.error('Error al listar asistencias:', err);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center py-8 text-rose-400">
+          <i data-lucide="alert-triangle" class="h-6 w-6 mx-auto mb-2"></i>
+          Error al cargar asistencias: ${err.message}
+        </td>
+      </tr>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+window.loadAsistenciasData = loadAsistenciasData;
+
+function handleAsistenciasFilterChange() {
+  clearTimeout(asistenciaFilterTimeout);
+  asistenciaFilterTimeout = setTimeout(() => {
+    window.asistenciaPaginationState.page = 1;
+    loadAsistenciasData();
+  }, 200);
+}
+window.handleAsistenciasFilterChange = handleAsistenciasFilterChange;
+
+function changeAsistenciaPage(delta) {
+  const target = window.asistenciaPaginationState.page + delta;
+  if (target >= 1 && target <= window.asistenciaPaginationState.totalPages) {
+    window.asistenciaPaginationState.page = target;
+    loadAsistenciasData();
+  }
+}
+window.changeAsistenciaPage = changeAsistenciaPage;
+
+// 3. Directorio de Contactos
+async function loadContactosData() {
+  const tbody = document.getElementById('tabla-contactos-body');
+  if (!tbody) return;
+
+  const search = document.getElementById('filter-contactos-search')?.value.trim() || '';
+
+  try {
+    const res = await window.api.invokeRoute({
+      url: `/api/asistencias/contactos?search=${encodeURIComponent(search)}`,
+      method: 'GET'
+    });
+
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      const contacts = res.data;
+      if (contacts.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-10 text-text-tertiary">
+              <i data-lucide="users" class="h-6 w-6 mx-auto mb-2 text-text-tertiary"></i>
+              No hay funcionarios registrados en el directorio.
+            </td>
+          </tr>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      tbody.innerHTML = contacts.map(c => `
+        <tr class="hover:bg-border-ui/50 transition-colors">
+          <td class="px-4 py-3 font-bold text-text-primary flex items-center gap-2">
+            <div class="h-7 w-7 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-xs shrink-0">
+              ${(c.nombre || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <span>${c.nombre}</span>
+              ${c.notas ? `<p class="text-[10px] text-text-tertiary font-normal italic">${c.notas}</p>` : ''}
+            </div>
+          </td>
+          <td class="px-4 py-3 text-text-secondary">
+            ${c.depto_habitual || '<span class="text-text-tertiary italic">No especificado</span>'}
+          </td>
+          <td class="px-4 py-3 text-text-secondary font-mono text-[11px]">
+            ${c.correo || '<span class="text-text-tertiary italic">Sin correo</span>'}
+          </td>
+          <td class="px-4 py-3 text-text-secondary">
+            ${c.telefono_anexo || '<span class="text-text-tertiary italic">Sin anexo</span>'}
+          </td>
+          <td class="px-3 py-3 text-center">
+            <button onclick="filtrarBitacoraPorContacto('${c.nombre}')" class="px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 hover:bg-brand-500/20 border border-brand-500/30 text-[10px] font-bold transition-all cursor-pointer" title="Ver atenciones de este contacto">
+              ${c.total_asistencias || 0} atenciones
+            </button>
+          </td>
+          <td class="px-4 py-3 text-right">
+            <div class="flex items-center justify-end gap-1">
+              <button onclick="openModalEditarContacto(${c.id})" class="p-1.5 rounded-lg bg-border-ui/50 hover:bg-border-ui/50 text-text-secondary hover:text-text-primary border border-border-ui transition-all cursor-pointer" title="Editar contacto">
+                <i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+  } catch (err) {
+    console.error('Error al listar contactos:', err);
+  }
+}
+window.loadContactosData = loadContactosData;
+
+function handleContactosFilterChange() {
+  clearTimeout(contactosFilterTimeout);
+  contactosFilterTimeout = setTimeout(loadContactosData, 200);
+}
+window.handleContactosFilterChange = handleContactosFilterChange;
+
+function filtrarBitacoraPorContacto(nombre) {
+  changeAsistenciaSubTab('bitacora');
+  setTimeout(() => {
+    const input = document.getElementById('filter-asistencia-search');
+    if (input) {
+      input.value = nombre;
+      handleAsistenciasFilterChange();
+    }
+  }, 100);
+}
+window.filtrarBitacoraPorContacto = filtrarBitacoraPorContacto;
+
+// 4. Abrir Consola Flotante Independiente para Detalle y Edición
+async function openModalDetalleAsistencia(id) {
+  if (window.api && window.api.openAssistanceWindow) {
+    await window.api.openAssistanceWindow(id);
+  }
+}
+window.openModalDetalleAsistencia = openModalDetalleAsistencia;
+
+// 5. Modal Crear Asistencia desde la Ventana Principal
+function openModalCrearAsistencia() {
+  openAssistanceConsole();
+}
+window.openModalCrearAsistencia = openModalCrearAsistencia;
+
+// 6. Modal Nuevo / Editar Contacto
+function openModalNuevoContacto() {
+  openModalEditarContacto(null);
+}
+window.openModalNuevoContacto = openModalNuevoContacto;
+
+async function openModalEditarContacto(id) {
+  let contact = { nombre: '', depto_habitual: '', correo: '', telefono_anexo: '', notas: '' };
+  if (id) {
+    try {
+      const res = await window.api.invokeRoute({ url: '/api/asistencias/contactos', method: 'GET' });
+      if (res && res.status === 200 && Array.isArray(res.data)) {
+        const found = res.data.find(c => c.id === id);
+        if (found) contact = found;
+      }
+    } catch (err) {
+      console.error('Error al cargar detalle de contacto:', err);
+      showToast('No se pudo cargar la información del contacto.', 'error');
+    }
+  }
+
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div class="fixed inset-0 bg-bg-main backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-bg-card border border-border-ui rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in flex flex-col">
+        
+        <div class="p-4 border-b border-border-ui flex items-center justify-between bg-bg-main">
+          <h3 class="font-bold text-sm text-text-primary flex items-center gap-2">
+            <i data-lucide="user" class="h-4 w-4 text-brand-400"></i>
+            <span>${id ? 'Editar Contacto' : 'Nuevo Contacto de Asistencia'}</span>
+          </h3>
+          <button onclick="closeModal()" class="p-1.5 rounded-lg hover:bg-border-ui/50 text-text-tertiary hover:text-text-primary transition-all cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div class="p-4 space-y-3 text-xs">
+          <div>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre Completo *</label>
+            <input type="text" id="modal-contacto-nombre" value="${contact.nombre}" placeholder="Ej. Lorena Soto" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Dirección / Depto Habitual</label>
+            <input type="text" id="modal-contacto-depto" value="${contact.depto_habitual || ''}" placeholder="Ej. Dirección de Tránsito" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Correo (@maipu.cl)</label>
+              <input type="text" id="modal-contacto-correo" value="${contact.correo || ''}" placeholder="lsoto@maipu.cl" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+            </div>
+            <div>
+              <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Anexo / Teléfono</label>
+              <input type="text" id="modal-contacto-telefono" value="${contact.telefono_anexo || ''}" placeholder="4321" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+            </div>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Notas Internas</label>
+            <textarea id="modal-contacto-notas" rows="2" placeholder="Observaciones o notas de contacto..." class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 resize-none">${contact.notas || ''}</textarea>
+          </div>
+        </div>
+
+        <div class="p-3 border-t border-border-ui bg-bg-main flex items-center justify-end gap-2">
+          <button onclick="closeModal()" class="px-3 py-1.5 rounded-lg bg-border-ui/50 hover:bg-border-ui/50 text-text-secondary text-xs font-semibold cursor-pointer">
+            Cancelar
+          </button>
+          <button onclick="guardarContacto(${id || 'null'})" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold cursor-pointer">
+            Guardar Contacto
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+window.openModalEditarContacto = openModalEditarContacto;
+
+async function guardarContacto(id) {
+  const nombre = document.getElementById('modal-contacto-nombre')?.value.trim();
+  const depto = document.getElementById('modal-contacto-depto')?.value.trim();
+  const correo = document.getElementById('modal-contacto-correo')?.value.trim();
+  const telefono = document.getElementById('modal-contacto-telefono')?.value.trim();
+  const notas = document.getElementById('modal-contacto-notas')?.value.trim();
+
+  if (!nombre) {
+    showToast('El nombre del funcionario es obligatorio.', 'error');
+    return;
+  }
+
+  try {
+    const url = id ? `/api/asistencias/contactos/${id}` : '/api/asistencias/contactos';
+    const method = id ? 'PUT' : 'POST';
+
+    const res = await window.api.invokeRoute({
+      url,
+      method,
+      body: {
+        nombre,
+        depto_habitual: depto,
+        correo,
+        telefono_anexo: telefono,
+        notas
+      }
+    });
+
+    if (res && (res.status === 200 || res.status === 201)) {
+      showToast('Contacto guardado exitosamente.', 'success');
+      closeModal();
+      loadContactosData();
+    } else {
+      showToast('Error: ' + (res?.data?.error || 'No se pudo guardar'), 'error');
+    }
+  } catch (err) {
+    showToast('Error de red: ' + err.message, 'error');
+  }
+}
+window.guardarContacto = guardarContacto;
+
+// 7. Modal de Unificación de Contactos (Merge Duplicados)
+async function openModalMergeContactos() {
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/asistencias/contactos', method: 'GET' });
+    if (!res || res.status !== 200 || !Array.isArray(res.data)) {
+      showToast('No se pudieron obtener los contactos para unificar.', 'error');
+      return;
+    }
+
+    const contacts = res.data;
+    if (contacts.length < 2) {
+      showToast('Se requieren al menos 2 contactos en el directorio para realizar una unificación.', 'info');
+      return;
+    }
+
+    const modal = document.getElementById('modal-container');
+    if (!modal) return;
+
+    modal.innerHTML = `
+      <div class="fixed inset-0 bg-bg-main backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-bg-card border border-border-ui rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+          
+          <div class="p-4 border-b border-border-ui flex items-center justify-between bg-bg-main">
+            <h3 class="font-bold text-sm text-text-primary flex items-center gap-2">
+              <i data-lucide="git-merge" class="h-4 w-4 text-purple-400"></i>
+              <span>Unificar Contactos Duplicados</span>
+            </h3>
+            <button onclick="closeModal()" class="p-1.5 rounded-lg hover:bg-border-ui/50 text-text-tertiary hover:text-text-primary transition-all cursor-pointer">
+              <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+          </div>
+
+          <div class="p-4 overflow-y-auto space-y-4 text-xs">
+            <p class="text-text-secondary">
+              Esta herramienta fusiona los registros duplicados en un único contacto principal. Todas las bitácoras asociadas se reasignarán automáticamente.
+            </p>
+
+            <div>
+              <label class="text-[10px] font-bold uppercase text-emerald-400 block mb-1">1. Selecciona el Contacto Principal (Destino que prevalece):</label>
+              <select id="merge-target-id" class="w-full glass-input border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+                ${contacts.map(c => `<option value="${c.id}">${c.nombre} (${c.depto_habitual || 'Sin Depto'}) - ${c.total_asistencias} atenciones</option>`).join('')}
+              </select>
+            </div>
+
+            <div>
+              <label class="text-[10px] font-bold uppercase text-rose-400 block mb-1">2. Marca los contactos duplicados que serán absorbidos y eliminados:</label>
+              <div class="bg-bg-main border border-border-ui rounded-lg p-2 max-h-48 overflow-y-auto divide-y divide-border-ui space-y-1">
+                ${contacts.map(c => `
+                  <label class="flex items-center gap-2 p-1.5 hover:bg-border-ui rounded cursor-pointer">
+                    <input type="checkbox" name="merge-source" value="${c.id}" class="rounded border-border-ui bg-bg-card text-purple-600 focus:ring-0">
+                    <span class="font-medium text-text-secondary">${c.nombre}</span>
+                    <span class="text-[10px] text-text-tertiary">(${c.depto_habitual || 'Sin depto'}) · ${c.total_asistencias} atenciones</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 border-t border-border-ui bg-bg-main flex items-center justify-end gap-2">
+            <button onclick="closeModal()" class="px-3 py-1.5 rounded-lg bg-border-ui/50 hover:bg-border-ui/50 text-text-secondary text-xs font-semibold cursor-pointer">
+              Cancelar
+            </button>
+            <button onclick="ejecutarMergeContactos()" class="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5">
+              <i data-lucide="git-merge" class="h-3.5 w-3.5"></i>
+              <span>Unificar y Reasignar</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    modal.classList.remove('hidden');
+    if (window.lucide) window.lucide.createIcons();
+  } catch (err) {
+    showToast('Error al abrir unificador: ' + err.message, 'error');
+  }
+}
+window.openModalMergeContactos = openModalMergeContactos;
+
+async function ejecutarMergeContactos() {
+  const targetId = parseInt(document.getElementById('merge-target-id')?.value, 10);
+  const checkedBoxes = document.querySelectorAll('input[name="merge-source"]:checked');
+  const sourceIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value, 10)).filter(id => id !== targetId);
+
+  if (sourceIds.length === 0) {
+    showToast('Debes seleccionar al menos un contacto duplicado diferente al destino.', 'error');
+    return;
+  }
+
+  openConfirmModal(
+    'Confirmar Unificación de Contactos',
+    `¿Confirmas la unificación de ${sourceIds.length} contacto(s) en el contacto principal? Todos los tickets asociados serán reasignados y las fichas duplicadas se eliminarán permanentemente.`,
+    async () => {
+      try {
+        const res = await window.api.invokeRoute({
+          url: '/api/asistencias/contactos/unificar',
+          method: 'POST',
+          body: {
+            target_id: targetId,
+            source_ids: sourceIds
+          }
+        });
+
+        if (res && res.status === 200) {
+          showToast(res.data.message || 'Contactos unificados con éxito.', 'success');
+          closeModal();
+          loadContactosData();
+          loadAsistenciaStats();
+          loadAsistenciasData();
+        } else {
+          showToast('Error al unificar: ' + (res?.data?.error || 'Error desconocido'), 'error');
+        }
+      } catch (err) {
+        showToast('Error de red: ' + (typeof translateError === 'function' ? translateError(err.message) : err.message), 'error');
+      }
+    }
+  );
+}
+window.ejecutarMergeContactos = ejecutarMergeContactos;
+
+// 8. Eliminar Asistencia
+async function eliminarAsistencia(id, codigo) {
+  openConfirmModal(
+    'Eliminar Registro de Asistencia',
+    `¿Estás seguro de eliminar el registro ${codigo}? Esta acción es permanente y no se puede deshacer.`,
+    async () => {
+      try {
+        const res = await window.api.invokeRoute({
+          url: `/api/asistencias/${id}`,
+          method: 'DELETE'
+        });
+
+        if (res && res.status === 200) {
+          showToast(`Registro ${codigo} eliminado.`, 'success');
+          loadAsistenciaStats();
+          loadAsistenciasData();
+        } else {
+          showToast('Error al eliminar: ' + (res?.data?.error || 'Error desconocido'), 'error');
+        }
+      } catch (err) {
+        showToast('Error de red: ' + (typeof translateError === 'function' ? translateError(err.message) : err.message), 'error');
+      }
+    }
+  );
+}
+window.eliminarAsistencia = eliminarAsistencia;
+
+// 9. Reenviar Correo / Generar PDF desde Fila
+async function prepararCorreoDesdeFila(id) {
+  try {
+    const res = await window.api.invokeRoute({ url: `/api/asistencias/${id}`, method: 'GET' });
+    if (!res || res.status !== 200 || !res.data) return;
+
+    const ast = res.data;
+    const subject = `[LobbyControl] Comprobante de Asistencia Técnica N° ${ast.ticket_codigo}`;
+    const bodyHtml = `
+      <div style="font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; max-width: 600px;">
+        <div style="background-color: #0f172a; color: #ffffff; padding: 14px 18px; border-radius: 8px 8px 0 0;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: bold;">Municipalidad de Maipú — Plataforma LobbyControl</h2>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8;">Comprobante de Asistencia Técnica (Ley N° 20.730 de Lobby)</p>
+        </div>
+        <div style="padding: 18px; border: 1px solid #cbd5e1; border-top: none; border-radius: 0 0 8px 8px; background: #ffffff;">
+          <p>Estimado(a) <strong>${ast.solicitante_nombre}</strong>${ast.solicitante_cargo_depto ? ' (' + ast.solicitante_cargo_depto + ')' : ''}:</p>
+          <p>A continuación se detalla el registro y orientación técnica brindada a su consulta:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 14px 0;">
+            <tr style="background: #f8fafc;">
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 140px;">Ticket N°:</td>
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;"><span style="font-family: monospace; font-weight: bold; color: #0284c7;">${ast.ticket_codigo}</span></td>
+            </tr>
+            ${ast.folio_lobby ? `
+            <tr>
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">Folio Lobby:</td>
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;"><span style="font-family: monospace; font-weight: bold;">${ast.folio_lobby}</span></td>
+            </tr>` : ''}
+            <tr style="background: #f8fafc;">
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">Fecha de Atención:</td>
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${ast.fecha_hora ? ast.fecha_hora.replace('T', ' ').substring(0, 16) : ''}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">Motivo de Consulta:</td>
+              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${ast.motivo_consulta}</td>
+            </tr>
+            <tr style="background: #f0fdf4;">
+              <td style="padding: 8px 10px; border: 1px solid #bbf7d0; font-weight: bold; color: #166534;">Orientación / Solución:</td>
+              <td style="padding: 8px 10px; border: 1px solid #bbf7d0; color: #14532d;">${(ast.solucion_orientacion || 'Atención brindada conforme a normativa.').replace(/\n/g, '<br>')}</td>
+            </tr>
+          </table>
+
+          <p style="font-size: 11px; color: #64748b; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+            Este comprobante es generado automáticamente por la plataforma <strong>LobbyControl</strong> de la Secretaría Municipal. Ante dudas, contactar al Administrador de Lobby.
+          </p>
+        </div>
+      </div>
+    `;
+
+    if (window.api && window.api.generateEmlAndOpen) {
+      await window.api.generateEmlAndOpen({
+        to: ast.solicitante_correo || '',
+        subject,
+        bodyHtml,
+        ticketCodigo: ast.ticket_codigo
+      });
+    }
+  } catch (e) {
+    showToast('Error al abrir correo: ' + e.message, 'error');
+  }
+}
+window.prepararCorreoDesdeFila = prepararCorreoDesdeFila;
+
+async function generarPdfDesdeFila(id) {
+  try {
+    const res = await window.api.invokeRoute({ url: `/api/asistencias/${id}`, method: 'GET' });
+    if (!res || res.status !== 200 || !res.data) return;
+    const ast = res.data;
+
+    const savePathRes = await window.api.selectSavePath({
+      defaultName: `Ficha_Asistencia_${ast.ticket_codigo}.pdf`
+    });
+    if (!savePathRes || savePathRes.cancelled || !savePathRes.filePath) return;
+
+    showToast('Generando ficha PDF...');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 25px; line-height: 1.4; }
+          .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 18px; }
+          .title { font-size: 16px; font-weight: bold; color: #0f172a; }
+          .subtitle { font-size: 11px; color: #64748b; margin-top: 3px; }
+          .badge { font-family: monospace; font-size: 13px; font-weight: bold; color: #0284c7; background: #e0f2fe; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+          .table-info { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          .table-info td { padding: 7px 10px; border: 1px solid #cbd5e1; }
+          .table-info td.label { font-weight: bold; background: #f8fafc; width: 140px; }
+          .box-solucion { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 12px; margin-top: 15px; }
+          .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <table style="width: 100%;">
+            <tr>
+              <td>
+                <div class="title">MUNICIPALIDAD DE MAIPÚ</div>
+                <div class="subtitle">Secretaría Municipal — Plataforma LobbyControl (Ley N° 20.730)</div>
+                <div class="subtitle">Ficha de Asistencia Técnica y Orientación Normativa</div>
+              </td>
+              <td style="text-align: right;">
+                <div class="badge">${ast.ticket_codigo}</div>
+                <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Fecha: ${ast.fecha_hora ? ast.fecha_hora.replace('T', ' ').substring(0, 16) : ''}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <table class="table-info">
+          <tr>
+            <td class="label">Funcionario / Solicitante:</td>
+            <td><strong>${ast.solicitante_nombre}</strong></td>
+          </tr>
+          <tr>
+            <td class="label">Dirección / Depto:</td>
+            <td>${ast.solicitante_cargo_depto || 'No especificado'}</td>
+          </tr>
+          <tr>
+            <td class="label">Correo / Contacto:</td>
+            <td>${ast.solicitante_correo || ''} ${ast.solicitante_contacto ? ' (' + ast.solicitante_contacto + ')' : ''}</td>
+          </tr>
+          <tr>
+            <td class="label">Canal y Categoría:</td>
+            <td>Canal: ${ast.canal.toUpperCase()} | Materia: ${ast.categoria.toUpperCase()}</td>
+          </tr>
+          ${ast.folio_lobby ? `<tr><td class="label">Folio Vinculado:</td><td><code>${ast.folio_lobby}</code></td></tr>` : ''}
+          <tr>
+            <td class="label">Motivo de Consulta:</td>
+            <td>${ast.motivo_consulta}</td>
+          </tr>
+        </table>
+
+        <div class="box-solucion">
+          <strong style="color: #166534;">ORIENTACIÓN Y SOLUCIÓN BRINDADA:</strong>
+          <p style="margin: 6px 0 0 0; color: #14532d;">${(ast.solucion_orientacion || 'Atención concluida satisfactoriamente.').replace(/\n/g, '<br>')}</p>
+        </div>
+
+        <div class="footer">
+          Documento generado automáticamente por LobbyControl — Municipalidad de Maipú.
+        </div>
+      </body>
+      </html>
+    `;
+
+    const pdfRes = await window.api.generateSilentPdf({
+      html: htmlContent,
+      filePath: savePathRes.filePath
+    });
+
+    if (pdfRes && pdfRes.success) {
+      const folderPath = savePathRes.filePath.replace(/[\\/][^\\/]+$/, '');
+      showToast(`Ficha ${ast.ticket_codigo} guardada correctamente.`, 'success', {
+        duration: 7500,
+        action: {
+          label: 'Abrir carpeta',
+          icon: 'folder',
+          onClick: () => {
+            if (window.api && window.api.openPath) window.api.openPath(folderPath);
+          }
+        }
+      });
+    } else {
+      showToast('Error al generar PDF: ' + (pdfRes?.error || 'Error desconocido'), 'error');
+    }
+  } catch (e) {
+    showToast('Error al generar ficha PDF: ' + e.message, 'error');
+  }
+}
+window.generarPdfDesdeFila = generarPdfDesdeFila;
+
+// 10. Exportaciones Masivas (Excel y Reporte Consolidado PDF)
+async function exportAsistenciasExcel() {
+  try {
+    const search = document.getElementById('filter-asistencia-search')?.value.trim() || '';
+    const canal = document.getElementById('filter-asistencia-canal')?.value || 'todos';
+    const categoria = document.getElementById('filter-asistencia-categoria')?.value || 'todas';
+    const estado = document.getElementById('filter-asistencia-estado')?.value || 'todos';
+
+    const params = new URLSearchParams({ page: 1, limit: 10000 });
+    if (search) params.append('search', search);
+    if (canal !== 'todos') params.append('canal', canal);
+    if (categoria !== 'todas') params.append('categoria', categoria);
+    if (estado !== 'todos') params.append('estado', estado);
+
+    const res = await window.api.invokeRoute({
+      url: `/api/asistencias?${params.toString()}`,
+      method: 'GET'
+    });
+
+    if (!res || res.status !== 200 || !res.data.rows || res.data.rows.length === 0) {
+      showToast('No hay registros para exportar con los filtros actuales.', 'info');
+      return;
+    }
+
+    const defaultName = `Bitacora_Asistencias_Lobby_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const saveRes = await window.api.selectSavePath({ defaultName });
+    if (saveRes.cancelled || !saveRes.filePath) return;
+
+    showToast('Generando archivo Excel...');
+
+    const columns = [
+      { header: 'Ticket', key: 'ticket_codigo', width: 16 },
+      { header: 'Fecha y Hora', key: 'fecha_hora', width: 20 },
+      { header: 'Solicitante', key: 'solicitante_nombre', width: 28 },
+      { header: 'Dirección / Depto', key: 'solicitante_cargo_depto', width: 28 },
+      { header: 'Correo', key: 'solicitante_correo', width: 25 },
+      { header: 'Contacto / Anexo', key: 'solicitante_contacto', width: 18 },
+      { header: 'Canal', key: 'canal', width: 14 },
+      { header: 'Materia', key: 'categoria', width: 18 },
+      { header: 'Folio Lobby', key: 'folio_lobby', width: 18 },
+      { header: 'Motivo de Consulta', key: 'motivo_consulta', width: 40 },
+      { header: 'Solución / Orientación', key: 'solucion_orientacion', width: 45 },
+      { header: 'Estado', key: 'estado', width: 15 },
+      { header: 'Duración (min)', key: 'duracion_minutos', width: 14 },
+      { header: 'Atendido Por', key: 'created_by', width: 22 }
+    ];
+
+    const excelRes = await window.api.generateExcelFile({
+      data: res.data.rows,
+      columns,
+      filePath: saveRes.filePath,
+      sheetName: 'Bitácora Asistencias'
+    });
+
+    if (excelRes && excelRes.success) {
+      const folderPath = saveRes.filePath.replace(/[\\/][^\\/]+$/, '');
+      showToast('Bitácora exportada a Excel correctamente.', 'success', {
+        duration: 7500,
+        action: {
+          label: 'Abrir carpeta',
+          icon: 'folder',
+          onClick: () => {
+            if (window.api && window.api.openPath) window.api.openPath(folderPath);
+          }
+        }
+      });
+    } else {
+      showToast('Error al exportar a Excel: ' + (excelRes?.error || 'Error desconocido'), 'error');
+    }
+  } catch (e) {
+    showToast('Error al generar Excel: ' + e.message, 'error');
+  }
+}
+window.exportAsistenciasExcel = exportAsistenciasExcel;
+
+async function exportAsistenciasConsolidadoPDF() {
+  try {
+    const search = document.getElementById('filter-asistencia-search')?.value.trim() || '';
+    const canal = document.getElementById('filter-asistencia-canal')?.value || 'todos';
+    const categoria = document.getElementById('filter-asistencia-categoria')?.value || 'todas';
+    const estado = document.getElementById('filter-asistencia-estado')?.value || 'todos';
+
+    const params = new URLSearchParams({ page: 1, limit: 1000 });
+    if (search) params.append('search', search);
+    if (canal !== 'todos') params.append('canal', canal);
+    if (categoria !== 'todas') params.append('categoria', categoria);
+    if (estado !== 'todos') params.append('estado', estado);
+
+    const res = await window.api.invokeRoute({
+      url: `/api/asistencias?${params.toString()}`,
+      method: 'GET'
+    });
+
+    if (!res || res.status !== 200 || !res.data.rows || res.data.rows.length === 0) {
+      showToast('No hay registros para exportar en el informe PDF.', 'info');
+      return;
+    }
+
+    const defaultName = `Informe_Consolidado_Asistencias_${new Date().toISOString().split('T')[0]}.pdf`;
+    const saveRes = await window.api.selectSavePath({ defaultName });
+    if (saveRes.cancelled || !saveRes.filePath) return;
+
+    showToast('Generando informe consolidado PDF...');
+
+    const rows = res.data.rows;
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9px; color: #1e293b; padding: 20px; line-height: 1.3; }
+          .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; }
+          .title { font-size: 14px; font-weight: bold; color: #0f172a; }
+          .subtitle { font-size: 10px; color: #64748b; margin-top: 2px; }
+          .table-data { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 8.5px; }
+          .table-data th { background: #0f172a; color: #ffffff; padding: 6px 8px; text-align: left; font-size: 8px; text-transform: uppercase; }
+          .table-data td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+          .table-data tr:nth-child(even) { background: #f8fafc; }
+          .badge { font-family: monospace; font-weight: bold; color: #0284c7; }
+          .footer { margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 8px; color: #94a3b8; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <table style="width: 100%;">
+            <tr>
+              <td>
+                <div class="title">MUNICIPALIDAD DE MAIPÚ</div>
+                <div class="subtitle">Secretaría Municipal — Plataforma LobbyControl (Ley N° 20.730)</div>
+                <div class="subtitle">Informe Consolidado de Asistencia Técnica y Consultas Normativas</div>
+              </td>
+              <td style="text-align: right;">
+                <div style="font-size: 9px; color: #64748b;">Fecha Emisión: ${new Date().toLocaleDateString('es-CL')}</div>
+                <div style="font-size: 9px; color: #0f172a; font-weight: bold;">Total Atenciones: ${rows.length}</div>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <table class="table-data">
+          <thead>
+            <tr>
+              <th style="width: 75px;">Ticket / Fecha</th>
+              <th style="width: 120px;">Solicitante</th>
+              <th style="width: 120px;">Dirección / Depto</th>
+              <th style="width: 50px;">Canal</th>
+              <th style="width: 70px;">Materia</th>
+              <th>Motivo & Solución Brindada</th>
+              <th style="width: 55px;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>
+                  <span class="badge">${r.ticket_codigo}</span><br>
+                  <span style="color: #64748b; font-size: 7.5px;">${r.fecha_hora ? r.fecha_hora.replace('T', ' ').substring(0, 16) : ''}</span>
+                </td>
+                <td>
+                  <strong>${r.solicitante_nombre}</strong><br>
+                  <span style="color: #64748b;">${r.solicitante_correo || ''}</span>
+                </td>
+                <td>${r.solicitante_cargo_depto || 'General'}</td>
+                <td>${r.canal.toUpperCase()}</td>
+                <td>${r.categoria.toUpperCase()}</td>
+                <td>
+                  <strong>Consulta:</strong> ${r.motivo_consulta}<br>
+                  ${r.solucion_orientacion ? '<strong style="color: #166534;">Orientación:</strong> ' + r.solucion_orientacion : ''}
+                </td>
+                <td><strong>${r.estado.toUpperCase()}</strong></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Documento generado automáticamente por LobbyControl — Secretaría Municipal de Maipú.
+        </div>
+      </body>
+      </html>
+    `;
+
+    const pdfRes = await window.api.generateSilentPdf({
+      html: htmlContent,
+      filePath: saveRes.filePath
+    });
+
+    if (pdfRes && pdfRes.success) {
+      const folderPath = saveRes.filePath.replace(/[\\/][^\\/]+$/, '');
+      showToast('Informe consolidado PDF guardado correctamente.', 'success', {
+        duration: 7500,
+        action: {
+          label: 'Abrir carpeta',
+          icon: 'folder',
+          onClick: () => {
+            if (window.api && window.api.openPath) window.api.openPath(folderPath);
+          }
+        }
+      });
+    } else {
+      showToast('Error al generar PDF: ' + (pdfRes?.error || 'Error desconocido'), 'error');
+    }
+  } catch (e) {
+    showToast('Error al exportar informe consolidado: ' + e.message, 'error');
+  }
+}
+window.exportAsistenciasConsolidadoPDF = exportAsistenciasConsolidadoPDF;
+
+
+
+// ==========================================
+// CONTROLADORES DE CATEGORÍAS DE ASISTENCIA
+// ==========================================
+async function loadCategoriasData() {
+  const tbody = document.getElementById('tabla-categorias-body');
+  if (!tbody) return;
+
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/asistencias/categorias', method: 'GET' });
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      const rows = res.data;
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-text-tertiary">No hay materias registradas.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map((cat, idx) => `
+        <tr class="hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors">
+          <td class="px-4 py-3 font-mono text-text-tertiary text-xs">${idx + 1}</td>
+          <td class="px-4 py-3 font-bold text-text-primary flex items-center gap-2">
+            <i data-lucide="tag" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i>
+            <span>${cat.nombre}</span>
+          </td>
+          <td class="px-4 py-3 text-text-secondary text-xs">${cat.descripcion || '-'}</td>
+          <td class="px-4 py-3 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="openModalEditarCategoria(${cat.id})" class="p-1.5 rounded-lg bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary hover:text-brand-600 dark:hover:text-brand-400 border border-border-ui transition-colors cursor-pointer" title="Editar materia">
+                <i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
+              </button>
+              <button onclick="eliminarCategoria(${cat.id}, '${cat.nombre.replace(/'/g, "\\'")}')" class="p-1.5 rounded-lg bg-border-ui hover:bg-rose-50 dark:hover:bg-rose-600/20 text-text-tertiary hover:text-rose-600 dark:hover:text-rose-400 border border-border-ui transition-colors cursor-pointer" title="Eliminar materia">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      if (window.lucide) window.lucide.createIcons();
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-rose-500">Error al cargar materias: ${err.message}</td></tr>`;
+  }
+}
+window.loadCategoriasData = loadCategoriasData;
+
+function openModalNuevaCategoria() {
+  openModalEditarCategoria(null);
+}
+window.openModalNuevaCategoria = openModalNuevaCategoria;
+
+async function openModalEditarCategoria(id) {
+  let cat = { nombre: '', descripcion: '' };
+  if (id) {
+    try {
+      const res = await window.api.invokeRoute({ url: '/api/asistencias/categorias', method: 'GET' });
+      if (res && res.status === 200 && Array.isArray(res.data)) {
+        const found = res.data.find(c => c.id === id);
+        if (found) cat = found;
+      }
+    } catch (err) {
+      console.error('Error al cargar categoría:', err);
+      showToast('No se pudo cargar la información de la categoría.', 'error');
+    }
+  }
+
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div class="fixed inset-0 bg-bg-main backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="glass-card bg-bg-card border border-border-ui rounded-3xl w-full max-w-md shadow-2xl overflow-hidden modal-animate-in flex flex-col text-text-primary text-left">
+        
+        <div class="p-4 border-b border-border-ui flex items-center justify-between bg-bg-main">
+          <h3 class="font-bold text-sm text-text-primary flex items-center gap-2">
+            <i data-lucide="tag" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>
+            <span>${id ? 'Editar Materia / Categoría' : 'Nueva Materia / Categoría'}</span>
+          </h3>
+          <button onclick="closeModal()" class="p-1.5 rounded-lg hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-tertiary hover:text-text-primary dark:hover:text-text-primary transition-colors cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div class="p-4 space-y-3 text-xs">
+          <div>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre de la Materia *</label>
+            <input type="text" id="modal-cat-nombre" value="${cat.nombre}" placeholder="Nombre de la materia" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Descripción / Alcance</label>
+            <textarea id="modal-cat-desc" rows="2" placeholder="Detalle o alcance de esta materia..." class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 resize-none">${cat.descripcion || ''}</textarea>
+          </div>
+        </div>
+
+        <div class="p-3.5 border-t border-border-ui bg-bg-main flex items-center justify-end gap-2">
+          <button onclick="closeModal()" class="px-3.5 py-1.5 rounded-lg bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary text-xs font-semibold transition-colors cursor-pointer">
+            Cancelar
+          </button>
+          <button onclick="guardarCategoria(${id || 'null'})" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer">
+            Guardar Materia
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+window.openModalEditarCategoria = openModalEditarCategoria;
+
+async function guardarCategoria(id) {
+  const nombre = document.getElementById('modal-cat-nombre')?.value.trim();
+  const desc = document.getElementById('modal-cat-desc')?.value.trim();
+
+  if (!nombre) {
+    showToast('El nombre de la materia es obligatorio.', 'error');
+    return;
+  }
+
+  try {
+    const isEdit = Boolean(id);
+    const url = isEdit ? `/api/asistencias/categorias/${id}` : '/api/asistencias/categorias';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await window.api.invokeRoute({
+      url,
+      method,
+      body: { nombre, descripcion: desc }
+    });
+
+    if (res && (res.status === 200 || res.status === 201)) {
+      showToast(isEdit ? 'Materia actualizada con éxito.' : 'Materia creada con éxito.', 'success');
+      closeModal();
+      loadCategoriasData();
+    } else {
+      showToast('Error: ' + (res?.data?.error || 'No se pudo guardar'), 'error');
+    }
+  } catch (err) {
+    showToast('Error al guardar materia: ' + err.message, 'error');
+  }
+}
+window.guardarCategoria = guardarCategoria;
+
+function eliminarCategoria(id, nombre) {
+  showLobbyConfirmModal({
+    title: 'Eliminar Materia',
+    message: `¿Estás seguro de eliminar la materia "${nombre}"?`,
+    acceptText: 'Sí, Eliminar',
+    isDanger: true,
+    onConfirm: async () => {
+      try {
+        const res = await window.api.invokeRoute({
+          url: `/api/asistencias/categorias/${id}`,
+          method: 'DELETE'
+        });
+
+        if (res && res.status === 200) {
+          showToast('Materia eliminada exitosamente.', 'success');
+          loadCategoriasData();
+        } else {
+          showToast('Error al eliminar materia: ' + (res?.data?.error || 'Error desconocido'), 'error');
+        }
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, 'error');
+      }
+    }
+  });
+}
+window.eliminarCategoria = eliminarCategoria;

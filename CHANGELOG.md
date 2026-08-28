@@ -2,7 +2,7 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo. El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
-## [2.10.0] - 2026-08-28
+## [2.10.0] - 2026-08-27
 
 ### Added
 - **Módulo de Asistencia Técnica**: Ventana flotante independiente para registrar y gestionar tickets de atención y orientación, con bitácora histórica, directorio y motor de unificación de contactos duplicados, control de acceso por roles y exportación de fichas a PDF y EML.

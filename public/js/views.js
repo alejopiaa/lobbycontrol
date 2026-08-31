@@ -2248,11 +2248,23 @@ function changeAdminTab(tabName) {
     if (typeof fetchActiveSujetoIds === "function") {
       fetchActiveSujetoIds();
     }
+    if ((!dataStore.publicadas || dataStore.publicadas.length === 0) && typeof fetchData === "function") {
+      fetchData('publicadas');
+    }
     if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
       if (typeof fetchReportesData === "function") {
         fetchReportesData().then(() => {
           if (typeof fetchVigentesNombres === "function") fetchVigentesNombres();
           renderUsuarios(container);
+          if (typeof window.actualizarBadgeCorrelativo === "function") {
+            window.actualizarBadgeCorrelativo();
+          }
+          if (typeof initAirDatepickerFields === "function") {
+            requestAnimationFrame(() => {
+              initAirDatepickerFields();
+              if (typeof syncAllLinkedDatepickers === "function") syncAllLinkedDatepickers();
+            });
+          }
         });
         return;
       }
@@ -2260,6 +2272,14 @@ function changeAdminTab(tabName) {
   }
 
   renderUsuarios(container);
+
+  // Inicialización y sincronización inmediata de datepickers en cualquier sub-pestaña
+  if (typeof initAirDatepickerFields === "function") {
+    requestAnimationFrame(() => {
+      initAirDatepickerFields();
+      if (typeof syncAllLinkedDatepickers === "function") syncAllLinkedDatepickers();
+    });
+  }
 }
 
 function renderHistoryList() {
@@ -2581,10 +2601,13 @@ function renderUsuarios(container) {
   let contentHtml = "";
 
   if (activeAdminTab === "sujetos") {
-    // Renderizar sujetos pasivos como contenido de la pestaña (la función completa su propio HTML)
     const isPartialUpdate = renderSujetosPasivos(container);
-    if (isPartialUpdate) return;
-    // Prepend la cabecera y nav de administración
+    if (isPartialUpdate) {
+      if (typeof syncAllLinkedDatepickers === "function") {
+        requestAnimationFrame(() => syncAllLinkedDatepickers());
+      }
+      return;
+    }
     const adminShell = document.createElement('div');
     adminShell.innerHTML = `
       <div class="space-y-1">
@@ -2596,11 +2619,22 @@ function renderUsuarios(container) {
     `;
     container.insertBefore(adminShell, container.firstChild);
     if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+    if (typeof initAirDatepickerFields === "function") {
+      requestAnimationFrame(() => {
+        initAirDatepickerFields();
+        if (typeof syncAllLinkedDatepickers === "function") syncAllLinkedDatepickers();
+      });
+    }
     return;
   }
   if (activeAdminTab === "reportes") {
     const isPartialUpdate = renderReportes(container);
-    if (isPartialUpdate) return;
+    if (isPartialUpdate) {
+      if (typeof syncAllLinkedDatepickers === "function") {
+        requestAnimationFrame(() => syncAllLinkedDatepickers());
+      }
+      return;
+    }
     const adminShell = document.createElement('div');
     adminShell.innerHTML = `
       <div class="space-y-1">
@@ -2612,6 +2646,12 @@ function renderUsuarios(container) {
     `;
     container.insertBefore(adminShell, container.firstChild);
     if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+    if (typeof initAirDatepickerFields === "function") {
+      requestAnimationFrame(() => {
+        initAirDatepickerFields();
+        if (typeof syncAllLinkedDatepickers === "function") syncAllLinkedDatepickers();
+      });
+    }
     return;
   }
 
@@ -2785,32 +2825,6 @@ function renderUsuarios(container) {
                   <span>Respaldar BD</span>
                 </button>
               </div>
-
-              <!-- Sincronización y Respaldo de Bitácora de Asistencias (asistencias.db) -->
-              ${((window.currentUser && window.currentUser.rol) === 'Administrador') ? `
-              <div class="mt-4 pt-4 border-t border-border-ui space-y-3 bg-bg-main p-4 rounded-xl border border-border-ui">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <i data-lucide="headset" class="h-4 w-4 text-emerald-400"></i>
-                    <span class="text-xs font-bold text-text-primary uppercase tracking-wider">Base de Asistencias Técnicas (asistencias.db)</span>
-                  </div>
-                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Row-Level Delta Merge</span>
-                </div>
-                <p class="text-xs text-text-tertiary leading-relaxed">
-                  Sincroniza y respalda la base compartida de atenciones técnicas en SharePoint sin afectar configuraciones locales ni sobrescribir registros de otros equipos.
-                </p>
-                <div class="flex flex-col sm:flex-row gap-3 pt-1">
-                  <button onclick="triggerSubirAsistenciasSharepoint()" class="flex-1 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95">
-                    <i data-lucide="upload-cloud" class="h-4 w-4"></i>
-                    <span>Respaldar Asistencias en SharePoint</span>
-                  </button>
-                  <button onclick="triggerSincronizarAsistenciasSharepoint()" class="flex-1 py-2.5 bg-border-ui/50 hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95">
-                    <i data-lucide="refresh-cw" class="h-4 w-4 text-emerald-400"></i>
-                    <span>Sincronizar Asistencias (Delta)</span>
-                  </button>
-                </div>
-              </div>
-              ` : ''}
             </div>
           `,
             "rounded-2xl p-6 shadow-sm relative z-20",
@@ -3808,25 +3822,20 @@ function renderReportes(container) {
         
         <div class="h-4 w-[1px] bg-border-ui mx-1"></div>
 
-        ${
-          totalItems > 0
-            ? `
-          <button onclick="exportReportToExcel()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
-            <i data-lucide="sheet" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
-            Exportar a Excel
-          </button>
-          <button onclick="exportReporteConsolidadoPDF()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer" title="Generar Reporte Consolidado de Solicitudes y Audiencias">
-            <i data-lucide="bar-chart-3" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"></i>
-            Reporte Consolidado PDF
-          </button>
-          <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer">
-            <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
-            Exportar PDF
-          </button>
-        `
-            : ""
-        }
-      `;
+        <button onclick="exportReportToExcel()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${totalItems > 0 ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}" title="${totalItems > 0 ? 'Exportar datos a planilla Excel (.xlsx)' : 'No hay registros coincidentes para exportar'}">
+          <i data-lucide="sheet" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
+          Exportar a Excel
+        </button>
+
+        <button onclick="exportReporteEjecutivoPDF()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${totalItems > 0 ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}" title="${totalItems > 0 ? 'Generar Reporte Consolidado de Solicitudes y Audiencias' : 'No hay registros coincidentes para exportar'}">
+          <i data-lucide="bar-chart-3" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"></i>
+          Reporte Consolidado PDF
+        </button>
+
+        <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${totalItems > 0 ? 'cursor-pointer hover:bg-brand-500' : 'opacity-40 cursor-not-allowed'}" title="${totalItems > 0 ? 'Exportar documento PDF individual' : 'No hay registros coincidentes para exportar'}">
+          <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
+          Exportar PDF
+        </button>`;
     }
     if (window.actualizarBadgeCorrelativo) {
       window.actualizarBadgeCorrelativo();
@@ -3917,7 +3926,7 @@ function renderReportes(container) {
                 const checked = reportesFilters.estados.includes(est);
                 return `
                 <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border-ui bg-border-ui text-xs font-semibold cursor-pointer select-none transition-all hover:bg-border-ui dark:hover:bg-border-ui/50 ${checked ?"border-brand-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm shadow-brand-500/20" : "text-text-tertiary "}">
-                  <input type="checkbox" class="hidden report-estado-checkbox" data-estado="${est}" ${checked ? "checked" : ""}>
+                  <input type="checkbox" class="sr-only report-estado-checkbox" data-estado="${est}" ${checked ? "checked" : ""}>
                   <span>${est}</span>
                 </label>
               `;
@@ -3934,38 +3943,34 @@ function renderReportes(container) {
         <div class="p-4 border-b border-border-ui flex justify-between items-center">
           <div class="text-xs text-text-secondary font-semibold" id="reportes-counter">${totalItems} registros coincidentes encontrados</div>
           <div id="reportes-export-btn-container" class="flex items-center gap-2.5 flex-wrap">
-            <button onclick="abrirModalConfigurarCorrelativo()" title="Configurar o reiniciar correlativo de reportes RAP" class="px-2.5 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer group">
-              <i data-lucide="hash" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i>
-              <span class="text-[10px] uppercase font-bold text-text-tertiary">Próximo Folio:</span>
-              <span id="badge-proximo-correlativo" class="font-mono font-extrabold text-brand-600 dark:text-brand-400 text-xs">...</span>
-              <i data-lucide="settings-2" class="h-3 w-3 text-text-tertiary group-hover:text-text-primary dark:group-hover:text-text-primary transition-colors ml-0.5"></i>
-            </button>
+        <button onclick="abrirModalConfigurarCorrelativo()" title="Configurar o reiniciar correlativo de reportes RAP" class="px-2.5 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer group">
+          <i data-lucide="hash" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i>
+          <span class="text-[10px] uppercase font-bold text-text-tertiary">Próximo Folio:</span>
+          <span id="badge-proximo-correlativo" class="font-mono font-extrabold text-brand-600 dark:text-brand-400 text-xs">...</span>
+          <i data-lucide="settings-2" class="h-3 w-3 text-text-tertiary group-hover:text-text-primary dark:group-hover:text-text-primary transition-colors ml-0.5"></i>
+        </button>
 
-            <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer">
-              <i data-lucide="files" class="h-3.5 w-3.5"></i>
-              Generación Masiva
-            </button>
-            
-            <div class="h-4 w-[1px] bg-border-ui mx-1"></div>
+        <button onclick="generarReportesMasivos()" class="px-2.5 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all shadow-sm cursor-pointer">
+          <i data-lucide="files" class="h-3.5 w-3.5"></i>
+          Generación Masiva
+        </button>
+        
+        <div class="h-4 w-[1px] bg-border-ui mx-1"></div>
 
-            ${
-              totalItems > 0
-                ? `
-              <button onclick="exportReportToExcel()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
-                <i data-lucide="sheet" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
-                Exportar a Excel
-              </button>
-              <button onclick="exportReporteConsolidadoPDF()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm" title="Generar Reporte Consolidado de Solicitudes y Audiencias">
-                <i data-lucide="bar-chart-3" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"></i>
-                Reporte Consolidado PDF
-              </button>
-              <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm">
-                <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
-                Exportar PDF
-              </button>
-            `
-                : ""
-            }
+        <button onclick="exportReportToExcel()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${totalItems > 0 ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}" title="${totalItems > 0 ? 'Exportar datos a planilla Excel (.xlsx)' : 'No hay registros coincidentes para exportar'}">
+          <i data-lucide="sheet" class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"></i>
+          Exportar a Excel
+        </button>
+
+        <button onclick="exportReporteEjecutivoPDF()" class="px-3 py-1.5 bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary border border-border-ui rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${totalItems > 0 ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}" title="${totalItems > 0 ? 'Generar Reporte Consolidado de Solicitudes y Audiencias' : 'No hay registros coincidentes para exportar'}">
+          <i data-lucide="bar-chart-3" class="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"></i>
+          Reporte Consolidado PDF
+        </button>
+
+        <button onclick="exportReportToPDF()" class="px-3 py-1.5 bg-brand-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${totalItems > 0 ? 'cursor-pointer hover:bg-brand-500' : 'opacity-40 cursor-not-allowed'}" title="${totalItems > 0 ? 'Exportar documento PDF individual' : 'No hay registros coincidentes para exportar'}">
+          <i data-lucide="file-down" class="h-3.5 w-3.5"></i>
+          Exportar PDF
+        </button>
           </div>
         </div>
 
@@ -5062,25 +5067,6 @@ function drawCalendarBodyOnly() {
   }
 }
 
-function drawCalendarGrid(container, events) {
-  const currentView = calendarViewMode;
-
-  container.innerHTML = "";
-
-  const placeholder = document.createElement("div");
-  placeholder.className = "cal-grid-placeholder";
-
-  if (currentView === "month") {
-    drawMonthView(placeholder, events);
-  } else if (currentView === "week") {
-    drawWeekView(placeholder, events);
-  } else if (currentView === "day") {
-    drawDayView(placeholder, events);
-  }
-
-  container.appendChild(placeholder);
-}
-
 function drawMonthView(container, events) {
   const year = currentCalendarDate.getFullYear();
   const month = currentCalendarDate.getMonth();
@@ -5847,15 +5833,6 @@ window.goCalendarToday = function () {
   renderView();
 };
 
-window.onCalendarDropdownChange = function () {
-  const mSelect = document.getElementById("cal-month-select");
-  const ySelect = document.getElementById("cal-year-select");
-  if (mSelect && ySelect) {
-    currentCalendarDate.setMonth(parseInt(mSelect.value, 10));
-    currentCalendarDate.setFullYear(parseInt(ySelect.value, 10));
-    renderView();
-  }
-};
 
 window.onCalendarSearchInput = function (val) {
   calendarFilters.search = val;
@@ -5996,11 +5973,3 @@ window.showAgendaDetailsModal = showAgendaDetailsModal;
 window.getCalendarActiveTitle = getCalendarActiveTitle;
 window.formatCalendarTitle = getCalendarActiveTitle;
 
-window.selectCalendarDay = function (dateStr) {
-  if (calendarViewMode !== "day") {
-    previousCalendarViewMode = calendarViewMode;
-  }
-  currentCalendarDate = new Date(dateStr + "T12:00:00");
-  calendarViewMode = "day";
-  renderView();
-};

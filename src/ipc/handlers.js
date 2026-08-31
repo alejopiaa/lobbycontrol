@@ -326,8 +326,26 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
   const path = require("path");
 
   return new Promise((resolve) => {
+    let resolved = false;
+    let win = null;
+    let timeoutId = null;
+
+    const safeResolve = (res) => {
+      if (resolved) return;
+      resolved = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (win && !win.isDestroyed()) {
+        try { win.destroy(); } catch (e) {}
+      }
+      resolve(res);
+    };
+
+    // Timeout de resguardo de 25 segundos
+    timeoutId = setTimeout(() => {
+      safeResolve({ success: false, error: 'Tiempo agotado al generar PDF' });
+    }, 25000);
+
     try {
-      // Cargar logo en base64 para incrustarlo directamente y evitar condiciones de carrera al imprimir
       let processedHtml = html;
       try {
         const logoPath = path.join(__dirname, "../../public/logo_secum.png");
@@ -339,7 +357,7 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
         console.warn("No se pudo incrustar logo en base64:", imgErr.message);
       }
 
-      const win = new BrowserWindow({
+      win = new BrowserWindow({
         show: false,
         webPreferences: {
           nodeIntegration: false,
@@ -347,8 +365,7 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
         }
       });
 
-      win.loadURL("app://lobbycontrol/print-template.html");
-
+      // REGISTRAR EVENTOS ANTES DE LOADURL
       win.webContents.on("did-finish-load", async () => {
         try {
           const docTitle = title || path.basename(filePath, path.extname(filePath));
@@ -359,33 +376,29 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
               document.title = ${escapedTitle};
               document.getElementById('print-content').innerHTML = ${escapedHtml};
               
-              // Esperar a que todas las imágenes se encuentren decodificadas y cargadas
+              // Esperar imágenes con límite
               const imgs = Array.from(document.images);
-              await Promise.all(imgs.map(img => {
-                if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
-                if (img.decode) {
-                  return img.decode().catch(() => {});
-                }
-                return new Promise(res => {
-                  img.onload = res;
-                  img.onerror = res;
-                });
-              }));
+              await Promise.race([
+                Promise.all(imgs.map(img => {
+                  if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+                  if (img.decode) return img.decode().catch(() => {});
+                  return new Promise(res => {
+                    img.onload = res;
+                    img.onerror = res;
+                    setTimeout(res, 800);
+                  });
+                })),
+                new Promise(r => setTimeout(r, 1200))
+              ]);
 
-              // Esperar renderizado tipográfico
               if (document.fonts) {
-                await document.fonts.ready;
+                try { await document.fonts.ready; } catch (e) {}
               }
             })()
           `);
 
           const pdfBuffer = await win.webContents.printToPDF({
-            margins: {
-              top: 0,
-              bottom: 0,
-              left: 0,
-              right: 0
-            },
+            margins: { top: 0, bottom: 0, left: 0, right: 0 },
             pageSize: 'Letter',
             printBackground: true
           });
@@ -396,26 +409,26 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
           }
 
           fs.writeFileSync(filePath, pdfBuffer);
-          resolve({ success: true });
+          safeResolve({ success: true });
         } catch (err) {
           const { logError } = require("../config/logger");
           logError("ERR-REP-502", "Fallo al generar reporte PDF", `Archivo: ${path.basename(filePath)} | Error: ${err.message}`);
-          resolve({ success: false, error: err.message });
-        } finally {
-          win.destroy();
+          safeResolve({ success: false, error: err.message });
         }
       });
 
       win.webContents.on("did-fail-load", (e, errorCode, errorDescription) => {
-        win.destroy();
         const { logError } = require("../config/logger");
         logError("ERR-REP-502", "Fallo al generar reporte PDF (Carga fallida)", `Archivo: ${path.basename(filePath)} | Error: ${errorDescription}`);
-        resolve({ success: false, error: errorDescription });
+        safeResolve({ success: false, error: errorDescription });
       });
+
+      win.loadURL("app://lobbycontrol/print-template.html");
+
     } catch (err) {
       const { logError } = require("../config/logger");
       logError("ERR-REP-502", "Fallo al iniciar generación de reporte PDF", `Archivo: ${path.basename(filePath)} | Error: ${err.message}`);
-      resolve({ success: false, error: err.message });
+      safeResolve({ success: false, error: err.message });
     }
   });
 });

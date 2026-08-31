@@ -490,7 +490,12 @@ function processReportData(rawData, filters) {
 
     // Determinar estado lógico virtual
     let itemEstado = (item.estado || 'Ingresada').trim();
-    const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+    const isPendiente = itemEstado.toLowerCase() === 'aceptada' &&
+                        item.fecha_agendada &&
+                        item.fecha_agendada !== '-' &&
+                        item.fecha_agendada !== '---' &&
+                        publicadosFolios.size > 0 &&
+                        !publicadosFolios.has(item.folio_lobby);
     if (isPendiente) {
       itemEstado = 'Pendiente de publicación';
     }
@@ -550,7 +555,12 @@ function processReportData(rawData, filters) {
 
     // Determinar estado lógico virtual
     let itemEstado = (item.estado || 'Ingresada').trim();
-    const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+    const isPendiente = itemEstado.toLowerCase() === 'aceptada' &&
+                        item.fecha_agendada &&
+                        item.fecha_agendada !== '-' &&
+                        item.fecha_agendada !== '---' &&
+                        publicadosFolios.size > 0 &&
+                        !publicadosFolios.has(item.folio_lobby);
     if (isPendiente) {
       itemEstado = 'Pendiente de publicación';
     }

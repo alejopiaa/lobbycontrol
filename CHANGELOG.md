@@ -2,6 +2,20 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo. El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+## [3.0.0] - 2026-08-31
+
+### Added
+- **Nueva Arquitectura Modular**: Reorganización integral de la aplicación en módulos y vistas independientes para una navegación más rápida, fluida y con mayor estabilidad entre pantallas.
+
+### Fixed
+- **Secuencia del Correlativo de Reportes**: Solución al fallo que reiniciaba el contador de folios en 1 al exportar múltiples reportes de manera continua.
+- **Bloqueo en Generación Masiva de PDF**: Solución al error en la cola de exportación que congelaba la generación de reportes ejecutivos en el primer funcionario.
+- **Selección de Estados en Reportes**: Solución al fallo en las etiquetas y casillas de verificación que impedía filtrar solicitudes por estado.
+- **Botones de Exportación**: Solución al error en los eventos de clic que bloqueaba la descarga de reportes en formato PDF y Excel.
+- **Detección de Pendientes de Publicación**: Solución al fallo de sincronización que omitía el catálogo de publicadas al calcular los pendientes en reportes.
+
 ## [2.10.0] - 2026-08-27
 
 ### Added
@@ -198,3 +212,20 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Lanzamiento Inicial**: Plataforma para la gestión, seguimiento y control de audiencias y solicitudes bajo la Ley de Lobby.
 - **Estructura de Datos y Validaciones**: Modelos de almacenamiento, importador de datos y normalización de registros.
 - **Dashboard de Métricas**: Indicadores de cumplimiento y visualización de estados.
+
+[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.10.0...v3.0.0
+[2.10.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.9.1...v2.10.0
+[2.9.1]: https://github.com/alejopiaa/lobbycontrol/compare/v2.9.0...v2.9.1
+[2.9.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.8.0...v2.9.0
+[2.8.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.7.0...v2.8.0
+[2.7.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.6.0...v2.7.0
+[2.6.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/alejopiaa/lobbycontrol/compare/v1.1.0...v2.0.0
+[1.1.0]: https://github.com/alejopiaa/lobbycontrol/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/alejopiaa/lobbycontrol/releases/tag/v1.0.0

@@ -734,50 +734,6 @@ function renderSuggestions(contacts) {
     });
   });
 }
-
-function selectContactFromDropdown(c) {
-  seleccionarContactoExistente(c);
-  document.getElementById('autocomplete-suggestions').classList.add('hidden');
-}
-
-function updateActionButtonsState(enabled) {
-  const btnCorreo = document.getElementById('btn-enviar-correo');
-  const btnPdf = document.getElementById('btn-ficha-pdf');
-
-  [btnCorreo, btnPdf].forEach(btn => {
-    if (btn) {
-      btn.disabled = !enabled;
-      if (enabled) {
-        btn.classList.remove('opacity-40', 'pointer-events-none');
-        btn.classList.add('hover:bg-border-ui', 'hover:text-text-primary');
-      } else {
-        btn.classList.add('opacity-40', 'pointer-events-none');
-        btn.classList.remove('hover:bg-border-ui', 'hover:text-text-primary');
-      }
-    }
-  });
-}
-
-function selectContact(contact) {
-  currentContactId = contact.id;
-  document.getElementById('input-solicitante').value = contact.nombre;
-  
-  if (contact.depto_habitual && !document.getElementById('input-depto').value) {
-    document.getElementById('input-depto').value = contact.depto_habitual;
-  }
-  if (contact.correo) document.getElementById('input-correo').value = contact.correo;
-  if (contact.telefono_anexo) {
-    const numOnly = contact.telefono_anexo.replace(/[^0-9]/g, '');
-    document.getElementById('input-contacto').value = numOnly;
-  }
-
-  const ind = document.getElementById('indicator-contacto-vinculado');
-  if (ind) ind.classList.remove('hidden');
-
-  showToast(`Funcionario vinculado: ${contact.nombre}`, 'success', 2500);
-  saveDraft();
-}
-
 // ============================================================================
 // 9. ACCIONES (GUARDAR, EDITAR, CANCELAR, DESCARTAR, NUEVA, CORREO, PDF)
 // ============================================================================

@@ -239,10 +239,6 @@ async function fetchAndUpdateDbTimestamp() {
       }
       if (data.usersLastUpdate) {
         dataStore.usersLastUpdate = data.usersLastUpdate;
-        const usersLastSyncEl = document.getElementById('users-last-sync-time');
-        if (usersLastSyncEl) {
-          usersLastSyncEl.textContent = data.usersLastUpdate;
-        }
       }
     }
   } catch (err) {
@@ -290,38 +286,12 @@ function updateHeaderUserSection() {
 
   // Ocultar/mostrar opciones del menú según rol
   const rol = currentUser.rol || '';
-  const navSujetos = document.getElementById('nav-sujetos_pasivos');
-  const navAdministracion = document.getElementById('nav-settings') || document.getElementById('nav-administracion');
-  const navReportes = document.getElementById('nav-reportes');
-
-  if (navSujetos) {
+  const navSettings = document.getElementById('nav-settings');
+  if (navSettings) {
     if (rol === 'Sujeto Pasivo' || rol === 'Asistente técnico') {
-      navSujetos.style.display = 'none';
-      navSujetos.classList.add('hidden');
+      navSettings.classList.add('hidden');
     } else {
-      navSujetos.style.display = '';
-      navSujetos.classList.remove('hidden');
-    }
-  }
-
-  if (navAdministracion) {
-    // El Auditor y Administrador tienen acceso a la vista de administración/configuración
-    if (rol === 'Sujeto Pasivo' || rol === 'Asistente técnico') {
-      navAdministracion.style.display = 'none';
-      navAdministracion.classList.add('hidden');
-    } else {
-      navAdministracion.style.display = '';
-      navAdministracion.classList.remove('hidden');
-    }
-  }
-
-  if (navReportes) {
-    if (rol === 'Auditor' || rol === 'Sujeto Pasivo' || rol === 'Asistente técnico') {
-      navReportes.style.display = 'none';
-      navReportes.classList.add('hidden');
-    } else {
-      navReportes.style.display = '';
-      navReportes.classList.remove('hidden');
+      navSettings.classList.remove('hidden');
     }
   }
 
@@ -613,11 +583,7 @@ async function fetchAppVersion() {
 }
 
 // Reloj digital (desactivado para reducir distracciones visuales)
-function startLiveClock() {
-  const dateEl = document.getElementById('current-date');
-  const timeEl = document.getElementById('current-time');
-  if (!dateEl || !timeEl) return;
-}
+function startLiveClock() {}
 
 // Al cargar el documento
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1903,13 +1869,6 @@ window.changeReportesVigencia = function(val) {
   debouncedReportesRender();
 };
 
-// Aliases de retrocompatibilidad
-window.toggleDashboardSoloVigentes = (c) => window.changeDashboardVigencia(c ? 'vigentes' : 'todos');
-window.toggleSolicitudesSoloVigentes = (c) => window.changeSolicitudesVigencia(c ? 'vigentes' : 'todos');
-window.togglePublicadasSoloVigentes = (c) => window.changePublicadasVigencia(c ? 'vigentes' : 'todos');
-window.toggleCalendarSoloVigentes = (c) => window.changeCalendarVigencia(c ? 'vigentes' : 'todos');
-window.toggleSujetosPasivosSoloVigentes = (c) => window.changeSujetosPasivosVigencia(c ? 'vigentes' : 'todos');
-window.toggleReportesSoloVigentes = (c) => window.changeReportesVigencia(c ? 'vigentes' : 'todos');
 
 const debouncedReportesRender = debounce((activeInputId) => {
   window.activeInputId = activeInputId;
@@ -1942,7 +1901,7 @@ function updateReporteEstadoPillStyle(checkbox) {
   const isChecked = checkbox.checked;
   
   const activeClasses = ['border-brand-500', 'bg-blue-500/10', 'text-blue-600', 'dark:text-blue-400', 'shadow-sm', 'shadow-brand-500/20'];
-  const inactiveClasses = ['text-text-tertiary', '', 'border-border-ui', '', 'bg-border-ui', ''];
+  const inactiveClasses = ['text-text-tertiary'];
 
   if (isChecked) {
     inactiveClasses.forEach(c => label.classList.remove(c));
@@ -2085,7 +2044,7 @@ function initAirDatepickerFields() {
         }
       }
 
-      // 2. Si ya tiene una instancia de AirDatepicker, solo actualizamos sus opciones en lugar de recrearla
+      // 2. Si ya tiene una instancia activa de AirDatepicker, actualizamos sus límites dinámicos sin duplicar
       if (displayInput._airDatepicker) {
         const dp = displayInput._airDatepicker;
         dp.update({
@@ -2248,9 +2207,12 @@ function syncLinkedDatepickers(startId, endId) {
  * Aplica la sincronización cruzada a todos los módulos con rangos de fecha activos.
  */
 function syncAllLinkedDatepickers() {
-  syncLinkedDatepickers('filter-sujetos-fechadesde', 'filter-sujetos-fechahasta');
-  syncLinkedDatepickers('report-filter-fechainicio', 'report-filter-fechatermino');
   syncLinkedDatepickers('dashboard-filter-fechainicio', 'dashboard-filter-fechatermino');
+  syncLinkedDatepickers('solicitudes-filter-fechainicio', 'solicitudes-filter-fechatermino');
+  syncLinkedDatepickers('publicadas-filter-fechainicio', 'publicadas-filter-fechatermino');
+  syncLinkedDatepickers('report-filter-fechainicio', 'report-filter-fechatermino');
+  syncLinkedDatepickers('filter-sujetos-fechadesde', 'filter-sujetos-fechahasta');
+  syncLinkedDatepickers('asistencia-filter-fechainicio', 'asistencia-filter-fechatermino');
 }
 
 // Eliminación genérica de registros
@@ -3235,7 +3197,23 @@ async function exportReportToPDF() {
 
   showToast('Preparando vista de impresión...');
 
-  const codigoReporte = generateLocalReportCode();
+  let codigoReporte = generateLocalReportCode();
+  try {
+    const resCorrelativo = await fetch('/api/reportes/correlativo/consumir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cantidad: 1 })
+    });
+    if (resCorrelativo.ok) {
+      const d = await resCorrelativo.json();
+      const firstCode = d?.firstCode || d?.data?.firstCode || (d?.codes ? d.codes[0] : (d?.data?.codes ? d.data.codes[0] : null));
+      if (firstCode) {
+        codigoReporte = firstCode;
+      }
+    }
+  } catch (e) {
+    console.warn('Error al consumir correlativo para PDF:', e);
+  }
   const filtersSnapshot = {
     nombre: reportesFilters.nombre || '',
     cargo: reportesFilters.cargo || '',
@@ -3255,7 +3233,8 @@ async function exportReportToPDF() {
 
     const htmlContent = buildReportPDFHtml({ processedData, filtersSnapshot, codigoReporte });
     const cargoAbbr = getCargoAbbreviated(filtersSnapshot.cargo || 'TODOS');
-    const sanitizedNombre = sanitizeNombreForFilename(filtersSnapshot.nombre || 'Todos');
+    const displayTitleName = (filtersSnapshot.nombre && filtersSnapshot.nombre.trim() !== '') ? filtersSnapshot.nombre : 'Reporte General';
+    const sanitizedNombre = sanitizeNombreForFilename(displayTitleName);
     const defaultName = `${codigoReporte}_${cargoAbbr}_${sanitizedNombre}.pdf`;
 
     const saveResult = await window.api.selectSavePath({ defaultName });
@@ -3268,11 +3247,12 @@ async function exportReportToPDF() {
     const silentResult = await window.api.generateSilentPdf({
       html: htmlContent,
       filePath: saveResult.filePath,
-      title: `${codigoReporte} - ${displayNombre}`
+      title: `${codigoReporte} - ${displayTitleName}`
     });
 
     if (silentResult && silentResult.success) {
       showToast(`Reporte ${codigoReporte} guardado correctamente.`, 'success');
+      if (window.actualizarBadgeCorrelativo) window.actualizarBadgeCorrelativo();
       window.api.invokeRoute({
         url: '/api/log',
         method: 'POST',
@@ -3386,6 +3366,92 @@ async function exportReportToExcel() {
 }
 
 // Función para generar el Reporte Ejecutivo PDF (Resumen Nominativo por Sujeto Pasivo)
+window.exportReportToExcel = exportReportToExcel;
+window.exportReportToPDF = exportReportToPDF;
+window.exportReporteEjecutivoPDF = exportReporteEjecutivoPDF;
+
+// ─── GESTIÓN DE CORRELATIVO RAP Y FOLIOS ──────────────────────────────────
+window.actualizarBadgeCorrelativo = async function() {
+  try {
+    const res = await fetch('/api/reportes/correlativo');
+    if (!res.ok) return;
+    const json = await res.json();
+    const currentNum = json?.current ?? json?.data?.current ?? json?.valor ?? 1;
+    const badge = document.getElementById('badge-proximo-correlativo');
+    if (badge) {
+      badge.textContent = String(currentNum).padStart(3, '0');
+    }
+  } catch (e) {
+    console.warn('Error al obtener correlativo:', e);
+  }
+};
+
+window.abrirModalConfigurarCorrelativo = async function() {
+  let currentVal = 1;
+  try {
+    const res = await fetch('/api/reportes/correlativo');
+    if (res.ok) {
+      const json = await res.json();
+      currentVal = json?.current ?? json?.data?.current ?? json?.valor ?? 1;
+    }
+  } catch (e) {
+    console.warn('Error al consultar correlativo:', e);
+  }
+
+  const modalHtml = `
+    <div id="modal-correlativo-backdrop" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+      <div class="glass-card rounded-2xl border border-border-ui shadow-2xl p-6 w-full max-w-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-border-ui pb-3">
+          <h3 class="text-sm font-bold text-text-primary flex items-center gap-2">
+            <i data-lucide="hash" class="h-4 w-4 text-brand-500"></i>
+            Configurar Próximo Folio RAP
+          </h3>
+          <button onclick="document.getElementById('modal-correlativo-backdrop').remove()" class="text-text-tertiary hover:text-text-primary p-1 rounded-lg cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+        <p class="text-xs text-text-secondary">
+          Establezca el número correlativo que se asignará al siguiente reporte generado:
+        </p>
+        <div class="space-y-1">
+          <label class="text-[10px] font-bold text-text-tertiary uppercase">Número Correlativo</label>
+          <input type="number" id="input-nuevo-correlativo" min="1" step="1" value="${currentVal}" class="w-full px-3 py-2 rounded-xl text-sm font-mono font-bold glass-input text-text-primary">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="document.getElementById('modal-correlativo-backdrop').remove()" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-border-ui text-text-secondary hover:bg-border-ui cursor-pointer">Cancelar</button>
+          <button onclick="guardarNuevoCorrelativo()" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-brand-600 hover:bg-brand-500 text-white shadow-sm cursor-pointer">Guardar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  lucide.createIcons();
+};
+
+window.guardarNuevoCorrelativo = async function() {
+  const input = document.getElementById('input-nuevo-correlativo');
+  if (!input) return;
+  const val = parseInt(input.value, 10);
+  if (isNaN(val) || val < 1) {
+    showToast('Ingrese un número correlativo válido mayor o igual a 1.', 'error');
+    return;
+  }
+  try {
+    const res = await fetch('/api/reportes/correlativo/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor: val })
+    });
+    if (!res.ok) throw new Error('Error al guardar correlativo');
+    showToast(`Próximo folio RAP actualizado a: ${String(val).padStart(3, '0')}`, 'success');
+    const modal = document.getElementById('modal-correlativo-backdrop');
+    if (modal) modal.remove();
+    if (window.actualizarBadgeCorrelativo) window.actualizarBadgeCorrelativo();
+  } catch (e) {
+    showToast('No se pudo actualizar el correlativo.', 'error');
+  }
+};
+window.exportReporteEjecutivoPDF = exportReporteEjecutivoPDF;
 async function exportReporteEjecutivoPDF() {
   if (!dataStore.reportesRawData || dataStore.reportesRawData.length === 0) {
     showToast('No hay datos para exportar.', 'error');
@@ -3672,7 +3738,7 @@ async function exportReporteEjecutivoPDF() {
         </tr>
       </table>
 
-      <div style="font-size: 8.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 6px;">Resumen Nominativo por Sujeto Pasivo (Orden Jerárquico)</div>
+      <div style="font-size: 8.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 6px;">Resumen por Sujeto Pasivo</div>
       <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: white; width: 100%;">
         <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 7.5px;">
           <thead>
@@ -3811,9 +3877,7 @@ function triggerImport() {
             }
             
             // Abrir modal de resumen ejecutivo de importación (Nivel 1)
-            window._lastSyncStats = stats;
-            window._lastSyncDateStr = 'Sincronización recién completada';
-            openSyncSummaryModal(stats, 'Sincronización recién completada');
+                        openSyncSummaryModal(stats, 'Sincronización recién completada');
             
             fetchAlertas();
             fetchSyncHistory(); // Refrescar el historial de administración
@@ -4621,17 +4685,10 @@ function handleExcelFileSelected(event) {
   reader.readAsDataURL(file);
 }
 
-// Limpiar la selección de archivo Excel
-function clearExcelFileSelection() {
-  const input = document.getElementById('import-excel-file');
-  if (input) {
-    input.value = '';
-    handleExcelFileSelected({ target: input });
-  }
-}
-window.clearExcelFileSelection = clearExcelFileSelection;
+// ============================================================================
 // ============================================================================
 // FUNCIONES DE CONTROL DE AUDITORÍA SEMANAL
+// ============================================================================
 // ============================================================================
 async function openAuditoriaModal(id = null) {
   const modal = document.getElementById('modal-container');
@@ -5760,7 +5817,12 @@ async function generarReportesMasivos() {
 
   dataStore.reportesRawData.forEach(item => {
     let itemEstado = (item.estado || 'Ingresada').trim();
-    const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+    const isPendiente = itemEstado.toLowerCase() === 'aceptada' &&
+                        item.fecha_agendada &&
+                        item.fecha_agendada !== '-' &&
+                        item.fecha_agendada !== '---' &&
+                        publicadosFolios.size > 0 &&
+                        !publicadosFolios.has(item.folio_lobby);
     if (isPendiente) {
       itemEstado = 'Pendiente de publicación';
     }
@@ -5854,6 +5916,22 @@ async function generarReportesMasivos() {
     return;
   }
 
+    // 4.1. Pre-consumir bloque de folios correlativos para el lote completo
+  let assignedBatchCodes = [];
+  try {
+    const resBatch = await fetch('/api/reportes/correlativo/consumir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cantidad: totalGroups })
+    });
+    if (resBatch.ok) {
+      const d = await resBatch.json();
+      assignedBatchCodes = d?.codes || d?.data?.codes || [];
+    }
+  } catch (e) {
+    console.warn('Error al pre-consumir correlativos para lote:', e);
+  }
+
   // 4. Mostrar modal de progreso en pantalla
   let isCancelled = false;
   const modal = document.getElementById('modal-container');
@@ -5936,9 +6014,7 @@ async function generarReportesMasivos() {
     if (progressText) progressText.textContent = `${normalizeName(name)} (${index + 1}/${totalGroups})`;
     if (progressPercentText) progressPercentText.textContent = `${progressPercent}%`;
 
-    // Generar código de reporte local único agregando el índice para evitar colisiones
-    const localBaseCode = generateLocalReportCode();
-    const codigoReporte = `${localBaseCode}-${String(index + 1).padStart(3, '0')}`;
+    const codigoReporte = (assignedBatchCodes && assignedBatchCodes[index]) ? assignedBatchCodes[index] : `${generateLocalReportCode()}-${String(index + 1).padStart(3, '0')}`;
 
     // Mapear elementos del reporte exactamente igual que el listado individual
     const processedGroupItems = groupItems.map((item, idx) => {
@@ -5948,7 +6024,12 @@ async function generarReportesMasivos() {
       const cargoCombinado = `${normalizedName} - ${cleanedCargoText}`;
 
       let itemEstado = (item.estado || 'Ingresada').trim();
-      const isPendiente = itemEstado.toLowerCase() === 'aceptada' && item.fecha_agendada && !publicadosFolios.has(item.folio_lobby);
+      const isPendiente = itemEstado.toLowerCase() === 'aceptada' &&
+                        item.fecha_agendada &&
+                        item.fecha_agendada !== '-' &&
+                        item.fecha_agendada !== '---' &&
+                        publicadosFolios.size > 0 &&
+                        !publicadosFolios.has(item.folio_lobby);
       if (isPendiente) {
         itemEstado = 'Pendiente de publicación';
       }
@@ -6790,11 +6871,6 @@ async function openModalDetalleAsistencia(id) {
 }
 window.openModalDetalleAsistencia = openModalDetalleAsistencia;
 
-// 5. Modal Crear Asistencia desde la Ventana Principal
-function openModalCrearAsistencia() {
-  openAssistanceConsole();
-}
-window.openModalCrearAsistencia = openModalCrearAsistencia;
 
 // 6. Modal Nuevo / Editar Contacto
 function openModalNuevoContacto() {
@@ -7066,178 +7142,6 @@ async function eliminarAsistencia(id, codigo) {
 }
 window.eliminarAsistencia = eliminarAsistencia;
 
-// 9. Reenviar Correo / Generar PDF desde Fila
-async function prepararCorreoDesdeFila(id) {
-  try {
-    const res = await window.api.invokeRoute({ url: `/api/asistencias/${id}`, method: 'GET' });
-    if (!res || res.status !== 200 || !res.data) return;
-
-    const ast = res.data;
-    const subject = `[LobbyControl] Comprobante de Asistencia Técnica N° ${ast.ticket_codigo}`;
-    const bodyHtml = `
-      <div style="font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; max-width: 600px;">
-        <div style="background-color: #0f172a; color: #ffffff; padding: 14px 18px; border-radius: 8px 8px 0 0;">
-          <h2 style="margin: 0; font-size: 15px; font-weight: bold;">Municipalidad de Maipú — Plataforma LobbyControl</h2>
-          <p style="margin: 4px 0 0 0; font-size: 12px; color: #94a3b8;">Comprobante de Asistencia Técnica (Ley N° 20.730 de Lobby)</p>
-        </div>
-        <div style="padding: 18px; border: 1px solid #cbd5e1; border-top: none; border-radius: 0 0 8px 8px; background: #ffffff;">
-          <p>Estimado(a) <strong>${ast.solicitante_nombre}</strong>${ast.solicitante_cargo_depto ? ' (' + ast.solicitante_cargo_depto + ')' : ''}:</p>
-          <p>A continuación se detalla el registro y orientación técnica brindada a su consulta:</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin: 14px 0;">
-            <tr style="background: #f8fafc;">
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 140px;">Ticket N°:</td>
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;"><span style="font-family: monospace; font-weight: bold; color: #0284c7;">${ast.ticket_codigo}</span></td>
-            </tr>
-            ${ast.folio_lobby ? `
-            <tr>
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">Folio Lobby:</td>
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;"><span style="font-family: monospace; font-weight: bold;">${ast.folio_lobby}</span></td>
-            </tr>` : ''}
-            <tr style="background: #f8fafc;">
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">Fecha de Atención:</td>
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${ast.fecha_hora ? ast.fecha_hora.replace('T', ' ').substring(0, 16) : ''}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">Motivo de Consulta:</td>
-              <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${ast.motivo_consulta}</td>
-            </tr>
-            <tr style="background: #f0fdf4;">
-              <td style="padding: 8px 10px; border: 1px solid #bbf7d0; font-weight: bold; color: #166534;">Orientación / Solución:</td>
-              <td style="padding: 8px 10px; border: 1px solid #bbf7d0; color: #14532d;">${(ast.solucion_orientacion || 'Atención brindada conforme a normativa.').replace(/\n/g, '<br>')}</td>
-            </tr>
-          </table>
-
-          <p style="font-size: 11px; color: #64748b; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-            Este comprobante es generado automáticamente por la plataforma <strong>LobbyControl</strong> de la Secretaría Municipal. Ante dudas, contactar al Administrador de Lobby.
-          </p>
-        </div>
-      </div>
-    `;
-
-    if (window.api && window.api.generateEmlAndOpen) {
-      await window.api.generateEmlAndOpen({
-        to: ast.solicitante_correo || '',
-        subject,
-        bodyHtml,
-        ticketCodigo: ast.ticket_codigo
-      });
-    }
-  } catch (e) {
-    showToast('Error al abrir correo: ' + e.message, 'error');
-  }
-}
-window.prepararCorreoDesdeFila = prepararCorreoDesdeFila;
-
-async function generarPdfDesdeFila(id) {
-  try {
-    const res = await window.api.invokeRoute({ url: `/api/asistencias/${id}`, method: 'GET' });
-    if (!res || res.status !== 200 || !res.data) return;
-    const ast = res.data;
-
-    const savePathRes = await window.api.selectSavePath({
-      defaultName: `Ficha_Asistencia_${ast.ticket_codigo}.pdf`
-    });
-    if (!savePathRes || savePathRes.cancelled || !savePathRes.filePath) return;
-
-    showToast('Generando ficha PDF...');
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 25px; line-height: 1.4; }
-          .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 18px; }
-          .title { font-size: 16px; font-weight: bold; color: #0f172a; }
-          .subtitle { font-size: 11px; color: #64748b; margin-top: 3px; }
-          .badge { font-family: monospace; font-size: 13px; font-weight: bold; color: #0284c7; background: #e0f2fe; padding: 4px 8px; border-radius: 4px; display: inline-block; }
-          .table-info { width: 100%; border-collapse: collapse; margin-top: 15px; }
-          .table-info td { padding: 7px 10px; border: 1px solid #cbd5e1; }
-          .table-info td.label { font-weight: bold; background: #f8fafc; width: 140px; }
-          .box-solucion { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 12px; margin-top: 15px; }
-          .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 9px; color: #94a3b8; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <table style="width: 100%;">
-            <tr>
-              <td>
-                <div class="title">MUNICIPALIDAD DE MAIPÚ</div>
-                <div class="subtitle">Secretaría Municipal — Plataforma LobbyControl (Ley N° 20.730)</div>
-                <div class="subtitle">Ficha de Asistencia Técnica y Orientación Normativa</div>
-              </td>
-              <td style="text-align: right;">
-                <div class="badge">${ast.ticket_codigo}</div>
-                <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Fecha: ${ast.fecha_hora ? ast.fecha_hora.replace('T', ' ').substring(0, 16) : ''}</div>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <table class="table-info">
-          <tr>
-            <td class="label">Funcionario / Solicitante:</td>
-            <td><strong>${ast.solicitante_nombre}</strong></td>
-          </tr>
-          <tr>
-            <td class="label">Dirección / Depto:</td>
-            <td>${ast.solicitante_cargo_depto || 'No especificado'}</td>
-          </tr>
-          <tr>
-            <td class="label">Correo / Contacto:</td>
-            <td>${ast.solicitante_correo || ''} ${ast.solicitante_contacto ? ' (' + ast.solicitante_contacto + ')' : ''}</td>
-          </tr>
-          <tr>
-            <td class="label">Canal y Categoría:</td>
-            <td>Canal: ${ast.canal.toUpperCase()} | Materia: ${ast.categoria.toUpperCase()}</td>
-          </tr>
-          ${ast.folio_lobby ? `<tr><td class="label">Folio Vinculado:</td><td><code>${ast.folio_lobby}</code></td></tr>` : ''}
-          <tr>
-            <td class="label">Motivo de Consulta:</td>
-            <td>${ast.motivo_consulta}</td>
-          </tr>
-        </table>
-
-        <div class="box-solucion">
-          <strong style="color: #166534;">ORIENTACIÓN Y SOLUCIÓN BRINDADA:</strong>
-          <p style="margin: 6px 0 0 0; color: #14532d;">${(ast.solucion_orientacion || 'Atención concluida satisfactoriamente.').replace(/\n/g, '<br>')}</p>
-        </div>
-
-        <div class="footer">
-          Documento generado automáticamente por LobbyControl — Municipalidad de Maipú.
-        </div>
-      </body>
-      </html>
-    `;
-
-    const pdfRes = await window.api.generateSilentPdf({
-      html: htmlContent,
-      filePath: savePathRes.filePath
-    });
-
-    if (pdfRes && pdfRes.success) {
-      const folderPath = savePathRes.filePath.replace(/[\\/][^\\/]+$/, '');
-      showToast(`Ficha ${ast.ticket_codigo} guardada correctamente.`, 'success', {
-        duration: 7500,
-        action: {
-          label: 'Abrir carpeta',
-          icon: 'folder',
-          onClick: () => {
-            if (window.api && window.api.openPath) window.api.openPath(folderPath);
-          }
-        }
-      });
-    } else {
-      showToast('Error al generar PDF: ' + (pdfRes?.error || 'Error desconocido'), 'error');
-    }
-  } catch (e) {
-    showToast('Error al generar ficha PDF: ' + e.message, 'error');
-  }
-}
-window.generarPdfDesdeFila = generarPdfDesdeFila;
 
 // 10. Exportaciones Masivas (Excel y Reporte Consolidado PDF)
 async function exportAsistenciasExcel() {
@@ -7620,3 +7524,13 @@ function eliminarCategoria(id, nombre) {
   });
 }
 window.eliminarCategoria = eliminarCategoria;
+
+
+// ─── ACCIONES DE ASISTENCIA TÉCNICA ───────────────────────────────────────
+window.toggleAsistenciaComparar = function() {
+  if (typeof renderAsistenciaEvolucionChart === 'function') {
+    window.asistenciaCompararPeriodo = !window.asistenciaCompararPeriodo;
+    renderAsistenciaEvolucionChart();
+  }
+};
+

@@ -1,0 +1,14 @@
+{
+  "totalIssues": 0,
+  "categories": {
+    "eventHandlers": [],
+    "emptyClassTokens": [],
+    "apiConsumption": [],
+    "domIds": [],
+    "apiRoutes": [],
+    "dataStoreLoading": [],
+    "modals": [],
+    "exports": [],
+    "unusedFunctions": []
+  }
+}

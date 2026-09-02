@@ -37,18 +37,15 @@ function getChileanDatePrefix() {
 }
 
 // Helper para sanitizar y normalizar datos de contacto institucional
-function sanitizeContactData(nombre, depto, correo, contacto) {
+function sanitizeContactData(nombre, direccion, correo, telefono) {
   let cleanName = (nombre || '').trim().replace(/\s+/g, ' ');
-  let cleanDepto = (depto || '').trim();
+  let cleanDireccion = (direccion || '').trim();
   let cleanEmail = (correo || '').trim().toLowerCase();
   if (cleanEmail && !cleanEmail.includes('@')) {
     cleanEmail += '@maipu.cl';
   }
-  let cleanPhone = (contacto || '').trim();
-  if (/^\d{4}$/.test(cleanPhone)) {
-    cleanPhone = `Anexo ${cleanPhone}`;
-  }
-  return { cleanName, cleanDepto, cleanEmail, cleanPhone };
+  let cleanPhone = (telefono || '').trim().replace(/[^0-9]/g, '');
+  return { cleanName, cleanDireccion, cleanDepto: cleanDireccion, cleanEmail, cleanPhone };
 }
 
 // Cache de folios publicados con TTL de 60 segundos
@@ -267,7 +264,15 @@ async function handle(req, setSharepointCookie) {
       return { status: 400, data: { error: 'No hay credenciales activas.' } };
     }
 
-    const { checkAndSyncDatabase } = require('../config/db-sync');
+    const { checkAndSyncDatabase, safeSyncAndUploadAsistencias } = require('../config/db-sync');
+    if (req.sharepointCookie) {
+      safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+        console.warn('[Sync-Capsule] Advertencia al sincronizar asistencias:', e.message);
+      });
+      checkAndSyncDatabase(usersDb, req.sharepointCookie, 'usuarios').catch(e => {
+        console.warn('[Sync-Capsule] Advertencia al sincronizar usuarios:', e.message);
+      });
+    }
     return new Promise((resolve) => {
       checkAndSyncDatabase(db, req.sharepointCookie)
         .then((updated) => {
@@ -329,6 +334,8 @@ async function handle(req, setSharepointCookie) {
             console.log(`[SSO Sync] Sincronización de usuarios terminada. ¿Cambios?: ${usersUpdated}`);
             const lobbyUpdated = await checkAndSyncDatabase(db, cookieHeader, 'lobby');
             console.log(`[SSO Sync] Sincronización de lobby terminada. ¿Cambios?: ${lobbyUpdated}`);
+            const asistenciasUpdated = await checkAndSyncDatabase(asistenciasDb, cookieHeader, 'asistencias');
+            console.log(`[SSO Sync] Sincronización de asistencias terminada. ¿Cambios?: ${asistenciasUpdated}`);
           } catch (syncErr) {
             console.error('[SSO Sync] Error al sincronizar en login:', syncErr.message);
           }
@@ -1113,10 +1120,12 @@ async function handle(req, setSharepointCookie) {
   // GET /api/sujetos_pasivos/vigentes-nombres
   if (method === 'GET' && pathName === '/api/sujetos_pasivos/vigentes-nombres') {
     const sql = `
-      SELECT DISTINCT sph.nombre, sph.rut
+      SELECT MAX(sph.id_sujeto_lobby) AS id_sujeto_lobby, TRIM(sph.cargo) AS cargo
       FROM sujetos_pasivos_sph sph
       INNER JOIN sujetos_pasivos_vigentes spv ON spv.id_sujeto_lobby = sph.id_sujeto_lobby
-      ORDER BY sph.nombre ASC
+      WHERE sph.cargo IS NOT NULL AND TRIM(sph.cargo) != ''
+      GROUP BY TRIM(sph.cargo)
+      ORDER BY TRIM(sph.cargo) ASC
     `;
     return new Promise((resolve) => {
       db.all(sql, [], (err, rows) => {
@@ -1396,40 +1405,42 @@ async function handle(req, setSharepointCookie) {
     }
 
     isSyncing = true;
-    const { checkAndSyncDatabase } = require('../config/db-sync');
-    return new Promise((resolve) => {
-      checkAndSyncDatabase(db, req.sharepointCookie)
-        .then((updated) => {
-          const { logEvent } = require('../config/logger');
-          if (updated) {
-            db.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
-              const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
-              logEvent("INFO-SYNC-201", "Sincronización manual completada (Con cambios)", `Firma actualizada: ${lastUpdate} | Por: ${user.correo}`);
-            });
-          } else {
-            logEvent("INFO-SYNC-202", "Sincronización manual completada (Sin cambios)", `Por: ${user.correo}`);
-          }
+    const { checkAndSyncDatabase, safeSyncAndUploadAsistencias } = require('../config/db-sync');
+    return new Promise(async (resolve) => {
+      try {
+        const usersUpdated = await checkAndSyncDatabase(usersDb, req.sharepointCookie, 'usuarios');
+        const lobbyUpdated = await checkAndSyncDatabase(db, req.sharepointCookie, 'lobby');
+        const asistenciasUpdated = await safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie);
 
-          resolve({
-            status: 200,
-            data: {
-              success: true,
-              updated,
-              message: updated 
-                ? 'Sincronización completada: Se descargó y aplicó una nueva versión de la base de datos.' 
-                : 'La base de datos local ya está al día.'
-            }
+        const anyUpdated = usersUpdated || lobbyUpdated || asistenciasUpdated;
+        const { logEvent } = require('../config/logger');
+        if (lobbyUpdated) {
+          db.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
+            const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
+            logEvent("INFO-SYNC-201", "Sincronización manual completa con SharePoint (Con cambios)", `Firma actualizada: ${lastUpdate} | Por: ${user ? user.correo : 'Usuario'}`);
           });
-        })
-        .catch((err) => {
-          console.error('Error al sincronizar:', err);
-          const { logError } = require('../config/logger');
-          logError("ERR-SYNC-302", "Sincronización manual falló", `Error: ${err.message} | Por: ${user.correo}`);
-          resolve({ status: 500, data: { error: `Error al sincronizar: ${err.message}` } });
-        })
-        .finally(() => {
-          isSyncing = false;
+        } else {
+          logEvent("INFO-SYNC-202", "Sincronización manual completa con SharePoint (Sin cambios)", `Por: ${user ? user.correo : 'Usuario'}`);
+        }
+
+        resolve({
+          status: 200,
+          data: {
+            success: true,
+            updated: anyUpdated,
+            message: anyUpdated 
+              ? 'Sincronización completada: Se descargaron y consolidaron los registros de Lobby, Usuarios y Asistencias.' 
+              : 'Todas las bases de datos (Lobby, Usuarios y Asistencias) ya están al día con SharePoint.'
+          }
         });
+      } catch (err) {
+        console.error('Error al sincronizar con SharePoint:', err);
+        const { logError } = require('../config/logger');
+        logError("ERR-SYNC-302", "Sincronización manual completa falló", `Error: ${err.message} | Por: ${user ? user.correo : 'Usuario'}`);
+        resolve({ status: 500, data: { error: `Error al sincronizar: ${err.message}` } });
+      } finally {
+        isSyncing = false;
+      }
     });
   }
 
@@ -1872,9 +1883,9 @@ async function handle(req, setSharepointCookie) {
     const searchVal = `%${q}%`;
     return new Promise((resolve) => {
       asistenciasDb.all(`
-        SELECT id, nombre, depto_habitual, correo, telefono_anexo
+        SELECT id, nombre, direccion, correo, telefono
         FROM contactos_asistencia
-        WHERE nombre LIKE ? COLLATE NOCASE OR depto_habitual LIKE ? COLLATE NOCASE
+        WHERE nombre LIKE ? COLLATE NOCASE OR direccion LIKE ? COLLATE NOCASE
         ORDER BY nombre ASC
         LIMIT 10
       `, [searchVal, searchVal], (err, rows) => {
@@ -1896,7 +1907,7 @@ async function handle(req, setSharepointCookie) {
       `;
       let params = [];
       if (search) {
-        sql += ` WHERE c.nombre LIKE ? COLLATE NOCASE OR c.depto_habitual LIKE ? COLLATE NOCASE OR c.correo LIKE ? COLLATE NOCASE`;
+        sql += ` WHERE c.nombre LIKE ? COLLATE NOCASE OR c.direccion LIKE ? COLLATE NOCASE OR c.correo LIKE ? COLLATE NOCASE`;
         const sVal = `%${search}%`;
         params.push(sVal, sVal, sVal);
       }
@@ -1910,21 +1921,23 @@ async function handle(req, setSharepointCookie) {
 
   // POST /api/asistencias/contactos
   if (method === 'POST' && pathName === '/api/asistencias/contactos') {
-    const { nombre, depto_habitual, correo, telefono_anexo, notas } = body;
+    const { nombre, direccion, depto_habitual, correo, telefono, telefono_anexo, notas } = body;
     if (!nombre || !nombre.trim()) {
       return { status: 400, data: { error: 'El nombre del contacto es obligatorio.' } };
     }
-    const { cleanName, cleanDepto, cleanEmail, cleanPhone } = sanitizeContactData(nombre, depto_habitual, correo, telefono_anexo);
+    const inputDireccion = direccion !== undefined ? direccion : depto_habitual;
+    const inputTelefono = telefono !== undefined ? telefono : telefono_anexo;
+    const { cleanName, cleanDireccion, cleanEmail, cleanPhone } = sanitizeContactData(nombre, inputDireccion, correo, inputTelefono);
     const crypto = require('crypto');
     const contactUuid = crypto.randomUUID();
 
     return new Promise((resolve) => {
       asistenciasDb.run(`
-        INSERT INTO contactos_asistencia (uuid, nombre, depto_habitual, correo, telefono_anexo, notas)
+        INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, notas)
         VALUES (?, ?, ?, ?, ?, ?)
-      `, [contactUuid, cleanName, cleanDepto, cleanEmail, cleanPhone, notas || ''], function(err) {
+      `, [contactUuid, cleanName, cleanDireccion, cleanEmail, cleanPhone, notas || ''], function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
-        resolve({ status: 201, data: { id: this.lastID, uuid: contactUuid, nombre: cleanName, depto_habitual: cleanDepto, correo: cleanEmail, telefono_anexo: cleanPhone } });
+        resolve({ status: 201, data: { id: this.lastID, uuid: contactUuid, nombre: cleanName, direccion: cleanDireccion, correo: cleanEmail, telefono: cleanPhone } });
       });
     });
   }
@@ -1933,20 +1946,22 @@ async function handle(req, setSharepointCookie) {
   const contactoMatch = pathName.match(/^\/api\/asistencias\/contactos\/(\d+)$/);
   if (method === 'PUT' && contactoMatch) {
     const id = parseInt(contactoMatch[1], 10);
-    const { nombre, depto_habitual, correo, telefono_anexo, notas } = body;
+    const { nombre, direccion, depto_habitual, correo, telefono, telefono_anexo, notas } = body;
     if (!nombre || !nombre.trim()) {
       return { status: 400, data: { error: 'El nombre del contacto es obligatorio.' } };
     }
-    const { cleanName, cleanDepto, cleanEmail, cleanPhone } = sanitizeContactData(nombre, depto_habitual, correo, telefono_anexo);
+    const inputDireccion = direccion !== undefined ? direccion : depto_habitual;
+    const inputTelefono = telefono !== undefined ? telefono : telefono_anexo;
+    const { cleanName, cleanDireccion, cleanEmail, cleanPhone } = sanitizeContactData(nombre, inputDireccion, correo, inputTelefono);
     return new Promise((resolve) => {
       asistenciasDb.run(`
         UPDATE contactos_asistencia
-        SET nombre = ?, depto_habitual = ?, correo = ?, telefono_anexo = ?, notas = ?, updated_at = datetime('now', 'localtime')
+        SET nombre = ?, direccion = ?, correo = ?, telefono = ?, notas = ?, updated_at = datetime('now', 'localtime')
         WHERE id = ?
-      `, [cleanName, cleanDepto, cleanEmail, cleanPhone, notas || '', id], function(err) {
+      `, [cleanName, cleanDireccion, cleanEmail, cleanPhone, notas || '', id], function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Contacto no encontrado.' } });
-        resolve({ status: 200, data: { id, nombre: cleanName, depto_habitual: cleanDepto, correo: cleanEmail, telefono_anexo: cleanPhone } });
+        resolve({ status: 200, data: { id, nombre: cleanName, direccion: cleanDireccion, correo: cleanEmail, telefono: cleanPhone } });
       });
     });
   }
@@ -1957,7 +1972,7 @@ async function handle(req, setSharepointCookie) {
     
     return new Promise((resolve) => {
       asistenciasDb.get(
-        "SELECT id, uuid, nombre, depto_habitual, correo, telefono_anexo FROM contactos_asistencia WHERE id = ? OR (uuid IS NOT NULL AND uuid = ?)",
+        "SELECT id, uuid, nombre, direccion, correo, telefono FROM contactos_asistencia WHERE id = ? OR (uuid IS NOT NULL AND uuid = ?)",
         [parseInt(target_id, 10) || null, target_uuid || null],
         (tErr, targetContact) => {
           if (tErr) return resolve({ status: 500, data: { error: tErr.message } });
@@ -2030,7 +2045,7 @@ async function handle(req, setSharepointCookie) {
       const qTotalGeneral = `SELECT COUNT(*) AS total_general FROM bitacora_asistencias`;
       const qTotalResueltas = `SELECT COUNT(*) AS total_resueltas FROM bitacora_asistencias WHERE estado = 'resuelta'`;
       const qSeguimiento = `SELECT COUNT(*) AS total_pend FROM bitacora_asistencias WHERE estado != 'resuelta'`;
-      const qTopDepto = `SELECT COALESCE(NULLIF(TRIM(solicitante_cargo_depto), ''), 'General') AS depto, COUNT(*) AS count FROM bitacora_asistencias GROUP BY depto ORDER BY count DESC LIMIT 10`;
+      const qTopDepto = `SELECT COALESCE(NULLIF(TRIM(solicitante_direccion), ''), 'General') AS depto, COUNT(*) AS count FROM bitacora_asistencias GROUP BY depto ORDER BY count DESC LIMIT 10`;
       const qTotalContactos = `SELECT COUNT(*) AS total_contactos FROM contactos_asistencia`;
       const qFechas = `SELECT fecha_hora FROM bitacora_asistencias WHERE fecha_hora IS NOT NULL ORDER BY fecha_hora ASC`;
 
@@ -2098,9 +2113,9 @@ async function handle(req, setSharepointCookie) {
     let params = [];
 
     if (search) {
-      where.push(`(b.ticket_codigo LIKE ? OR b.solicitante_nombre LIKE ? COLLATE NOCASE OR b.solicitante_cargo_depto LIKE ? COLLATE NOCASE OR b.motivo_consulta LIKE ? COLLATE NOCASE OR b.solucion_orientacion LIKE ? COLLATE NOCASE OR b.folio_lobby LIKE ?)`);
+      where.push(`(b.ticket_codigo LIKE ? OR b.solicitante_nombre LIKE ? COLLATE NOCASE OR b.solicitante_direccion LIKE ? COLLATE NOCASE OR b.representado LIKE ? COLLATE NOCASE OR b.motivo_consulta LIKE ? COLLATE NOCASE OR b.solucion_orientacion LIKE ? COLLATE NOCASE OR b.folio_lobby LIKE ?)`);
       const sVal = `%${search}%`;
-      params.push(sVal, sVal, sVal, sVal, sVal, sVal);
+      params.push(sVal, sVal, sVal, sVal, sVal, sVal, sVal);
     }
     if (canal && canal !== 'todos') {
       where.push(`b.canal = ?`);
@@ -2136,7 +2151,7 @@ async function handle(req, setSharepointCookie) {
         const total = countRow ? countRow.total : 0;
 
         const dataSql = `
-          SELECT b.*, c.nombre AS contacto_nombre_canonico, c.correo AS contacto_correo_canonico, c.telefono_anexo AS contacto_anexo_canonico
+          SELECT b.*, c.nombre AS contacto_nombre_canonico, c.correo AS contacto_correo_canonico, c.telefono AS contacto_telefono_canonico
           FROM bitacora_asistencias b
           LEFT JOIN contactos_asistencia c ON b.contacto_id = c.id
           ${whereClause}
@@ -2165,23 +2180,46 @@ async function handle(req, setSharepointCookie) {
   if (method === 'POST' && pathName === '/api/asistencias') {
     const {
       solicitante_nombre,
+      solicitante_direccion,
       solicitante_cargo_depto,
       solicitante_correo,
+      solicitante_telefono,
       solicitante_contacto,
+      representado,
+      representado_id_lobby,
       canal,
       categoria,
       folio_lobby,
-      sujeto_pasivo,
       motivo_consulta,
       solucion_orientacion,
       estado,
-      duracion_minutos,
       contacto_id,
-      creado_por
+      creado_por,
+      fecha_hora
     } = body;
 
+    const inputDireccion = (solicitante_direccion !== undefined ? solicitante_direccion : solicitante_cargo_depto) || '';
+    const inputTelefono = (solicitante_telefono !== undefined ? solicitante_telefono : solicitante_contacto) || '';
+    const rep = (representado && typeof representado === 'string' && representado.trim()) ? representado.trim() : null;
+    const repId = (representado_id_lobby !== undefined && representado_id_lobby !== null && !isNaN(representado_id_lobby)) ? parseInt(representado_id_lobby, 10) : null;
+
+    if (!fecha_hora || !fecha_hora.trim()) {
+      return { status: 400, data: { error: 'La fecha y hora de la atención es obligatoria.' } };
+    }
+    if (!canal || !canal.trim()) {
+      return { status: 400, data: { error: 'El canal de contacto es obligatorio.' } };
+    }
     if (!solicitante_nombre || !solicitante_nombre.trim()) {
       return { status: 400, data: { error: 'El nombre del solicitante es obligatorio.' } };
+    }
+    if (!inputDireccion || !inputDireccion.trim()) {
+      return { status: 400, data: { error: 'La dirección municipal del solicitante es obligatoria.' } };
+    }
+    if (!solicitante_correo || !solicitante_correo.trim()) {
+      return { status: 400, data: { error: 'El correo electrónico del solicitante es obligatorio.' } };
+    }
+    if (!inputTelefono || !inputTelefono.trim()) {
+      return { status: 400, data: { error: 'El teléfono de contacto es obligatorio.' } };
     }
     if (!categoria || !categoria.trim()) {
       return { status: 400, data: { error: 'Debes seleccionar una categoría para la asistencia.' } };
@@ -2189,9 +2227,12 @@ async function handle(req, setSharepointCookie) {
     if (!motivo_consulta || !motivo_consulta.trim()) {
       return { status: 400, data: { error: 'El motivo de la consulta es obligatorio.' } };
     }
+    if (!solucion_orientacion || !solucion_orientacion.trim()) {
+      return { status: 400, data: { error: 'La orientación o solución entregada es obligatoria.' } };
+    }
 
-    const { cleanName, cleanDepto, cleanEmail, cleanPhone } = sanitizeContactData(
-      solicitante_nombre, solicitante_cargo_depto, solicitante_correo, solicitante_contacto
+    const { cleanName, cleanDireccion, cleanEmail, cleanPhone } = sanitizeContactData(
+      solicitante_nombre, inputDireccion, solicitante_correo, inputTelefono
     );
 
     const currentUserEmail = (user && user.correo) || creado_por || 'admin@maipu.cl';
@@ -2231,26 +2272,27 @@ async function handle(req, setSharepointCookie) {
             const proceedWithInsert = (resolvedContactId, resolvedContactUuid) => {
               asistenciasDb.run(`
                 INSERT INTO bitacora_asistencias (
-                  ticket_codigo, contacto_id, contacto_uuid, canal, solicitante_nombre, solicitante_cargo_depto,
-                  solicitante_correo, solicitante_contacto, categoria, folio_lobby, sujeto_pasivo,
-                  motivo_consulta, solucion_orientacion, estado, duracion_minutos, creado_por
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_direccion,
+                  solicitante_correo, solicitante_telefono, categoria, folio_lobby,
+                  motivo_consulta, solucion_orientacion, estado, representado, representado_id_lobby, creado_por
+                ) VALUES (?, ?, ?, COALESCE(?, datetime('now', 'localtime')), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `, [
                 ticketCodigo,
                 resolvedContactId,
                 resolvedContactUuid,
+                fecha_hora ? fecha_hora.trim() : null,
                 canal || 'telefono',
                 cleanName,
-                cleanDepto,
+                cleanDireccion,
                 cleanEmail,
                 cleanPhone,
                 categoria,
                 (folio_lobby || '').trim() || null,
-                (sujeto_pasivo || '').trim() || null,
                 motivo_consulta.trim(),
                 (solucion_orientacion || '').trim(),
                 estado || 'resuelta',
-                parseInt(duracion_minutos, 10) || 5,
+                rep,
+                repId,
                 currentUserEmail
               ], function(insErr) {
                 if (insErr) {
@@ -2268,9 +2310,13 @@ async function handle(req, setSharepointCookie) {
                       contacto_id: resolvedContactId,
                       contacto_uuid: resolvedContactUuid,
                       solicitante_nombre: cleanName,
-                      solicitante_cargo_depto: cleanDepto,
+                      solicitante_direccion: cleanDireccion,
+                      solicitante_cargo_depto: cleanDireccion,
                       solicitante_correo: cleanEmail,
+                      solicitante_telefono: cleanPhone,
                       solicitante_contacto: cleanPhone,
+                      representado: rep,
+                      representado_id_lobby: repId,
                       fecha_hora: new Date().toISOString(),
                       message: `Asistencia ${ticketCodigo} guardada correctamente.`
                     }
@@ -2287,26 +2333,26 @@ async function handle(req, setSharepointCookie) {
                 proceedWithInsert(cId, cUuid);
               });
             } else {
-              asistenciasDb.get("SELECT id, uuid, depto_habitual, correo, telefono_anexo FROM contactos_asistencia WHERE nombre = ? COLLATE NOCASE", [cleanName], (cErr, contactRow) => {
+              asistenciasDb.get("SELECT id, uuid, direccion, correo, telefono FROM contactos_asistencia WHERE nombre = ? COLLATE NOCASE", [cleanName], (cErr, contactRow) => {
                 if (cErr) {
                   asistenciasDb.run("ROLLBACK");
                   return resolve({ status: 500, data: { error: cErr.message } });
                 }
                 if (contactRow) {
-                  const updatedDepto = contactRow.depto_habitual || cleanDepto;
+                  const updatedDir = contactRow.direccion || cleanDireccion;
                   const updatedEmail = cleanEmail || contactRow.correo;
-                  const updatedPhone = cleanPhone || contactRow.telefono_anexo;
+                  const updatedPhone = cleanPhone || contactRow.telefono;
                   const currentUuid = contactRow.uuid || crypto.randomUUID();
                   asistenciasDb.run(
-                    "UPDATE contactos_asistencia SET uuid = ?, depto_habitual = ?, correo = ?, telefono_anexo = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
-                    [currentUuid, updatedDepto, updatedEmail, updatedPhone, contactRow.id],
+                    "UPDATE contactos_asistencia SET uuid = ?, direccion = ?, correo = ?, telefono = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
+                    [currentUuid, updatedDir, updatedEmail, updatedPhone, contactRow.id],
                     () => proceedWithInsert(contactRow.id, currentUuid)
                   );
                 } else if (cleanName) {
                   const newContactUuid = crypto.randomUUID();
                   asistenciasDb.run(
-                    "INSERT INTO contactos_asistencia (uuid, nombre, depto_habitual, correo, telefono_anexo) VALUES (?, ?, ?, ?, ?)",
-                    [newContactUuid, cleanName, cleanDepto, cleanEmail, cleanPhone],
+                    "INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono) VALUES (?, ?, ?, ?, ?)",
+                    [newContactUuid, cleanName, cleanDireccion, cleanEmail, cleanPhone],
                     function(nErr) {
                       if (nErr) {
                         asistenciasDb.run("ROLLBACK");
@@ -2332,7 +2378,7 @@ async function handle(req, setSharepointCookie) {
     const id = parseInt(asistenciaMatch[1], 10);
     return new Promise((resolve) => {
       asistenciasDb.get(`
-        SELECT b.*, c.nombre AS contacto_nombre_canonico, c.correo AS contacto_correo_canonico, c.telefono_anexo AS contacto_anexo_canonico
+        SELECT b.*, c.nombre AS contacto_nombre_canonico, c.correo AS contacto_correo_canonico, c.telefono AS contacto_telefono_canonico
         FROM bitacora_asistencias b
         LEFT JOIN contactos_asistencia c ON b.contacto_id = c.id
         WHERE b.id = ?
@@ -2348,18 +2394,26 @@ async function handle(req, setSharepointCookie) {
   if (method === 'PUT' && asistenciaMatch) {
     const id = parseInt(asistenciaMatch[1], 10);
     const {
+      solicitante_direccion,
       solicitante_cargo_depto,
       solicitante_correo,
+      solicitante_telefono,
       solicitante_contacto,
+      representado,
+      representado_id_lobby,
       categoria,
       folio_lobby,
-      sujeto_pasivo,
       motivo_consulta,
       solucion_orientacion,
       estado,
-      duracion_minutos,
-      updated_by
+      updated_by,
+      fecha_hora
     } = body;
+
+    const inputDireccion = solicitante_direccion !== undefined ? solicitante_direccion : solicitante_cargo_depto;
+    const inputTelefono = solicitante_telefono !== undefined ? solicitante_telefono : solicitante_contacto;
+    const rep = (representado && typeof representado === 'string' && representado.trim()) ? representado.trim() : null;
+    const repId = (representado_id_lobby !== undefined && representado_id_lobby !== null && !isNaN(representado_id_lobby)) ? parseInt(representado_id_lobby, 10) : null;
 
     const currentUserEmail = (user && user.correo) || updated_by || 'admin@maipu.cl';
 
@@ -2373,28 +2427,48 @@ async function handle(req, setSharepointCookie) {
         const diffHours = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
         const isProtected = diffHours > 24;
 
-        const cleanDepto = solicitante_cargo_depto !== undefined ? solicitante_cargo_depto : current.solicitante_cargo_depto;
-        const cleanEmail = solicitante_correo !== undefined ? solicitante_correo : current.solicitante_correo;
-        const cleanPhone = solicitante_contacto !== undefined ? solicitante_contacto : current.solicitante_contacto;
+        if (fecha_hora !== undefined && !fecha_hora.trim()) {
+          return resolve({ status: 400, data: { error: 'La fecha y hora de la atención es obligatoria.' } });
+        }
+        if (inputDireccion !== undefined && !inputDireccion.trim()) {
+          return resolve({ status: 400, data: { error: 'La dirección municipal no puede estar vacía.' } });
+        }
+        if (solicitante_correo !== undefined && !solicitante_correo.trim()) {
+          return resolve({ status: 400, data: { error: 'El correo electrónico no puede estar vacío.' } });
+        }
+        if (inputTelefono !== undefined && !inputTelefono.trim()) {
+          return resolve({ status: 400, data: { error: 'El teléfono de contacto no puede estar vacío.' } });
+        }
+        if (motivo_consulta !== undefined && !motivo_consulta.trim()) {
+          return resolve({ status: 400, data: { error: 'El motivo de la consulta no puede estar vacío.' } });
+        }
+        if (solucion_orientacion !== undefined && !solucion_orientacion.trim()) {
+          return resolve({ status: 400, data: { error: 'La orientación o solución entregada no puede estar vacía.' } });
+        }
+
+        const finalFechaHora = (fecha_hora && fecha_hora.trim()) ? fecha_hora.trim() : current.fecha_hora;
+        const cleanDireccion = inputDireccion !== undefined ? inputDireccion.trim() : (current.solicitante_direccion || current.solicitante_cargo_depto || '');
+        const cleanEmail = solicitante_correo !== undefined ? solicitante_correo.trim() : current.solicitante_correo;
+        const cleanPhone = inputTelefono !== undefined ? inputTelefono.trim().replace(/[^0-9]/g, '') : (current.solicitante_telefono || current.solicitante_contacto || '');
         const finalCategoria = categoria || current.categoria;
         const finalFolio = folio_lobby !== undefined ? folio_lobby : current.folio_lobby;
-        const finalSujeto = sujeto_pasivo !== undefined ? sujeto_pasivo : current.sujeto_pasivo;
         const finalMotivo = (!isProtected && motivo_consulta) ? motivo_consulta.trim() : current.motivo_consulta;
         const finalSolucion = solucion_orientacion !== undefined ? solucion_orientacion.trim() : current.solucion_orientacion;
         const finalEstado = estado || current.estado;
-        const finalDuracion = duracion_minutos !== undefined ? (parseInt(duracion_minutos, 10) || 5) : current.duracion_minutos;
 
         asistenciasDb.run(`
           UPDATE bitacora_asistencias
-          SET solicitante_cargo_depto = ?, solicitante_correo = ?, solicitante_contacto = ?,
-              categoria = ?, folio_lobby = ?, sujeto_pasivo = ?, motivo_consulta = ?,
-              solucion_orientacion = ?, estado = ?, duracion_minutos = ?, updated_by = ?,
+          SET fecha_hora = ?,
+              solicitante_direccion = ?, solicitante_correo = ?, solicitante_telefono = ?,
+              categoria = ?, folio_lobby = ?, motivo_consulta = ?,
+              solucion_orientacion = ?, estado = ?, representado = ?, representado_id_lobby = ?, updated_by = ?,
               updated_at = datetime('now', 'localtime')
           WHERE id = ?
         `, [
-          cleanDepto, cleanEmail, cleanPhone,
-          finalCategoria, finalFolio, finalSujeto, finalMotivo,
-          finalSolucion, finalEstado, finalDuracion, currentUserEmail,
+          finalFechaHora,
+          cleanDireccion, cleanEmail, cleanPhone,
+          finalCategoria, finalFolio, finalMotivo,
+          finalSolucion, finalEstado, rep, repId, currentUserEmail,
           id
         ], function(uErr) {
           if (uErr) return resolve({ status: 500, data: { error: uErr.message } });
@@ -2404,6 +2478,8 @@ async function handle(req, setSharepointCookie) {
               id,
               ticket_codigo: current.ticket_codigo,
               is_protected_24h: isProtected,
+              representado: rep,
+              representado_id_lobby: repId,
               message: 'Asistencia actualizada correctamente.'
             }
           });
@@ -2450,13 +2526,104 @@ async function handle(req, setSharepointCookie) {
     }
     return new Promise((resolve) => {
       asistenciasDb.run(
-        'INSERT INTO asistencia_categorias (nombre, descripcion, orden, activo) VALUES (?, ?, ?, 1)',
+        `INSERT INTO asistencia_categorias (nombre, descripcion, orden, activo, created_at, updated_at) 
+         VALUES (?, ?, ?, 1, datetime('now', 'localtime'), datetime('now', 'localtime'))
+         ON CONFLICT(nombre) DO UPDATE SET
+           descripcion = excluded.descripcion,
+           orden = excluded.orden,
+           activo = 1,
+           updated_at = datetime('now', 'localtime')`,
         [nombre.trim(), descripcion ? descripcion.trim() : '', parseInt(orden, 10) || 0],
         function(err) {
           if (err) return resolve({ status: 500, data: { error: err.message } });
+          
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Categorias] Advertencia al sincronizar asistencias con SharePoint:', e.message);
+            });
+          }
+
           resolve({ status: 201, data: { id: this.lastID, nombre: nombre.trim(), message: 'Categoría creada con éxito.' } });
         }
       );
+    });
+  }
+
+  // PUT /api/asistencias/categorias/reordenar
+  if (method === 'PUT' && pathName === '/api/asistencias/categorias/reordenar') {
+    const { ids } = body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { status: 400, data: { error: 'Se requiere un arreglo de IDs no vacío.' } };
+    }
+
+    // Aserción defensiva de escala
+    if (ids.length > 100) {
+      return { status: 400, data: { error: 'El número de elementos supera el límite permitido (100).' } };
+    }
+
+    // Validar enteros positivos y ausencia de duplicados
+    const uniqueIds = new Set(ids);
+    const allValidIntegers = ids.every(id => Number.isInteger(id) && id > 0);
+    if (!allValidIntegers || uniqueIds.size !== ids.length) {
+      return { status: 400, data: { error: 'El arreglo contiene IDs inválidos o duplicados.' } };
+    }
+
+    return new Promise((resolve) => {
+      // 1. Consultar categorías activas en BD
+      asistenciasDb.all('SELECT id FROM asistencia_categorias WHERE activo = 1', [], (err, rows) => {
+        if (err) return resolve({ status: 500, data: { error: err.message } });
+
+        const activeDbIds = new Set((rows || []).map(r => r.id));
+
+        // 2. Validación bidireccional estricta (paridad de conjunto)
+        if (ids.length !== activeDbIds.size || !ids.every(id => activeDbIds.has(id))) {
+          return resolve({
+            status: 409,
+            data: { error: 'El catálogo de categorías ha cambiado concurrentemente. Es necesario refrescar.', refresh_required: true }
+          });
+        }
+
+        // 3. Generar sentencia parametrizada CASE id WHEN ? THEN ? ... WHERE id IN (?, ...)
+        const whenClauses = ids.map(() => 'WHEN ? THEN ?').join(' ');
+        const inPlaceholders = ids.map(() => '?').join(', ');
+        const sql = `
+          UPDATE asistencia_categorias 
+          SET orden = CASE id ${whenClauses} END,
+              updated_at = datetime('now', 'localtime')
+          WHERE id IN (${inPlaceholders})
+        `;
+
+        const params = [];
+        ids.forEach((id, index) => params.push(id, index + 1));
+        params.push(...ids);
+
+        asistenciasDb.run(sql, params, function(updateErr) {
+          if (updateErr) return resolve({ status: 500, data: { error: updateErr.message } });
+
+          // 4. Notificar a todas las ventanas vivas de Electron
+          try {
+            const { BrowserWindow } = require('electron');
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win && !win.isDestroyed() && win.webContents) {
+                win.webContents.send('categorias-updated', { timestamp: Date.now() });
+              }
+            });
+          } catch (bErr) {
+            console.warn('[router] Error al emitir broadcast categorias-updated:', bErr.message);
+          }
+
+          // 5. Sincronizar en segundo plano con SharePoint si hay sesión activa
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Categorias] Advertencia al sincronizar reordenamiento con SharePoint:', e.message);
+            });
+          }
+
+          resolve({ status: 200, data: { message: 'Categorías reordenadas exitosamente.', updated: this.changes } });
+        });
+      });
     });
   }
 
@@ -2477,6 +2644,22 @@ async function handle(req, setSharepointCookie) {
         [nombre ? nombre.trim() : null, descripcion !== undefined ? descripcion.trim() : null, activo, orden, id],
         function(err) {
           if (err) return resolve({ status: 500, data: { error: err.message } });
+          try {
+            const { BrowserWindow } = require('electron');
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win && !win.isDestroyed() && win.webContents) {
+                win.webContents.send('categorias-updated', { timestamp: Date.now() });
+              }
+            });
+          } catch (e) {}
+
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Categorias] Advertencia al sincronizar actualización con SharePoint:', e.message);
+            });
+          }
+
           resolve({ status: 200, data: { message: 'Categoría actualizada con éxito.' } });
         }
       );
@@ -2487,8 +2670,24 @@ async function handle(req, setSharepointCookie) {
   if (method === 'DELETE' && catMatch) {
     const id = parseInt(catMatch[1], 10);
     return new Promise((resolve) => {
-      asistenciasDb.run('DELETE FROM asistencia_categorias WHERE id = ?', [id], function(err) {
+      asistenciasDb.run("UPDATE asistencia_categorias SET activo = 0, updated_at = datetime('now', 'localtime') WHERE id = ?", [id], function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
+        try {
+          const { BrowserWindow } = require('electron');
+          BrowserWindow.getAllWindows().forEach((win) => {
+            if (win && !win.isDestroyed() && win.webContents) {
+              win.webContents.send('categorias-updated', { timestamp: Date.now() });
+            }
+          });
+        } catch (e) {}
+
+        if (req.sharepointCookie) {
+          const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+          safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+            console.warn('[Sync-Categorias] Advertencia al sincronizar eliminación con SharePoint:', e.message);
+          });
+        }
+
         resolve({ status: 200, data: { message: 'Categoría eliminada con éxito.' } });
       });
     });
@@ -2501,7 +2700,7 @@ async function handle(req, setSharepointCookie) {
   // GET /api/direcciones
   if (method === 'GET' && pathName === '/api/direcciones') {
     return new Promise((resolve) => {
-      localDb.all('SELECT * FROM direcciones_municipales WHERE activo = 1 ORDER BY orden ASC, acronimo ASC', [], (err, rows) => {
+      asistenciasDb.all('SELECT * FROM direcciones_municipales WHERE activo = 1 ORDER BY orden ASC, acronimo ASC', [], (err, rows) => {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         resolve({ status: 200, data: rows || [] });
       });
@@ -2515,14 +2714,101 @@ async function handle(req, setSharepointCookie) {
       return { status: 400, data: { error: 'El acrónimo y el nombre de la dirección son obligatorios.' } };
     }
     return new Promise((resolve) => {
-      localDb.run(
-        'INSERT INTO direcciones_municipales (acronimo, nombre, orden, activo) VALUES (?, ?, ?, 1)',
+      asistenciasDb.run(
+        `INSERT INTO direcciones_municipales (acronimo, nombre, orden, activo, created_at, updated_at) 
+         VALUES (?, ?, ?, 1, datetime('now', 'localtime'), datetime('now', 'localtime'))
+         ON CONFLICT(acronimo) DO UPDATE SET
+           nombre = excluded.nombre,
+           orden = excluded.orden,
+           activo = 1,
+           updated_at = datetime('now', 'localtime')`,
         [acronimo.trim().toUpperCase(), nombre.trim(), parseInt(orden, 10) || 0],
         function(err) {
           if (err) return resolve({ status: 500, data: { error: err.message } });
+
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Direcciones] Advertencia al sincronizar con SharePoint:', e.message);
+            });
+          }
+
           resolve({ status: 201, data: { id: this.lastID, acronimo: acronimo.trim().toUpperCase(), message: 'Dirección creada con éxito.' } });
         }
       );
+    });
+  }
+
+  // PUT /api/direcciones/reordenar
+  if (method === 'PUT' && pathName === '/api/direcciones/reordenar') {
+    const { ids } = body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { status: 400, data: { error: 'Se requiere un arreglo de IDs no vacío.' } };
+    }
+
+    if (ids.length > 200) {
+      return { status: 400, data: { error: 'El número de elementos supera el límite permitido.' } };
+    }
+
+    const uniqueIds = new Set(ids);
+    const allValidIntegers = ids.every(id => Number.isInteger(id) && id > 0);
+    if (!allValidIntegers || uniqueIds.size !== ids.length) {
+      return { status: 400, data: { error: 'El arreglo contiene IDs inválidos o duplicados.' } };
+    }
+
+    return new Promise((resolve) => {
+      asistenciasDb.all('SELECT id FROM direcciones_municipales WHERE activo = 1', [], (err, rows) => {
+        if (err) return resolve({ status: 500, data: { error: err.message } });
+
+        const activeDbIds = new Set((rows || []).map(r => r.id));
+
+        if (ids.length !== activeDbIds.size || !ids.every(id => activeDbIds.has(id))) {
+          return resolve({
+            status: 409,
+            data: { error: 'El catálogo de direcciones ha cambiado concurrentemente. Es necesario refrescar.', refresh_required: true }
+          });
+        }
+
+        const whenClauses = ids.map(() => 'WHEN ? THEN ?').join(' ');
+        const inPlaceholders = ids.map(() => '?').join(', ');
+        const sql = `
+          UPDATE direcciones_municipales 
+          SET orden = CASE id ${whenClauses} END,
+              updated_at = datetime('now', 'localtime')
+          WHERE id IN (${inPlaceholders})
+        `;
+
+        const params = [];
+        ids.forEach((id, index) => params.push(id, index + 1));
+        params.push(...ids);
+
+        asistenciasDb.run(sql, params, function(updateErr) {
+          if (updateErr) return resolve({ status: 500, data: { error: updateErr.message } });
+
+          try {
+            const { BrowserWindow } = require('electron');
+            BrowserWindow.getAllWindows().forEach((win) => {
+              if (win && !win.isDestroyed() && win.webContents) {
+                win.webContents.send('direcciones-updated', { timestamp: Date.now() });
+              }
+            });
+          } catch (bErr) {
+            console.warn('[router] Error al emitir broadcast direcciones-updated:', bErr.message);
+          }
+
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Direcciones] Advertencia al sincronizar reordenamiento con SharePoint:', e.message);
+            });
+          }
+
+          resolve({
+            status: 200,
+            data: { success: true, message: 'Direcciones reordenadas exitosamente.', total: ids.length }
+          });
+        });
+      });
     });
   }
 
@@ -2532,7 +2818,7 @@ async function handle(req, setSharepointCookie) {
     const id = parseInt(dirMatch[1], 10);
     const { acronimo, nombre, activo, orden } = body || {};
     return new Promise((resolve) => {
-      localDb.run(
+      asistenciasDb.run(
         `UPDATE direcciones_municipales SET 
           acronimo = COALESCE(?, acronimo), 
           nombre = COALESCE(?, nombre), 
@@ -2543,6 +2829,14 @@ async function handle(req, setSharepointCookie) {
         [acronimo ? acronimo.trim().toUpperCase() : null, nombre ? nombre.trim() : null, activo, orden, id],
         function(err) {
           if (err) return resolve({ status: 500, data: { error: err.message } });
+
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Direcciones] Advertencia al sincronizar con SharePoint:', e.message);
+            });
+          }
+
           resolve({ status: 200, data: { message: 'Dirección actualizada con éxito.' } });
         }
       );
@@ -2553,10 +2847,22 @@ async function handle(req, setSharepointCookie) {
   if (method === 'DELETE' && dirMatch) {
     const id = parseInt(dirMatch[1], 10);
     return new Promise((resolve) => {
-      localDb.run('DELETE FROM direcciones_municipales WHERE id = ?', [id], function(err) {
-        if (err) return resolve({ status: 500, data: { error: err.message } });
-        resolve({ status: 200, data: { message: 'Dirección eliminada con éxito.' } });
-      });
+      asistenciasDb.run(
+        "UPDATE direcciones_municipales SET activo = 0, updated_at = datetime('now', 'localtime') WHERE id = ?",
+        [id],
+        function(err) {
+          if (err) return resolve({ status: 500, data: { error: err.message } });
+
+          if (req.sharepointCookie) {
+            const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+            safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch(e => {
+              console.warn('[Sync-Direcciones] Advertencia al sincronizar eliminación con SharePoint:', e.message);
+            });
+          }
+
+          resolve({ status: 200, data: { message: 'Dirección eliminada con éxito.' } });
+        }
+      );
     });
   }
 
@@ -2618,9 +2924,9 @@ async function handle(req, setSharepointCookie) {
     let dbHandle = db;
     if (tableName === 'usuarios') {
       dbHandle = usersDb;
-    } else if (tableName === 'contactos_asistencia' || tableName === 'bitacora_asistencias' || tableName === 'asistencia_categorias') {
+    } else if (tableName === 'contactos_asistencia' || tableName === 'bitacora_asistencias' || tableName === 'asistencia_categorias' || tableName === 'direcciones_municipales') {
       dbHandle = asistenciasDb;
-    } else if (tableName === 'alertas_gestionadas' || tableName === 'configuracion_local' || tableName === 'direcciones_municipales') {
+    } else if (tableName === 'alertas_gestionadas' || tableName === 'configuracion_local') {
       dbHandle = localDb;
     }
 

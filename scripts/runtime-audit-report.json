@@ -2,11 +2,14 @@
   "totalIssues": 0,
   "categories": {
     "eventHandlers": [],
+    "undefinedFunctions": [],
     "emptyClassTokens": [],
     "apiConsumption": [],
     "domIds": [],
     "apiRoutes": [],
+    "dataActionDelegation": [],
     "dataStoreLoading": [],
+    "functionSignatures": [],
     "modals": [],
     "exports": [],
     "unusedFunctions": []

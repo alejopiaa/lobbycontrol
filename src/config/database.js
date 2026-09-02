@@ -598,15 +598,17 @@ asistenciasDb.serialize(() => {
     }
   });
 
+  asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_asistencia_categorias_orden ON asistencia_categorias(orden)`);
+
   // 2.2 Directorio de Contactos
   asistenciasDb.run(`
     CREATE TABLE IF NOT EXISTS contactos_asistencia (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT UNIQUE,
       nombre TEXT NOT NULL,
-      depto_habitual TEXT,
+      direccion TEXT,
       correo TEXT,
-      telefono_anexo TEXT,
+      telefono TEXT,
       notas TEXT,
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
@@ -634,16 +636,16 @@ asistenciasDb.serialize(() => {
       fecha_hora DATETIME DEFAULT (datetime('now', 'localtime')),
       canal TEXT NOT NULL DEFAULT 'telefono',
       solicitante_nombre TEXT NOT NULL,
-      solicitante_cargo_depto TEXT,
+      solicitante_direccion TEXT,
       solicitante_correo TEXT,
-      solicitante_contacto TEXT,
+      solicitante_telefono TEXT,
       categoria TEXT NOT NULL,
       folio_lobby TEXT,
-      sujeto_pasivo TEXT,
       motivo_consulta TEXT NOT NULL,
       solucion_orientacion TEXT,
       estado TEXT NOT NULL DEFAULT 'resuelta',
-      duracion_minutos INTEGER DEFAULT 5,
+      representado TEXT,
+      representado_id_lobby INTEGER,
       creado_por TEXT,
       updated_by TEXT,
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
@@ -667,12 +669,81 @@ asistenciasDb.serialize(() => {
     END;
   `);
 
+  // 2.4 Catálogo de Direcciones Municipales Oficiales (Maipú)
+  asistenciasDb.run(`
+    CREATE TABLE IF NOT EXISTS direcciones_municipales (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      acronimo TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      nombre TEXT NOT NULL,
+      orden INTEGER DEFAULT 0,
+      activo INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creando tabla direcciones_municipales en asistencias.db:', err.message);
+    } else {
+      migrateOrSeedDireccionesMunicipales();
+    }
+  });
+
   // Asegurar migración de esquema y backfill de UUIDs
   setTimeout(ensureUuidInAsistenciasDb, 50);
 
   // Ejecutar migración atómica si corresponde
   setTimeout(migrateLocalToAsistenciasDb, 100);
 });
+
+// Migración y siembra de direcciones municipales en asistencias.db
+function migrateOrSeedDireccionesMunicipales() {
+  const defaultDirecciones = [
+    ['ALC', 'Alcaldía', 1],
+    ['ADM', 'Administrador Municipal', 2],
+    ['CON', 'Concejo Municipal / Concejales', 3],
+    ['SECMUN', 'Secretaría Municipal', 4],
+    ['SECPLA', 'Secretaría Comunal de Planificación', 5],
+    ['DOM', 'Dirección de Obras Municipales', 6],
+    ['DIDECO', 'Dirección de Desarrollo Comunitario', 7],
+    ['DAF', 'Dirección de Administración y Finanzas', 8],
+    ['DAJ', 'Dirección de Asesoría Jurídica', 9],
+    ['CTRL', 'Dirección de Control', 10],
+    ['DIPRESEC', 'Dirección de Prevención y Seguridad Ciudadana', 11],
+    ['DTT', 'Dirección de Tránsito y Transporte Público', 12],
+    ['DAOGA', 'Dirección de Aseo, Ornato y Gestión Ambiental', 13],
+    ['DITEC', 'Dirección de Tecnologías de la Información y Comunicaciones', 14],
+    ['RRHH', 'Dirección de Personas / Recursos Humanos', 15],
+    ['OPS', 'Dirección de Operaciones', 16],
+    ['REN', 'Departamento de Rentas Municipales', 17],
+    ['SMAPA', 'Servicio Municipal de Agua Potable y Alcantarillado', 18],
+    ['JPL', 'Juzgados de Policía Local', 19],
+    ['JGAB', 'Jefatura de Gabinete', 20],
+    ['COMS', 'Comunicaciones', 21]
+  ];
+
+  localDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='direcciones_municipales'", (tblErr, tblRow) => {
+    if (!tblErr && tblRow) {
+      localDb.all("SELECT * FROM direcciones_municipales", (err, rows) => {
+        if (!err && rows && rows.length > 0) {
+          rows.forEach(r => {
+            asistenciasDb.run(
+              `INSERT OR IGNORE INTO direcciones_municipales (acronimo, nombre, orden, activo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+              [r.acronimo, r.nombre, r.orden || 0, r.activo !== undefined ? r.activo : 1, r.created_at || new Date().toISOString(), r.updated_at || new Date().toISOString()]
+            );
+          });
+          return;
+        }
+        defaultDirecciones.forEach(([acronimo, nombre, ord]) => {
+          asistenciasDb.run(`INSERT OR IGNORE INTO direcciones_municipales (acronimo, nombre, orden) VALUES (?, ?, ?)`, [acronimo, nombre, ord]);
+        });
+      });
+    } else {
+      defaultDirecciones.forEach(([acronimo, nombre, ord]) => {
+        asistenciasDb.run(`INSERT OR IGNORE INTO direcciones_municipales (acronimo, nombre, orden) VALUES (?, ?, ?)`, [acronimo, nombre, ord]);
+      });
+    }
+  });
+}
 
 // Verificación y backfill de UUIDs en asistencias.db
 function ensureUuidInAsistenciasDb() {
@@ -687,7 +758,24 @@ function ensureUuidInAsistenciasDb() {
     const handleBackfillAndIndexes = () => {
       asistenciasDb.all("PRAGMA table_info(contactos_asistencia)", [], (err, cols) => {
         if (err || !cols) return;
-        const hasUuid = cols.some(c => c.name === 'uuid');
+        const colNames = cols.map(c => c.name);
+
+        if (!colNames.includes('direccion')) {
+          asistenciasDb.run("ALTER TABLE contactos_asistencia ADD COLUMN direccion TEXT", () => {
+            if (colNames.includes('depto_habitual')) {
+              asistenciasDb.run("UPDATE contactos_asistencia SET direccion = depto_habitual WHERE direccion IS NULL OR direccion = ''");
+            }
+          });
+        }
+        if (!colNames.includes('telefono')) {
+          asistenciasDb.run("ALTER TABLE contactos_asistencia ADD COLUMN telefono TEXT", () => {
+            if (colNames.includes('telefono_anexo')) {
+              asistenciasDb.run("UPDATE contactos_asistencia SET telefono = telefono_anexo WHERE telefono IS NULL OR telefono = ''");
+            }
+          });
+        }
+
+        const hasUuid = colNames.includes('uuid');
         const proceedWithContacts = () => {
           asistenciasDb.all("SELECT id FROM contactos_asistencia WHERE uuid IS NULL OR uuid = ''", [], (uErr, rows) => {
             if (!uErr && rows && rows.length > 0) {
@@ -718,8 +806,8 @@ function ensureUuidInAsistenciasDb() {
     if (hasUniqueOnNombre) {
       console.log('[UUID Migration] Eliminando restricción UNIQUE obsoleta de nombre en contactos_asistencia...');
       asistenciasDb.serialize(() => {
-        asistenciasDb.run("CREATE TABLE IF NOT EXISTS contactos_asistencia_migrated (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, nombre TEXT NOT NULL, depto_habitual TEXT, correo TEXT, telefono_anexo TEXT, notas TEXT, created_at DATETIME DEFAULT (datetime('now', 'localtime')), updated_at DATETIME DEFAULT (datetime('now', 'localtime')))");
-        asistenciasDb.run("INSERT INTO contactos_asistencia_migrated (id, uuid, nombre, depto_habitual, correo, telefono_anexo, notas, created_at, updated_at) SELECT id, uuid, nombre, depto_habitual, correo, telefono_anexo, notas, created_at, updated_at FROM contactos_asistencia");
+        asistenciasDb.run("CREATE TABLE IF NOT EXISTS contactos_asistencia_migrated (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT UNIQUE, nombre TEXT NOT NULL, direccion TEXT, correo TEXT, telefono TEXT, notas TEXT, created_at DATETIME DEFAULT (datetime('now', 'localtime')), updated_at DATETIME DEFAULT (datetime('now', 'localtime')))");
+        asistenciasDb.run("INSERT INTO contactos_asistencia_migrated (id, uuid, nombre, direccion, correo, telefono, notas, created_at, updated_at) SELECT id, uuid, nombre, COALESCE(direccion, depto_habitual, ''), correo, COALESCE(telefono, telefono_anexo, ''), notas, created_at, updated_at FROM contactos_asistencia");
         asistenciasDb.run("DROP TABLE contactos_asistencia");
         asistenciasDb.run("ALTER TABLE contactos_asistencia_migrated RENAME TO contactos_asistencia");
         asistenciasDb.run("CREATE INDEX IF NOT EXISTS idx_contactos_nombre ON contactos_asistencia(nombre COLLATE NOCASE)");
@@ -741,7 +829,30 @@ function ensureUuidInAsistenciasDb() {
   function checkBitacoraUuid() {
     asistenciasDb.all("PRAGMA table_info(bitacora_asistencias)", [], (err, cols) => {
       if (err || !cols) return;
-      const hasContactoUuid = cols.some(c => c.name === 'contacto_uuid');
+      const colNames = cols.map(c => c.name);
+
+      if (!colNames.includes('solicitante_direccion')) {
+        asistenciasDb.run("ALTER TABLE bitacora_asistencias ADD COLUMN solicitante_direccion TEXT", () => {
+          if (colNames.includes('solicitante_cargo_depto')) {
+            asistenciasDb.run("UPDATE bitacora_asistencias SET solicitante_direccion = solicitante_cargo_depto WHERE solicitante_direccion IS NULL OR solicitante_direccion = ''");
+          }
+        });
+      }
+      if (!colNames.includes('solicitante_telefono')) {
+        asistenciasDb.run("ALTER TABLE bitacora_asistencias ADD COLUMN solicitante_telefono TEXT", () => {
+          if (colNames.includes('solicitante_contacto')) {
+            asistenciasDb.run("UPDATE bitacora_asistencias SET solicitante_telefono = solicitante_contacto WHERE solicitante_telefono IS NULL OR solicitante_telefono = ''");
+          }
+        });
+      }
+      if (!colNames.includes('representado')) {
+        asistenciasDb.run("ALTER TABLE bitacora_asistencias ADD COLUMN representado TEXT", () => {});
+      }
+      if (!colNames.includes('representado_id_lobby')) {
+        asistenciasDb.run("ALTER TABLE bitacora_asistencias ADD COLUMN representado_id_lobby INTEGER", () => {});
+      }
+
+      const hasContactoUuid = colNames.includes('contacto_uuid');
       const backfillBitacora = () => {
         asistenciasDb.run(`
           UPDATE bitacora_asistencias 
@@ -830,26 +941,30 @@ function migrateLocalToAsistenciasDb() {
 
                     // 3.2 Contactos
                     for (const c of conts) {
+                      const cDir = c.direccion !== undefined ? c.direccion : (c.depto_habitual || '');
+                      const cTel = c.telefono !== undefined ? c.telefono : (c.telefono_anexo || '');
                       asistenciasDb.run(
-                        "INSERT OR IGNORE INTO contactos_asistencia (id, nombre, depto_habitual, correo, telefono_anexo, notas, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        [c.id, c.nombre, c.depto_habitual, c.correo, c.telefono_anexo, c.notas, c.created_at, c.updated_at]
+                        "INSERT OR IGNORE INTO contactos_asistencia (id, nombre, direccion, correo, telefono, notas, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [c.id, c.nombre, cDir, c.correo, cTel, c.notas, c.created_at, c.updated_at]
                       );
                     }
 
                     // 3.3 Asistencias
                     for (const b of bits) {
+                      const bDir = b.solicitante_direccion !== undefined ? b.solicitante_direccion : (b.solicitante_cargo_depto || '');
+                      const bTel = b.solicitante_telefono !== undefined ? b.solicitante_telefono : (b.solicitante_contacto || '');
                       asistenciasDb.run(
                         `INSERT OR IGNORE INTO bitacora_asistencias (
                           id, ticket_codigo, contacto_id, fecha_hora, canal, solicitante_nombre,
-                          solicitante_cargo_depto, solicitante_correo, solicitante_contacto, categoria,
-                          folio_lobby, sujeto_pasivo, motivo_consulta, solucion_orientacion, estado,
-                          duracion_minutos, creado_por, updated_by, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                          solicitante_direccion, solicitante_correo, solicitante_telefono, categoria,
+                          folio_lobby, motivo_consulta, solucion_orientacion, estado,
+                          creado_por, updated_by, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                           b.id, b.ticket_codigo, b.contacto_id, b.fecha_hora, b.canal, b.solicitante_nombre,
                           b.solicitante_cargo_depto, b.solicitante_correo, b.solicitante_contacto, b.categoria,
-                          b.folio_lobby, b.sujeto_pasivo, b.motivo_consulta, b.solucion_orientacion, b.estado,
-                          b.duracion_minutos || 5, b.creado_por, b.updated_by, b.created_at, b.updated_at
+                          b.folio_lobby, b.motivo_consulta, b.solucion_orientacion, b.estado,
+                          b.creado_por, b.updated_by, b.created_at, b.updated_at
                         ]
                       );
                     }
@@ -911,50 +1026,6 @@ localDb.serialize(() => {
       console.error('Error creando tabla configuracion_local en local.db:', err.message);
     } else {
       localDb.run(`INSERT OR IGNORE INTO configuracion_local (clave, valor) VALUES ('correlativo_reportes_rap', '1')`);
-    }
-  });
-
-  // Catálogo de Direcciones Municipales Oficiales (Maipú)
-  localDb.run(`
-    CREATE TABLE IF NOT EXISTS direcciones_municipales (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      acronimo TEXT NOT NULL UNIQUE COLLATE NOCASE,
-      nombre TEXT NOT NULL,
-      orden INTEGER DEFAULT 0,
-      activo INTEGER NOT NULL DEFAULT 1,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creando tabla direcciones_municipales:', err.message);
-    } else {
-      const defaultDirecciones = [
-        ['ALC', 'Alcaldía', 1],
-        ['ADM', 'Administrador Municipal', 2],
-        ['CON', 'Concejo Municipal / Concejales', 3],
-        ['SECMUN', 'Secretaría Municipal', 4],
-        ['SECPLA', 'Secretaría Comunal de Planificación', 5],
-        ['DOM', 'Dirección de Obras Municipales', 6],
-        ['DIDECO', 'Dirección de Desarrollo Comunitario', 7],
-        ['DAF', 'Dirección de Administración y Finanzas', 8],
-        ['DAJ', 'Dirección de Asesoría Jurídica', 9],
-        ['CTRL', 'Dirección de Control', 10],
-        ['DIPRESEC', 'Dirección de Prevención y Seguridad Ciudadana', 11],
-        ['DTT', 'Dirección de Tránsito y Transporte Público', 12],
-        ['DAOGA', 'Dirección de Aseo, Ornato y Gestión Ambiental', 13],
-        ['DITEC', 'Dirección de Tecnologías de la Información y Comunicaciones', 14],
-        ['RRHH', 'Dirección de Personas / Recursos Humanos', 15],
-        ['OPS', 'Dirección de Operaciones', 16],
-        ['REN', 'Departamento de Rentas Municipales', 17],
-        ['SMAPA', 'Servicio Municipal de Agua Potable y Alcantarillado', 18],
-        ['JPL', 'Juzgados de Policía Local', 19],
-        ['JGAB', 'Jefatura de Gabinete', 20],
-        ['COMS', 'Comunicaciones', 21]
-      ];
-      defaultDirecciones.forEach(([acronimo, nombre, ord]) => {
-        localDb.run(`INSERT OR IGNORE INTO direcciones_municipales (acronimo, nombre, orden) VALUES (?, ?, ?)`, [acronimo, nombre, ord]);
-      });
     }
   });
 });

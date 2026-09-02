@@ -3,16 +3,19 @@
  * LOBBYCONTROL - AUDITORÍA EXHAUSTIVA DE INTEGRIDAD EN TIEMPO DE EJECUCIÓN
  * ============================================================================
  * Escáner automatizado de integración frontend/backend/DOM.
- * Verifica 9 dimensiones críticas:
+ * Verifica 12 dimensiones críticas:
  *  1. Eventos inline HTML (onclick, onchange, etc.): funciones globales y variables no interpoladas
- *  2. Clases DOM: uso seguro de classList (prevención de tokens vacíos '')
- *  3. Consumo de APIs (desempaquetado seguro de payloads e IPC)
- *  4. Validación cruzada de IDs en el DOM (getElementById / querySelector vs templates)
- *  5. Mapa de Rutas de API (Cruce Frontend fetch() vs Backend router.js)
- *  6. Requisitos de Datos por Vista (Carga de dataStore en cambios de pestaña)
- *  7. Ciclo de Vida y handlers de Modales/Backdrops
- *  8. Funciones de Exportación (PDF/Excel) y manejo de parámetros
- *  9. Detección de Código Muerto / Funciones Declaradas No Utilizadas (Dead Code)
+ *  2. Invocaciones JS -> JS: detección de llamadas a funciones no declaradas o inexistentes
+ *  3. Clases DOM: uso seguro de classList (prevención de tokens vacíos '')
+ *  4. Consumo de APIs (desempaquetado seguro de payloads e IPC)
+ *  5. Validación cruzada de IDs en el DOM (getElementById / querySelector vs templates)
+ *  6. Validación de Rutas y Métodos HTTP (Frontend fetch/invokeRoute vs Backend router.js)
+ *  7. Delegación de Eventos: consistencia de atributos data-action
+ *  8. Requisitos de Datos por Vista (Carga de dataStore en cambios de pestaña)
+ *  9. Aridad y firmas de funciones de infraestructura crítica (openConfirmModal, showToast)
+ *  10. Ciclo de Vida y handlers de Modales/Backdrops
+ *  11. Funciones de Exportación (PDF/Excel) y resguardos
+ *  12. Detección de Código Muerto / Funciones Declaradas No Utilizadas (Dead Code)
  * ============================================================================
  */
 
@@ -34,11 +37,14 @@ const report = {
   totalIssues: 0,
   categories: {
     eventHandlers: [],
+    undefinedFunctions: [],
     emptyClassTokens: [],
     apiConsumption: [],
     domIds: [],
     apiRoutes: [],
+    dataActionDelegation: [],
     dataStoreLoading: [],
+    functionSignatures: [],
     modals: [],
     exports: [],
     unusedFunctions: []
@@ -47,6 +53,9 @@ const report = {
 
 function addIssue(category, file, line, message, suggestion, codeSnippet) {
   report.totalIssues++;
+  if (!report.categories[category]) {
+    report.categories[category] = [];
+  }
   report.categories[category].push({
     file: path.relative(ROOT_DIR, file),
     line,
@@ -74,14 +83,29 @@ function findJsFiles(dir) {
 }
 findJsFiles(PUBLIC_JS_DIR);
 
-const globalFunctions = new Set([
+const standardBuiltins = new Set([
   'alert', 'confirm', 'prompt', 'fetch', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
-  'encodeURIComponent', 'decodeURIComponent', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
-  'requestAnimationFrame', 'cancelAnimationFrame',
-  'lucide', 'AirDatepicker', 'XLSX'
+  'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
+  'requestAnimationFrame', 'cancelAnimationFrame', 'btoa', 'atob', 'structuredClone', 'queueMicrotask',
+  'eval', 'String', 'Number', 'Boolean', 'Array', 'Object', 'Function', 'Symbol', 'BigInt', 'Date', 'RegExp',
+  'Error', 'TypeError', 'RangeError', 'SyntaxError', 'ReferenceError', 'Promise', 'Set', 'Map', 'WeakSet', 'WeakMap',
+  'Int8Array', 'Uint8Array', 'Uint8ClampedArray', 'Int16Array', 'Uint16Array', 'Int32Array', 'Uint32Array',
+  'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array', 'DataView', 'ArrayBuffer',
+  'Math', 'JSON', 'Reflect', 'Proxy', 'Intl', 'WebAssembly',
+  'document', 'window', 'navigator', 'location', 'history', 'screen', 'performance', 'console',
+  'localStorage', 'sessionStorage', 'crypto', 'indexedDB', 'caches', 'customElements',
+  'getComputedStyle', 'getSelection', 'matchMedia',
+  'Event', 'CustomEvent', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'TouchEvent', 'UIEvent',
+  'Node', 'Element', 'HTMLElement', 'DocumentFragment', 'MutationObserver', 'ResizeObserver', 'IntersectionObserver',
+  'FormData', 'URL', 'URLSearchParams', 'Blob', 'File', 'FileReader', 'FileList', 'Image', 'Audio', 'Option',
+  'AbortController', 'AbortSignal', 'Headers', 'Request', 'Response', 'WebSocket', 'Worker',
+  'lucide', 'AirDatepicker', 'ApexCharts', 'XLSX', 'jspdf', 'html2canvas', 'Tailwind',
+  'dataStore', 'activeSujetoIdsCache', 'dashboardFilters', 'reportesFilters', 'paginationState',
+  'apiClient', 'currentSession'
 ]);
 
 const declaredFunctions = new Map();
+const globalFunctions = new Set([...standardBuiltins]);
 
 for (const file of publicJsFiles) {
   const content = fs.readFileSync(file, 'utf8');
@@ -97,7 +121,16 @@ for (const file of publicJsFiles) {
       }
     }
 
-    const winMatch = line.match(/window\.([a-zA-Z0-9_$]+)\s*=\s*(?:async\s+)?(?:function|\([^)]*\)\s*=>|[a-zA-Z0-9_$]+\s*=>)/);
+    const constFnMatch = line.match(/(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s+)?(?:function|\([^)]*\)\s*=>|[a-zA-Z0-9_$]+\s*=>)/);
+    if (constFnMatch) {
+      const name = constFnMatch[1];
+      globalFunctions.add(name);
+      if (!declaredFunctions.has(name)) {
+        declaredFunctions.set(name, { file, line: lineNum, code: line.trim() });
+      }
+    }
+
+    const winMatch = line.match(/window\.([a-zA-Z0-9_$]+)\s*=\s*(?:async\s+)?(?:function|\([^)]*\)\s*=>|[a-zA-Z0-9_$]+\s*=>|[a-zA-Z0-9_$]+)/);
     if (winMatch) {
       const name = winMatch[1];
       globalFunctions.add(name);
@@ -111,7 +144,7 @@ for (const file of publicJsFiles) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. AUDITORÍA: EVENTOS INLINE HTML (PARSING PRECISO CON AST)
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('\n[1/9] Verificando manejadores de eventos inline HTML...');
+console.log('\n[1/12] Verificando manejadores de eventos inline HTML...');
 
 const eventAttrRegex = /\b(onclick|onchange|oninput|onsubmit|onkeydown|onkeyup)\s*=\s*(["'])([\s\S]*?)\2/gi;
 
@@ -177,9 +210,88 @@ for (const file of publicJsFiles) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. AUDITORÍA: CLASES DOM (PREVENCIÓN DE TOKENS VACÍOS '')
+// 3. AUDITORÍA: RESOLUCIÓN ESTÁTICA DE INVOCACIONES JS -> JS (FUNCIONES NO DECLARADAS CON AST)
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[2/9] Verificando manipulación segura de classList en DOM...');
+console.log('[2/12] Auditando resolución de llamadas internas JS -> JS (AST Scopes)...');
+
+for (const file of publicJsFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+  const lines = content.split('\n');
+
+  try {
+    const ast = acorn.parse(content, { ecmaVersion: 'latest', sourceType: 'module' });
+    walk.ancestor(ast, {
+      CallExpression(node, ancestors) {
+        if (node.callee.type === 'Identifier') {
+          const fnName = node.callee.name;
+          if (['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'delete', 'import', 'export', 'super', 'new', 'void', 'throw'].includes(fnName)) return;
+
+          // Verificar si el identificador está en el ámbito local (parámetros o variables locales)
+          let isScoped = false;
+          for (let i = ancestors.length - 1; i >= 0; i--) {
+            const anc = ancestors[i];
+            if (anc.type === 'FunctionDeclaration' || anc.type === 'FunctionExpression' || anc.type === 'ArrowFunctionExpression') {
+              if (anc.params && anc.params.some(p => {
+                if (p.type === 'Identifier') return p.name === fnName;
+                if (p.type === 'AssignmentPattern' && p.left && p.left.type === 'Identifier') return p.left.name === fnName;
+                return false;
+              })) {
+                isScoped = true;
+                break;
+              }
+            }
+            if (anc.type === 'BlockStatement' || anc.type === 'Program') {
+              if (anc.body) {
+                for (const stmt of anc.body) {
+                  if (stmt.type === 'VariableDeclaration') {
+                    for (const decl of stmt.declarations) {
+                      if (decl.id && decl.id.type === 'Identifier' && decl.id.name === fnName) {
+                        isScoped = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (stmt.type === 'FunctionDeclaration' && stmt.id && stmt.id.name === fnName) {
+                    isScoped = true;
+                    break;
+                  }
+                }
+              }
+            }
+            if (isScoped) break;
+          }
+
+          if (!isScoped && !globalFunctions.has(fnName)) {
+            let lineNum = 1;
+            let currentOffset = 0;
+            for (let idx = 0; idx < lines.length; idx++) {
+              currentOffset += lines[idx].length + 1;
+              if (currentOffset > node.start) {
+                lineNum = idx + 1;
+                break;
+              }
+            }
+            addIssue(
+              'undefinedFunctions',
+              file,
+              lineNum,
+              `Invocación a función no declarada "${fnName}()" en el flujo JavaScript`,
+              `Verifique si la función fue renombrada, tiene un error tipográfico o requiere ser declarada/importada.`,
+              lines[lineNum - 1]
+            );
+          }
+        }
+      }
+    });
+  } catch (err) {
+    // Si ocurre error de parsing en módulo, continuar con los demás archivos
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. AUDITORÍA: CLASES DOM (PREVENCIÓN DE TOKENS VACÍOS '')
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('[3/12] Verificando manipulación segura de classList en DOM...');
 
 for (const file of publicJsFiles) {
   const content = fs.readFileSync(file, 'utf8');
@@ -213,9 +325,9 @@ for (const file of publicJsFiles) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. AUDITORÍA: CONSUMO DE RESPUESTAS DE API (IPC / FETCH)
+// 5. AUDITORÍA: CONSUMO DE RESPUESTAS DE API (IPC / FETCH)
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[3/9] Verificando desempaquetado robusto de respuestas API e IPC...');
+console.log('[4/12] Verificando desempaquetado robusto de respuestas API e IPC...');
 
 for (const file of publicJsFiles) {
   const content = fs.readFileSync(file, 'utf8');
@@ -238,9 +350,9 @@ for (const file of publicJsFiles) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. AUDITORÍA: VALIDACIÓN CRUZADA DE IDs EN EL DOM
+// 6. AUDITORÍA: VALIDACIÓN CRUZADA DE IDs EN EL DOM
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[4/9] Realizando validación cruzada de IDs del DOM (Consultas vs Declaraciones)...');
+console.log('[5/12] Realizando validación cruzada de IDs del DOM (Consultas vs Declaraciones)...');
 
 const declaredIds = new Set();
 const queriedIds = new Map();
@@ -250,6 +362,10 @@ function extractDeclaredIdsFromFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const matches = content.matchAll(/\bid\s*=\s*["']([^"'${}\s]+)["']/g);
   for (const m of matches) {
+    declaredIds.add(m[1]);
+  }
+  const propMatches = content.matchAll(/\bid\s*:\s*["']([^"'${}\s]+)["']/g);
+  for (const m of propMatches) {
     declaredIds.add(m[1]);
   }
 }
@@ -270,7 +386,7 @@ scanPublicDirForIds(PUBLIC_DIR);
 
 const dynamicIdPatterns = [
   /^chart-/, /^badge-/, /^user-/, /^solicitud-/, /^toast-/, /^tab-/, /^btn-/, /^modal-/, /^filter-/, /^report-/, /^cal-/, /^calendar-/,
-  /^aud-/, /^sys-val-/, /^discrepancy-info-/, /^suggestions-/, /^header-user-/, /^stat-/, /^kpi-/, /^pill-/
+  /^aud-/, /^sys-val-/, /^discrepancy-info-/, /^suggestions-/, /^header-user-/, /^stat-/, /^kpi-/, /^pill-/, /^dashboard-filter-/
 ];
 
 for (const file of publicJsFiles) {
@@ -307,19 +423,38 @@ queriedIds.forEach((location, id) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. AUDITORÍA: MAPA DE RUTAS DE API (FRONTEND vs BACKEND ROUTER)
+// 7. AUDITORÍA: MAPA DE RUTAS Y MÉTODOS HTTP (FRONTEND vs BACKEND ROUTER)
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[5/9] Cruzando endpoints de API (Frontend fetch vs Backend router)...');
+console.log('[6/12] Cruzando endpoints de API y métodos HTTP (Frontend vs Backend router)...');
 
 const routerJsPath = path.join(SRC_DIR, 'ipc/router.js');
-const backendRoutes = new Set();
+const backendRoutes = new Map();
 
 if (fs.existsSync(routerJsPath)) {
   const routerContent = fs.readFileSync(routerJsPath, 'utf8');
-  const routeMatches = routerContent.matchAll(/pathName(?:\s*===|\.startsWith\()\s*['"](\/api\/[^'"]+)['"]/g);
-  for (const m of routeMatches) {
-    backendRoutes.add(m[1].split('?')[0]);
-  }
+  const routerLines = routerContent.split('\n');
+  routerLines.forEach(rLine => {
+    const m1 = rLine.match(/method\s*===\s*['"]([A-Z]+)['"].*?pathName(?:\s*===|\.startsWith\()\s*['"](\/api\/[^'"]+)['"]/);
+    if (m1) {
+      const method = m1[1];
+      const pathUrl = m1[2].split('?')[0];
+      if (!backendRoutes.has(pathUrl)) backendRoutes.set(pathUrl, new Set());
+      backendRoutes.get(pathUrl).add(method);
+    }
+    const m2 = rLine.match(/pathName(?:\s*===|\.startsWith\()\s*['"](\/api\/[^'"]+)['"].*?method\s*===\s*['"]([A-Z]+)['"]/);
+    if (m2) {
+      const pathUrl = m2[1].split('?')[0];
+      const method = m2[2];
+      if (!backendRoutes.has(pathUrl)) backendRoutes.set(pathUrl, new Set());
+      backendRoutes.get(pathUrl).add(method);
+    }
+    const m3 = rLine.match(/pathName(?:\s*===|\.startsWith\()\s*['"](\/api\/[^'"]+)['"]/);
+    if (m3 && !rLine.includes('method ===')) {
+      const pathUrl = m3[1].split('?')[0];
+      if (!backendRoutes.has(pathUrl)) backendRoutes.set(pathUrl, new Set());
+      backendRoutes.get(pathUrl).add('ALL');
+    }
+  });
 }
 
 for (const file of publicJsFiles) {
@@ -328,13 +463,15 @@ for (const file of publicJsFiles) {
 
   lines.forEach((line, lineIdx) => {
     const lineNum = lineIdx + 1;
+
+    // A. fetch('/api/...')
     const fetchMatches = line.matchAll(/fetch\(\s*['"`](\/api\/[^'"`?#\s]+)/g);
     for (const m of fetchMatches) {
       let route = m[1];
       const normalizedRoute = route.replace(/\$\{[^}]+\}/g, '').replace(/\/+$/, '');
 
       let isKnown = false;
-      backendRoutes.forEach(br => {
+      backendRoutes.forEach((methods, br) => {
         if (route.startsWith(br) || br.startsWith(normalizedRoute) || normalizedRoute.startsWith(br)) {
           isKnown = true;
         }
@@ -351,13 +488,89 @@ for (const file of publicJsFiles) {
         );
       }
     }
+
+    // B. invokeRoute({ url: '/api/...', method: 'METHOD' })
+    const invokeMatches = line.matchAll(/invokeRoute\(\s*\{\s*url:\s*['"`](\/api\/[^'"`?#\s]+)['"`],\s*method:\s*['"]([A-Z]+)['"]/g);
+    for (const m of invokeMatches) {
+      const route = m[1];
+      const method = m[2];
+      const normalizedRoute = route.replace(/\$\{[^}]+\}/g, '').replace(/\/+$/, '');
+
+      let matchedMethods = backendRoutes.get(route) || backendRoutes.get(normalizedRoute);
+      if (!matchedMethods) {
+        backendRoutes.forEach((methods, br) => {
+          if (!matchedMethods && (route.startsWith(br) || normalizedRoute.startsWith(br))) {
+            matchedMethods = methods;
+          }
+        });
+      }
+
+      if (!matchedMethods) {
+        addIssue(
+          'apiRoutes',
+          file,
+          lineNum,
+          `Ruta IPC "${method} ${route}" no encontrada en src/ipc/router.js`,
+          'Implemente el endpoint en el router del backend.',
+          line
+        );
+      } else if (!matchedMethods.has('ALL') && !matchedMethods.has(method)) {
+        addIssue(
+          'apiRoutes',
+          file,
+          lineNum,
+          `Método HTTP "${method}" no implementado para la ruta "${route}" en router.js`,
+          `El backend solo soporta: ${Array.from(matchedMethods).join(', ')}.`,
+          line
+        );
+      }
+    }
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. AUDITORÍA: REQUISITOS DE DATOS POR VISTA (DATASTORE PRE-LOADING)
+// 8. AUDITORÍA: DELEGACIÓN DE EVENTOS (DATA-ACTION)
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[6/9] Verificando pre-carga de datasets (dataStore) en navegación...');
+console.log('[7/12] Verificando consistencia de atributos data-action...');
+
+const declaredActions = new Set();
+const handledActions = new Set();
+
+for (const file of publicJsFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+
+  const actionDeclMatches = content.matchAll(/data-action=["']([^"'${}\s]+)["']/g);
+  for (const m of actionDeclMatches) {
+    declaredActions.add(m[1]);
+  }
+
+  const actionHandleMatches = content.matchAll(/(?:dataset\.action|data-action)\s*(?:===|==|\.includes\()\s*["']([^"'${}\s]+)["']/g);
+  for (const m of actionHandleMatches) {
+    handledActions.add(m[1]);
+  }
+  const actionClosestMatches = content.matchAll(/closest\(\s*['"]\[data-action=["']([^"'${}\s]+)["']\]['"]\s*\)/g);
+  for (const m of actionClosestMatches) {
+    handledActions.add(m[1]);
+  }
+}
+
+declaredActions.forEach(action => {
+  if (!handledActions.has(action)) {
+    addIssue(
+      'dataActionDelegation',
+      'public/js/views.js',
+      1,
+      `Atributo data-action="${action}" declarado en vistas pero no cuenta con manejador de evento en los listeners`,
+      `Agregue el case o bloque if para manejar la acción "${action}" en los manejadores de eventos.`,
+      `data-action="${action}"`
+    );
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. AUDITORÍA: REQUISITOS DE DATOS POR VISTA (DATASTORE PRE-LOADING)
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('[8/12] Verificando pre-carga de datasets (dataStore) en navegación...');
 
 const viewsJsPath = path.join(PUBLIC_JS_DIR, 'views.js');
 if (fs.existsSync(viewsJsPath)) {
@@ -376,9 +589,36 @@ if (fs.existsSync(viewsJsPath)) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 8. AUDITORÍA: CICLO DE VIDA DE MODALES Y EXPORTADORES
+// 10. AUDITORÍA: FIRMAS Y ARIDAD DE FUNCIONES COMPARTIDAS (openConfirmModal, etc.)
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[7/9] Verificando timeouts y resguardos en exportadores...');
+console.log('[9/12] Verificando llamadas y firmas de modales de confirmación...');
+
+for (const file of publicJsFiles) {
+  const content = fs.readFileSync(file, 'utf8');
+  const lines = content.split('\n');
+
+  lines.forEach((line, lineIdx) => {
+    const lineNum = lineIdx + 1;
+
+    // openConfirmModal(title, message, onConfirm) espera argumentos posicionales, no un objeto options {}
+    const objCallMatch = line.match(/openConfirmModal\s*\(\s*\{/);
+    if (objCallMatch) {
+      addIssue(
+        'functionSignatures',
+        file,
+        lineNum,
+        'openConfirmModal invocado con un objeto de opciones en lugar de argumentos posicionales (title, message, onConfirm)',
+        'Use openConfirmModal(title, message, callback) en lugar de pasar un objeto.',
+        line
+      );
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. AUDITORÍA: CICLO DE VIDA DE MODALES Y EXPORTADORES
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('[10/12] Verificando timeouts y resguardos en exportadores...');
 
 const handlersJsPath = path.join(SRC_DIR, 'ipc/handlers.js');
 if (fs.existsSync(handlersJsPath)) {
@@ -396,9 +636,9 @@ if (fs.existsSync(handlersJsPath)) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. AUDITORÍA: DETECCIÓN DE CÓDIGO MUERTO / FUNCIONES NO UTILIZADAS
+// 12. AUDITORÍA: DETECCIÓN DE CÓDIGO MUERTO / FUNCIONES NO UTILIZADAS
 // ─────────────────────────────────────────────────────────────────────────────
-console.log('[8/9] Analizando alcance y uso de funciones (Detección de código muerto)...');
+console.log('[11/12] Analizando alcance y uso de funciones (Detección de código muerto)...');
 
 const allPublicFiles = [];
 function collectAllPublicFiles(dir) {
@@ -428,6 +668,8 @@ const coreLifecycleSet = new Set([
   'abrirModalConfigurarCorrelativo', 'guardarConfiguracionCorrelativo', 'aplicarFiltroEstadoReporte',
   'startLiveClock', 'checkAuth', 'fetchAndUpdateDbTimestamp', 'fetchAppVersion',
   'showToast', 'closeModal', 'openConfirmModal', 'escapeHtml', 'updateThemeIcons',
+  'syncSearchInputBadge', 'loadCategoriasData', 'guardarCategoria', 'eliminarCategoria',
+  'openModalNuevaCategoria', 'openModalEditarCategoria',
   'LobbyApp'
 ]);
 
@@ -471,7 +713,7 @@ declaredFunctions.forEach((meta, fnName) => {
   }
 });
 
-console.log('[9/9] Consolidando reporte final de auditoría...');
+console.log('[12/12] Consolidando reporte final de auditoría...');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GENERACIÓN Y SALIDA DEL REPORTE

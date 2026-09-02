@@ -21,5 +21,10 @@ contextBridge.exposeInMainWorld("api", {
   },
   onLoadAssistanceForEdit: (callback) => {
     ipcRenderer.on("load-assistance-for-edit", (event, ...args) => callback(...args));
+  },
+  onCategoriasUpdated: (callback) => {
+    const handler = (event, ...args) => callback(...args);
+    ipcRenderer.on("categorias-updated", handler);
+    return () => ipcRenderer.removeListener("categorias-updated", handler);
   }
 });

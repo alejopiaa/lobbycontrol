@@ -149,11 +149,17 @@ function renderDashboard(container) {
     // Total Solicitudes
     const totalCountEl = existingDashboard.querySelector('#count-total-solicitudes');
     if (totalCountEl) totalCountEl.textContent = stats.totales.total;
+    const totalPctEl = existingDashboard.querySelector('#pct-total-solicitudes');
+    if (totalPctEl) {
+      totalPctEl.textContent = stats.totales.pctUniversal < 100
+        ? `${stats.totales.pctUniversal}% del total`
+        : '100%';
+    }
 
     // Respondidas
     const respCountEl = existingDashboard.querySelector('#count-solicitudes-respondidas');
     if (respCountEl) respCountEl.textContent = stats.totales.respondidas;
-    const respPctEl = respCountEl ? respCountEl.nextElementSibling : null;
+    const respPctEl = existingDashboard.querySelector('#pct-solicitudes-respondidas');
     if (respPctEl) respPctEl.textContent = formatPct(stats.respondidas.pctTotal, stats.totales.respondidas);
     
     // progress bar Total
@@ -183,7 +189,7 @@ function renderDashboard(container) {
     // Pendientes
     const pendCountEl = existingDashboard.querySelector('#count-solicitudes-pendientes');
     if (pendCountEl) pendCountEl.textContent = stats.totales.pendientes;
-    const pendPctEl = pendCountEl ? pendCountEl.nextElementSibling : null;
+    const pendPctEl = existingDashboard.querySelector('#pct-solicitudes-pendientes');
     if (pendPctEl) pendPctEl.textContent = formatPct(stats.pendientes.pctTotal, stats.totales.pendientes);
 
     // progress bar Pendientes
@@ -215,6 +221,32 @@ function renderDashboard(container) {
       const elText = existingDashboard.querySelector(`#${item.textId}`);
       if (elText) elText.textContent = formatPct(item.pct, item.count);
     });
+
+    // 3. Sincronizar inputs y badges de filtros del Dashboard
+    const anioInput = existingDashboard.querySelector('#dashboard-filter-anio');
+    if (anioInput && typeof syncSearchInputBadge === 'function') {
+      anioInput.value = dashboardFilters.anio || '';
+      syncSearchInputBadge(anioInput, dashboardFilters.anio);
+    }
+
+    const nombreInput = existingDashboard.querySelector('#dashboard-filter-nombre');
+    if (nombreInput && typeof syncSearchInputBadge === 'function') {
+      nombreInput.value = dashboardFilters.nombre || '';
+      syncSearchInputBadge(nombreInput, dashboardFilters.nombre);
+    }
+
+    const cargoInput = existingDashboard.querySelector('#dashboard-filter-cargo');
+    if (cargoInput) {
+      const hasNombre = !!dashboardFilters.nombre;
+      cargoInput.disabled = !hasNombre;
+      cargoInput.placeholder = hasNombre ? 'Escribir cargo...' : 'Seleccione nombre primero...';
+      cargoInput.classList.toggle('glass-input-disabled', !hasNombre);
+      cargoInput.classList.toggle('cursor-not-allowed', !hasNombre);
+      cargoInput.value = dashboardFilters.cargo || '';
+      if (typeof syncSearchInputBadge === 'function') {
+        syncSearchInputBadge(cargoInput, dashboardFilters.cargo);
+      }
+    }
 
     return true;
   }
@@ -301,18 +333,22 @@ function renderDashboard(container) {
       <!-- TRES TARJETAS PRINCIPALES -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- CARD TOTAL SOLICITUDES -->
-        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-sm space-y-4" style="animation-delay: 50ms;">
-          <div class="text-center">
-            <span class="text-xs text-text-secondary font-bold uppercase tracking-widest">Total Solicitudes</span>
-            <h3 class="text-4xl font-extrabold text-heading mt-2" id="count-total-solicitudes">${stats.totales.total}</h3>
-            <p class="text-xs text-body-muted font-semibold mt-1">100%</p>
+        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-2xs border border-border-ui hover:border-brand-500/40 transition-all space-y-4" style="animation-delay: 50ms;">
+          <div class="flex items-center justify-between border-b border-border-ui pb-3">
+            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="layers" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i> Total Solicitudes
+            </span>
+            <span id="pct-total-solicitudes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-ui text-text-secondary border border-border-ui">${stats.totales.pctUniversal < 100 ? `${stats.totales.pctUniversal}% del total` : '100%'}</span>
           </div>
-          <div class="space-y-1.5">
+          <div class="text-center py-4">
+            <h3 class="text-4xl font-black text-text-primary tracking-tight" id="count-total-solicitudes">${stats.totales.total}</h3>
+          </div>
+          <div class="space-y-1.5 pt-2 border-t border-border-ui">
             <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex">
               <div id="bar-total-respondidas" class="h-full bg-brand-600 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctTotal}%"></div>
-              <div id="bar-total-pendientes" class="h-full bg-brand-300 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctTotal}%"></div>
+              <div id="bar-total-pendientes" class="h-full bg-brand-300 dark:bg-brand-400/40 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctTotal}%"></div>
             </div>
-            <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
+            <div class="flex justify-between items-center text-[10.5px] text-text-tertiary font-semibold">
               <span id="text-total-respondidas">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)} Respondidas (${stats.totales.respondidas})</span>
               <span id="text-total-pendientes">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)} Pendientes (${stats.totales.pendientes})</span>
             </div>
@@ -320,18 +356,22 @@ function renderDashboard(container) {
         </div>
 
         <!-- CARD RESPONDIDAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-sm space-y-4" style="animation-delay: 100ms;">
-          <div class="text-center">
-            <span class="text-xs text-text-secondary font-bold uppercase tracking-widest">Solicitudes Respondidas</span>
-            <h3 class="text-4xl font-extrabold text-heading mt-2" id="count-solicitudes-respondidas">${stats.totales.respondidas}</h3>
-            <p class="text-xs text-body-muted font-semibold mt-1">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)}</p>
+        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-2xs border border-border-ui hover:border-brand-500/40 transition-all space-y-4" style="animation-delay: 100ms;">
+          <div class="flex items-center justify-between border-b border-border-ui pb-3">
+            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i> Solicitudes Respondidas
+            </span>
+            <span id="pct-solicitudes-respondidas" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-ui text-text-secondary border border-border-ui">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)}</span>
           </div>
-          <div class="space-y-1.5">
+          <div class="text-center py-4">
+            <h3 class="text-4xl font-black text-text-primary tracking-tight" id="count-solicitudes-respondidas">${stats.totales.respondidas}</h3>
+          </div>
+          <div class="space-y-1.5 pt-2 border-t border-border-ui">
             <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex">
               <div id="bar-respondidas-rdp" class="h-full bg-brand-600 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctRdp}%"></div>
-              <div id="bar-respondidas-rfp" class="h-full bg-brand-300 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctRfp}%"></div>
+              <div id="bar-respondidas-rfp" class="h-full bg-brand-300 dark:bg-brand-400/40 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctRfp}%"></div>
             </div>
-            <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
+            <div class="flex justify-between items-center text-[10.5px] text-text-tertiary font-semibold">
               <span id="text-respondidas-rdp">${formatPct(stats.respondidas.pctRdp, stats.respondidas.rdp)} RDP (${stats.respondidas.rdp})</span>
               <span id="text-respondidas-rfp">${formatPct(stats.respondidas.pctRfp, stats.respondidas.rfp)} RFP (${stats.respondidas.rfp})</span>
             </div>
@@ -339,18 +379,22 @@ function renderDashboard(container) {
         </div>
 
         <!-- CARD PENDIENTES -->
-        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-sm space-y-4" style="animation-delay: 150ms;">
-          <div class="text-center">
-            <span class="text-xs text-text-secondary font-bold uppercase tracking-widest">Solicitudes Pendientes</span>
-            <h3 class="text-4xl font-extrabold text-heading mt-2" id="count-solicitudes-pendientes">${stats.totales.pendientes}</h3>
-            <p class="text-xs text-body-muted font-semibold mt-1">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)}</p>
+        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-2xs border border-border-ui hover:border-brand-500/40 transition-all space-y-4" style="animation-delay: 150ms;">
+          <div class="flex items-center justify-between border-b border-border-ui pb-3">
+            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="clock" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i> Solicitudes Pendientes
+            </span>
+            <span id="pct-solicitudes-pendientes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-ui text-text-secondary border border-border-ui">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)}</span>
           </div>
-          <div class="space-y-1.5">
+          <div class="text-center py-4">
+            <h3 class="text-4xl font-black text-text-primary tracking-tight" id="count-solicitudes-pendientes">${stats.totales.pendientes}</h3>
+          </div>
+          <div class="space-y-1.5 pt-2 border-t border-border-ui">
             <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex">
               <div id="bar-pendientes-ddp" class="h-full bg-brand-600 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctDdp}%"></div>
-              <div id="bar-pendientes-fdp" class="h-full bg-brand-300 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctFdp}%"></div>
+              <div id="bar-pendientes-fdp" class="h-full bg-brand-300 dark:bg-brand-400/40 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctFdp}%"></div>
             </div>
-            <div class="flex justify-between items-center text-[10px] text-body-muted font-semibold">
+            <div class="flex justify-between items-center text-[10.5px] text-text-tertiary font-semibold">
               <span id="text-pendientes-ddp">${formatPct(stats.pendientes.pctDdp, stats.pendientes.ddp)} DDP (${stats.pendientes.ddp})</span>
               <span id="text-pendientes-fdp">${formatPct(stats.pendientes.pctFdp, stats.pendientes.fdp)} FDP (${stats.pendientes.fdp})</span>
             </div>
@@ -359,88 +403,88 @@ function renderDashboard(container) {
       </div>
 
       <!-- DESGLOSE DE ESTADOS -->
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-5">
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <!-- ACEPTADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 200ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--card-blue-bg); border-color: var(--border-ui); color: var(--card-blue-text);">
-            Aceptadas
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 200ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-blue-bg); border-color: var(--border-ui); color: var(--card-blue-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Aceptadas</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-aceptada">${stats.estados.aceptada.count}</h3>
-            <p id="text-pct-aceptada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-aceptada">${stats.estados.aceptada.count}</h3>
+            <p id="text-pct-aceptada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</p>
           </div>
         </div>
 
         <!-- RECHAZADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 250ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--card-pink-bg); border-color: var(--border-ui); color: var(--card-pink-text);">
-            Rechazadas
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 250ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-pink-bg); border-color: var(--border-ui); color: var(--card-pink-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Rechazadas</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-rechazada">${stats.estados.rechazada.count}</h3>
-            <p id="text-pct-rechazada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-rechazada">${stats.estados.rechazada.count}</h3>
+            <p id="text-pct-rechazada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</p>
           </div>
         </div>
 
         <!-- SUSPENDIDAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 300ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--card-purple-bg); border-color: var(--border-ui); color: var(--card-purple-text);">
-            Suspendidas
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 300ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-purple-bg); border-color: var(--border-ui); color: var(--card-purple-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Suspendidas</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-suspendida">${stats.estados.suspendida.count}</h3>
-            <p id="text-pct-suspendida" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-suspendida">${stats.estados.suspendida.count}</h3>
+            <p id="text-pct-suspendida" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</p>
           </div>
         </div>
 
         <!-- CANCELADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 350ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--bg-card); border-color: var(--border-ui); color: var(--text-secondary);">
-            Canceladas
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 350ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-slate-bg); border-color: var(--border-ui); color: var(--card-slate-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Canceladas</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-cancelada">${stats.estados.cancelada.count}</h3>
-            <p id="text-pct-cancelada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-cancelada">${stats.estados.cancelada.count}</h3>
+            <p id="text-pct-cancelada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</p>
           </div>
         </div>
 
         <!-- ENCOMENDADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 400ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--card-orange-bg); border-color: var(--border-ui); color: var(--card-orange-text);">
-            Encomendadas
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 400ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-orange-bg); border-color: var(--border-ui); color: var(--card-orange-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Encomendadas</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-encomendada">${stats.estados.encomendada.count}</h3>
-            <p id="text-pct-encomendada" class="text-xs text-body-muted font-semibold">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-encomendada">${stats.estados.encomendada.count}</h3>
+            <p id="text-pct-encomendada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</p>
           </div>
         </div>
 
         <!-- PUBLICADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 450ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--card-teal-bg); border-color: var(--border-ui); color: var(--card-teal-text);">
-            Publicadas
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 450ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-teal-bg); border-color: var(--border-ui); color: var(--card-teal-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Publicadas</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-publicadas">${stats.totales.publicadas}</h3>
-            <p id="text-pct-publicadas" class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-publicadas">${stats.totales.publicadas}</h3>
+            <p id="text-pct-publicadas" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</p>
           </div>
         </div>
 
         <!-- PENDIENTES DE PUBLICACIÓN -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-sm" style="animation-delay: 500ms;">
-          <div class="py-2 text-center text-[10px] font-bold tracking-widest uppercase border-b" 
-               style="background-color: var(--card-amber-bg); border-color: var(--border-ui); color: var(--card-amber-text);">
-            Pnd. Publicar
+        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 500ms;">
+          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-amber-bg); border-color: var(--border-ui); color: var(--card-amber-text);">
+            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
+            <span>Pnd. Publicar</span>
           </div>
-          <div class="p-6 text-center space-y-1">
-            <h3 class="text-3xl font-bold text-heading" id="count-estado-pendientesPublicacion">${stats.totales.pendientesPublicacion}</h3>
-            <p id="text-pct-pendientesPublicacion" class="text-xs text-body-muted font-semibold">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</p>
+          <div class="p-4 text-center space-y-0.5">
+            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-pendientesPublicacion">${stats.totales.pendientesPublicacion}</h3>
+            <p id="text-pct-pendientesPublicacion" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</p>
           </div>
         </div>
       </div>
@@ -2817,7 +2861,7 @@ function renderUsuarios(container) {
                 
                 <button id="btn-sharepoint-sync" onclick="triggerSharepointSync()" class="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2">
                   <i data-lucide="refresh-cw" class="h-4 w-4"></i>
-                  <span>Sincronizar desde SharePoint</span>
+                  <span>Sincronizar con SharePoint</span>
                 </button>
                 
                 <button onclick="downloadBackup()" class="py-3 px-6 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2 shrink-0">
@@ -3243,12 +3287,14 @@ function renderAsistenciaTabHtml() {
     subContent = renderAsistenciaContactosViewHtml();
   } else if (activeAsistenciaSubTab === "categorias") {
     subContent = renderAsistenciaCategoriasViewHtml();
+  } else if (activeAsistenciaSubTab === "direcciones") {
+    subContent = renderAsistenciaDireccionesViewHtml();
   }
 
   return `
     <div class="space-y-5 animate-fade-in font-sans mt-4">
       
-      <!-- SUB-BARRA DE NAVEGACIÓN (BITÁCORA / DIRECTORIO / CATEGORÍAS) -->
+      <!-- SUB-BARRA DE NAVEGACIÓN (BITÁCORA / DIRECTORIO / CATEGORÍAS / DIRECCIONES) -->
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-border-ui">
         <div class="flex items-center gap-2 flex-wrap">
           <button onclick="changeAsistenciaSubTab('bitacora')" class="${subTabClass('bitacora')}">
@@ -3262,6 +3308,10 @@ function renderAsistenciaTabHtml() {
           <button onclick="changeAsistenciaSubTab('categorias')" class="${subTabClass('categorias')}">
             <i data-lucide="tags" class="h-4 w-4"></i>
             <span>Materias y Categorías</span>
+          </button>
+          <button onclick="changeAsistenciaSubTab('direcciones')" class="${subTabClass('direcciones')}">
+            <i data-lucide="building-2" class="h-4 w-4"></i>
+            <span>Direcciones Municipales</span>
           </button>
         </div>
       </div>
@@ -3408,13 +3458,6 @@ function renderAsistenciaBitacoraViewHtml() {
             <!-- Filtro Materia -->
             <select id="filter-asistencia-categoria" onchange="handleAsistenciasFilterChange()" class="glass-input rounded-xl px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer">
               <option value="todas">Materia: Todas</option>
-              <option value="plazos">Plazos Legales</option>
-              <option value="plataforma">Uso Plataforma / ClaveÚnica</option>
-              <option value="sujetos_pasivos">Sujetos Pasivos</option>
-              <option value="derivaciones">Derivaciones / Improcedencia</option>
-              <option value="actas">Carga de Actas</option>
-              <option value="normativa">Normativa Ley 20.730</option>
-              <option value="otro">Otro / General</option>
             </select>
 
             <!-- Filtro Estado -->
@@ -3554,10 +3597,16 @@ function renderAsistenciaCategoriasViewHtml() {
           </p>
         </div>
 
-        <button onclick="openModalNuevaCategoria()" class="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
-          <i data-lucide="plus" class="h-3.5 w-3.5"></i>
-          <span>Nueva Materia</span>
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="btn-toggle-reordenar-categorias" onclick="toggleReordenarCategorias()" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-border-ui bg-bg-card hover:bg-border-ui text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-all cursor-pointer">
+            <i data-lucide="arrow-up-down" class="h-3.5 w-3.5"></i>
+            <span>Reordenar</span>
+          </button>
+          <button onclick="openModalNuevaCategoria()" class="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
+            <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+            <span>Nueva Materia</span>
+          </button>
+        </div>
       </div>
 
       <!-- TABLA DE CATEGORÍAS -->
@@ -3566,7 +3615,7 @@ function renderAsistenciaCategoriasViewHtml() {
           <table class="w-full text-left text-xs border-collapse">
             <thead>
               <tr class="border-b border-border-ui bg-bg-main text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
-                <th class="px-4 py-3 w-16">#</th>
+                <th class="px-4 py-3 w-28 text-center"># / Orden</th>
                 <th class="px-4 py-3 w-72">Nombre de la Materia</th>
                 <th class="px-4 py-3">Descripción / Alcance</th>
                 <th class="px-4 py-3 text-right w-28">Acciones</th>
@@ -3577,6 +3626,61 @@ function renderAsistenciaCategoriasViewHtml() {
                 <td colspan="4" class="text-center py-8 text-text-tertiary">
                   <i data-lucide="loader-2" class="h-5 w-5 animate-spin mx-auto mb-2 text-brand-500"></i>
                   Cargando materias y categorías...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Sub-vista: Catálogo de Direcciones Municipales Oficiales
+function renderAsistenciaDireccionesViewHtml() {
+  return `
+    <div class="space-y-4">
+      <!-- BARRA SUPERIOR DE DIRECCIONES -->
+      <div class="glass-card p-3.5 rounded-2xl border border-border-ui bg-bg-header shadow-xs flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="building-2" class="h-4 w-4 text-brand-500"></i>
+            <span>Catálogo de Direcciones Municipales</span>
+          </h3>
+          <p class="text-[10px] text-text-tertiary mt-0.5">
+            Configura las direcciones y departamentos municipales oficiales para el autocompletado en tickets y estadísticas.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button id="btn-toggle-reordenar-direcciones" onclick="toggleReordenarDirecciones()" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-border-ui bg-bg-card hover:bg-border-ui text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-all cursor-pointer">
+            <i data-lucide="arrow-up-down" class="h-3.5 w-3.5"></i>
+            <span>Reordenar</span>
+          </button>
+          <button onclick="openModalNuevaDireccion()" class="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
+            <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+            <span>Nueva Dirección</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TABLA DE DIRECCIONES -->
+      <div class="glass-card rounded-2xl overflow-hidden border border-border-ui bg-bg-header shadow-xs">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-border-ui bg-bg-main text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
+                <th class="px-4 py-3 w-20 text-center"># / Orden</th>
+                <th class="px-4 py-3 w-32">Acrónimo</th>
+                <th class="px-4 py-3">Nombre Oficial de la Dirección</th>
+                <th class="px-4 py-3 text-right w-28">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-direcciones-body" class="divide-y divide-border-ui">
+              <tr>
+                <td colspan="4" class="text-center py-8 text-text-tertiary">
+                  <i data-lucide="loader-2" class="h-5 w-5 animate-spin mx-auto mb-2 text-brand-500"></i>
+                  Cargando catálogo de direcciones municipales...
                 </td>
               </tr>
             </tbody>

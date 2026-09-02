@@ -23,12 +23,30 @@ const filesToCopy = [
   "usuarios.db",
   "usuarios.db-wal",
   "usuarios.db-shm",
+  "asistencias.db",
+  "asistencias.db-wal",
+  "asistencias.db-shm",
   "local.db",
   "local.db-wal",
   "local.db-shm",
   "version_lobby.json",
   "version_users.json",
+  "version_asistencias.json",
 ];
+
+function isDatabaseLocked(filePath) {
+  if (!fs.existsSync(filePath)) return false;
+  try {
+    const fd = fs.openSync(filePath, "r+");
+    fs.closeSync(fd);
+    return false;
+  } catch (err) {
+    if (err.code === "EBUSY" || err.code === "EPERM" || err.code === "EACCES") {
+      return true;
+    }
+    return false;
+  }
+}
 
 console.log("=== Copiando Bases de Datos de Producción a Desarrollo ===");
 console.log(`Origen (Producción): ${prodDbDir}`);
@@ -42,6 +60,14 @@ if (!fs.existsSync(prodDbDir)) {
     "Asegúrese de haber ejecutado al menos una vez la aplicación en producción en esta máquina.",
   );
   process.exit(1);
+}
+
+const criticalDbs = ["lobby_control.db", "usuarios.db", "asistencias.db"];
+const lockedFiles = criticalDbs.filter((f) => isDatabaseLocked(path.join(prodDbDir, f)));
+if (lockedFiles.length > 0) {
+  console.warn("⚠️  ADVERTENCIA: La aplicación LobbyControl (Producción) parece estar abierta.");
+  console.warn(`   Los siguientes archivos están en uso: ${lockedFiles.join(", ")}`);
+  console.warn("   Para evitar inconsistencias en SQLite WAL, se recomienda cerrar la app de producción.\n");
 }
 
 let copiedCount = 0;

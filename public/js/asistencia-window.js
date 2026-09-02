@@ -10,17 +10,21 @@ let selectedCategoria = 'Plazos Legales (3 Días / Publicación)';
 let selectedEstado = 'resuelta';
 let categoriasList = [];
 let direccionesList = [];
+let autoridadesList = [];
 let isFormLocked = false;
 let isReviewMode = false;
+let fechaAirDatepicker = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (window.lucide) window.lucide.createIcons();
 
   initLiveClock();
   initAlwaysOnTop();
-  await Promise.all([loadCategorias(), loadDirecciones()]);
+  initFechaAirDatepicker();
+  await Promise.all([loadCategorias(), loadDirecciones(), loadAutoridades()]);
   initCustomDropdowns();
   initDeptoCombobox();
+  initRepresentadoCombobox();
   initPhoneRestriction();
   initAutocomplete();
   initActions();
@@ -41,6 +45,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       await loadAsistenciaParaEdicion(id);
     });
   }
+
+  if (window.api && window.api.onCategoriasUpdated) {
+    window.api.onCategoriasUpdated(async () => {
+      await loadCategorias();
+    });
+  }
 });
 
 async function loadAsistenciaParaEdicion(id) {
@@ -54,20 +64,39 @@ async function loadAsistenciaParaEdicion(id) {
 
       // Rellenar campos del formulario
       const inputSolicitante = document.getElementById('input-solicitante');
-      const inputDepto = document.getElementById('input-depto');
+      const inputDireccion = document.getElementById('input-direccion');
       const inputCorreo = document.getElementById('input-correo');
-      const inputContacto = document.getElementById('input-contacto');
+      const inputTelefono = document.getElementById('input-telefono');
+      const inputRepresentado = document.getElementById('input-representado');
+      const inputRepresentadoId = document.getElementById('input-representado-id');
+      const clearRepresentadoBtn = document.getElementById('btn-clear-representado');
       const inputFolio = document.getElementById('input-folio');
       const inputMotivo = document.getElementById('input-motivo');
       const inputSolucion = document.getElementById('input-solucion');
 
       if (inputSolicitante) inputSolicitante.value = ast.solicitante_nombre || '';
-      if (inputDepto) inputDepto.value = ast.solicitante_cargo_depto || '';
+      if (inputDireccion) inputDireccion.value = ast.solicitante_direccion || ast.solicitante_cargo_depto || '';
       if (inputCorreo) inputCorreo.value = ast.solicitante_correo || '';
-      if (inputContacto) inputContacto.value = ast.solicitante_contacto || '';
+      if (inputTelefono) inputTelefono.value = ast.solicitante_telefono || ast.solicitante_contacto || '';
+      if (inputRepresentado) inputRepresentado.value = ast.representado || '';
+      if (inputRepresentadoId) inputRepresentadoId.value = ast.representado_id_lobby || '';
       if (inputFolio) inputFolio.value = ast.folio_lobby || '';
       if (inputMotivo) inputMotivo.value = ast.motivo_consulta || '';
       if (inputSolucion) inputSolucion.value = ast.solucion_orientacion || '';
+
+      if (ast.representado) {
+        if (clearRepresentadoBtn) clearRepresentadoBtn.classList.remove('hidden');
+        const exists = autoridadesList.some(a => a.cargo === ast.representado || (ast.representado_id_lobby && a.id_sujeto_lobby === ast.representado_id_lobby));
+        if (!exists) {
+          autoridadesList.unshift({
+            id_sujeto_lobby: ast.representado_id_lobby || null,
+            cargo: ast.representado,
+            esHistorico: true
+          });
+        }
+      } else {
+        if (clearRepresentadoBtn) clearRepresentadoBtn.classList.add('hidden');
+      }
 
       // Seleccionar canal, categoría y estado
       setCanalUI(ast.canal || 'telefono');
@@ -75,6 +104,16 @@ async function loadAsistenciaParaEdicion(id) {
       const catFound = categoriasList.find(c => c.slug === ast.categoria || c.nombre === ast.categoria);
       setCategoriaUI(catFound ? catFound.nombre : (ast.categoria || 'Plazos Legales (3 Días / Publicación)'));
       setEstadoUI(ast.estado || 'resuelta');
+
+      // Cargar fecha y hora de la atención si existe
+      if (ast.fecha_hora && fechaAirDatepicker) {
+        const isoStr = ast.fecha_hora.replace(' ', 'T');
+        const d = new Date(isoStr);
+        if (!isNaN(d.getTime())) {
+          fechaAirDatepicker.clear();
+          fechaAirDatepicker.selectDate(d);
+        }
+      }
 
       // Aplicar Modo Revisión (Lectura, Correo/PDF habilitados, botón Editar, botones Nueva y Descartar ocultos)
       applyReviewMode(ast);
@@ -95,6 +134,12 @@ function applyReviewMode(ticket) {
     el.disabled = true;
     el.classList.add('opacity-75', 'cursor-not-allowed');
   });
+
+  const triggerBtn = document.getElementById('btn-trigger-fecha');
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+    triggerBtn.classList.add('opacity-50', 'pointer-events-none');
+  }
 
   // Ocultar botones no pertinentes en modo revisión
   const btnDescartar = document.getElementById('btn-descartar');
@@ -140,6 +185,18 @@ function applyNewMode() {
     el.disabled = false;
     el.classList.remove('opacity-75', 'cursor-not-allowed');
   });
+
+  const triggerBtn = document.getElementById('btn-trigger-fecha');
+  if (triggerBtn) {
+    triggerBtn.disabled = false;
+    triggerBtn.classList.remove('opacity-50', 'pointer-events-none');
+  }
+
+  // Restablecer fecha actual automática
+  if (fechaAirDatepicker) {
+    fechaAirDatepicker.clear();
+    fechaAirDatepicker.selectDate(new Date());
+  }
 
   // Mostrar botones Descartar y Nueva
   const btnDescartar = document.getElementById('btn-descartar');
@@ -278,6 +335,43 @@ function initLiveClock() {
 }
 
 // ============================================================================
+// 2.1 AIR DATEPICKER: SELECTOR DE FECHA Y HORA DE ATENCIÓN
+// ============================================================================
+function initFechaAirDatepicker() {
+  const input = document.getElementById('input-fecha-atencion');
+  if (!input || typeof AirDatepicker === 'undefined') return;
+
+  const locale = (typeof window.AirDatepickerLocaleEs !== 'undefined')
+    ? window.AirDatepickerLocaleEs
+    : undefined;
+
+  fechaAirDatepicker = new AirDatepicker(input, {
+    locale: locale,
+    timepicker: true,
+    timeFormat: 'HH:mm',
+    dateFormat: 'dd/MM/yyyy',
+    autoClose: false,
+    selectedDates: [new Date()],
+    buttons: ['today', 'clear'],
+    isMobile: false,
+    position: 'bottom left'
+  });
+
+  const triggerBtn = document.getElementById('btn-trigger-fecha');
+  if (triggerBtn) {
+    triggerBtn.addEventListener('click', () => {
+      if (!isFormLocked && fechaAirDatepicker) {
+        if (fechaAirDatepicker.visible) {
+          fechaAirDatepicker.hide();
+        } else {
+          fechaAirDatepicker.show();
+        }
+      }
+    });
+  }
+}
+
+// ============================================================================
 // 3. ALWAYS ON TOP
 // ============================================================================
 function initAlwaysOnTop() {
@@ -332,6 +426,14 @@ async function loadCategorias() {
     ];
   }
 
+  // Preservar la categoría seleccionada por el usuario si aún existe en la lista
+  const existeSeleccionada = categoriasList.some(c => c.nombre === selectedCategoria);
+  if (!existeSeleccionada && categoriasList.length > 0) {
+    setCategoriaUI(categoriasList[0].nombre);
+  } else if (existeSeleccionada) {
+    setCategoriaUI(selectedCategoria);
+  }
+
   renderCategoriasDropdown();
 }
 
@@ -367,46 +469,27 @@ async function loadDirecciones() {
     const res = await window.api.invokeRoute({ url: '/api/direcciones', method: 'GET' });
     if (res && res.status === 200 && Array.isArray(res.data)) {
       direccionesList = res.data;
+    } else {
+      direccionesList = [];
     }
   } catch (e) {
-    console.warn('Error al cargar direcciones:', e);
-  }
-
-  if (!direccionesList || direccionesList.length === 0) {
-    direccionesList = [
-      { acronimo: 'DOM', nombre: 'Dirección de Obras Municipales' },
-      { acronimo: 'SECMUN', nombre: 'Secretaría Municipal' },
-      { acronimo: 'DIDECO', nombre: 'Dirección de Desarrollo Comunitario' },
-      { acronimo: 'DAF', nombre: 'Dirección de Administración y Finanzas' },
-      { acronimo: 'SECPLA', nombre: 'Secretaría Comunal de Planificación' },
-      { acronimo: 'DIPRESEC', nombre: 'Dirección de Prevención y Seguridad Ciudadana' },
-      { acronimo: 'DAJ', nombre: 'Dirección de Asesoría Jurídica' },
-      { acronimo: 'CTRL', nombre: 'Dirección de Control' },
-      { acronimo: 'DTT', nombre: 'Dirección de Tránsito y Transporte' },
-      { acronimo: 'DAOGA', nombre: 'Dirección de Aseo, Ornato y Gestión Ambiental' },
-      { acronimo: 'DITEC', nombre: 'Dirección de Tecnologías de la Información' },
-      { acronimo: 'RRHH', nombre: 'Dirección de Personas / Recursos Humanos' },
-      { acronimo: 'OPS', nombre: 'Dirección de Operaciones' },
-      { acronimo: 'ALC', nombre: 'Alcaldía' },
-      { acronimo: 'CON', nombre: 'Concejo Municipal / Concejales' },
-      { acronimo: 'SMAPA', nombre: 'Servicio Municipal de Agua Potable y Alcantarillado' },
-      { acronimo: 'JPL', nombre: 'Juzgados de Policía Local' }
-    ];
+    console.warn('Error al cargar direcciones oficiales:', e);
+    direccionesList = [];
   }
 
   renderDireccionesDropdown(direccionesList);
 }
 
 function initDeptoCombobox() {
-  const input = document.getElementById('input-depto');
-  const toggleBtn = document.getElementById('btn-toggle-depto-dropdown');
-  const menu = document.getElementById('menu-dropdown-depto');
+  const input = document.getElementById('input-direccion');
+  const toggleBtn = document.getElementById('btn-toggle-direccion-dropdown');
+  const menu = document.getElementById('menu-dropdown-direccion');
   if (!input || !menu) return;
 
   const showMenu = () => {
     if (isFormLocked) return;
     const val = input.value.trim().toLowerCase();
-    const filtered = val ? direccionesList.filter(d => d.acronimo.toLowerCase().includes(val) || d.nombre.toLowerCase().includes(val)) : direccionesList;
+    const filtered = val ? direccionesList.filter(d => (d.acronimo && d.acronimo.toLowerCase().includes(val)) || (d.nombre && d.nombre.toLowerCase().includes(val))) : direccionesList;
     renderDireccionesDropdown(filtered);
     menu.classList.remove('hidden');
   };
@@ -435,25 +518,145 @@ function initDeptoCombobox() {
 }
 
 function renderDireccionesDropdown(list) {
-  const menu = document.getElementById('menu-dropdown-depto');
+  const menu = document.getElementById('menu-dropdown-direccion');
   if (!menu) return;
 
-  if (list.length === 0) {
-    menu.innerHTML = '<div class="p-3 text-[11px] text-text-tertiary text-center">Sin coincidencias (puedes escribir libremente)</div>';
+  if (!list || list.length === 0) {
+    menu.innerHTML = '<div class="p-3 text-[11px] text-text-tertiary text-center">Sin coincidencias en catálogo oficial</div>';
     return;
   }
 
   menu.innerHTML = list.map(d => `
-    <button type="button" class="option-depto w-full px-3.5 py-2 text-left hover:bg-border-ui flex items-center justify-between gap-2 cursor-pointer" data-acronimo="${d.acronimo}">
+    <button type="button" class="option-direccion w-full px-3.5 py-2 text-left hover:bg-border-ui flex items-center justify-between gap-2 cursor-pointer" data-acronimo="${d.acronimo}">
       <span class="font-bold text-xs text-brand-600 dark:text-brand-400 font-mono">${d.acronimo}</span>
       <span class="text-[11px] text-text-tertiary truncate text-right">${d.nombre}</span>
     </button>
   `).join('');
 
-  menu.querySelectorAll('.option-depto').forEach(btn => {
+  menu.querySelectorAll('.option-direccion').forEach(btn => {
     btn.addEventListener('click', () => {
       const acronimo = btn.getAttribute('data-acronimo');
-      document.getElementById('input-depto').value = acronimo;
+      const input = document.getElementById('input-direccion');
+      if (input) input.value = acronimo;
+      menu.classList.add('hidden');
+      saveDraft();
+    });
+  });
+}
+
+async function loadAutoridades() {
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/sujetos_pasivos/vigentes-nombres', method: 'GET' });
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      autoridadesList = res.data;
+    } else {
+      autoridadesList = [];
+    }
+  } catch (e) {
+    console.warn('Error al cargar autoridades vigentes:', e);
+    autoridadesList = [];
+  }
+}
+
+function initRepresentadoCombobox() {
+  const input = document.getElementById('input-representado');
+  const inputHidden = document.getElementById('input-representado-id');
+  const toggleBtn = document.getElementById('btn-toggle-representado-dropdown');
+  const clearBtn = document.getElementById('btn-clear-representado');
+  const menu = document.getElementById('menu-dropdown-representado');
+  if (!input || !menu) return;
+
+  const normalize = (str) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  const showMenu = () => {
+    if (isFormLocked) return;
+    const val = normalize(input.value.trim());
+    const filtered = val 
+      ? autoridadesList.filter(a => a.cargo && normalize(a.cargo).includes(val))
+      : autoridadesList;
+    renderRepresentadoDropdown(filtered);
+    menu.classList.remove('hidden');
+  };
+
+  input.addEventListener('focus', showMenu);
+
+  input.addEventListener('input', () => {
+    const val = input.value.trim();
+    if (!val) {
+      if (clearBtn) clearBtn.classList.add('hidden');
+      if (inputHidden) inputHidden.value = '';
+    } else {
+      if (clearBtn) clearBtn.classList.remove('hidden');
+      if (inputHidden && inputHidden.value) {
+        const found = autoridadesList.find(a => String(a.id_sujeto_lobby) === String(inputHidden.value));
+        if (!found || found.cargo !== input.value.trim()) {
+          inputHidden.value = '';
+        }
+      }
+    }
+    showMenu();
+    saveDraft();
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isFormLocked) return;
+      input.value = '';
+      if (inputHidden) inputHidden.value = '';
+      clearBtn.classList.add('hidden');
+      menu.classList.add('hidden');
+      saveDraft();
+      input.focus();
+    });
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isFormLocked) return;
+      if (menu.classList.contains('hidden')) {
+        renderRepresentadoDropdown(autoridadesList);
+        menu.classList.remove('hidden');
+      } else {
+        menu.classList.add('hidden');
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !menu.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target)) && (!clearBtn || !clearBtn.contains(e.target))) {
+      menu.classList.add('hidden');
+    }
+  });
+}
+
+function renderRepresentadoDropdown(list) {
+  const menu = document.getElementById('menu-dropdown-representado');
+  if (!menu) return;
+
+  if (!list || list.length === 0) {
+    menu.innerHTML = '<div class="p-3 text-[11px] text-text-tertiary text-center">Sin coincidencias en autoridades vigentes</div>';
+    return;
+  }
+
+  menu.innerHTML = list.map(a => `
+    <button type="button" class="option-representado w-full px-3.5 py-2 text-left hover:bg-border-ui flex items-center justify-between gap-2 cursor-pointer transition-colors" data-id="${a.id_sujeto_lobby || ''}" data-cargo="${(a.cargo || '').replace(/"/g, '&quot;')}">
+      <span class="text-xs text-text-primary font-medium leading-snug break-words">${a.cargo}${a.esHistorico ? ' <span class="text-[10px] text-amber-600 dark:text-amber-400 font-normal">(Histórico)</span>' : ''}</span>
+    </button>
+  `).join('');
+
+  menu.querySelectorAll('.option-representado').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cargo = btn.getAttribute('data-cargo');
+      const idSujeto = btn.getAttribute('data-id');
+      const input = document.getElementById('input-representado');
+      const inputHidden = document.getElementById('input-representado-id');
+      const clearBtn = document.getElementById('btn-clear-representado');
+
+      if (input) input.value = cargo;
+      if (inputHidden) inputHidden.value = idSujeto || '';
+      if (clearBtn) clearBtn.classList.remove('hidden');
       menu.classList.add('hidden');
       saveDraft();
     });
@@ -464,7 +667,7 @@ function renderDireccionesDropdown(list) {
 // 5. VALIDACIONES Y RESTRICCIÓN DE DÍGITOS EN TELÉFONO
 // ============================================================================
 function initPhoneRestriction() {
-  const input = document.getElementById('input-contacto');
+  const input = document.getElementById('input-telefono');
   if (!input) return;
 
   input.addEventListener('input', () => {
@@ -547,7 +750,7 @@ function setupDropdownToggle(btnId, menuId) {
 const DRAFT_KEY = 'lobby_asistencia_draft_v6';
 
 function initDraftAutosave() {
-  const inputs = ['input-solicitante', 'input-depto', 'input-correo', 'input-contacto', 'input-folio', 'input-motivo', 'input-solucion'];
+  const inputs = ['input-solicitante', 'input-direccion', 'input-correo', 'input-telefono', 'input-representado', 'input-folio', 'input-motivo', 'input-solucion'];
   
   inputs.forEach(id => {
     const el = document.getElementById(id);
@@ -563,11 +766,18 @@ function initDraftAutosave() {
 function saveDraft() {
   if (isFormLocked) return;
 
+  const elDir = document.getElementById('input-direccion');
+  const elTel = document.getElementById('input-telefono');
+  const elRep = document.getElementById('input-representado');
+  const elRepId = document.getElementById('input-representado-id');
+
   const draft = {
     solicitante: document.getElementById('input-solicitante')?.value || '',
-    depto: document.getElementById('input-depto')?.value || '',
+    direccion: elDir?.value || '',
     correo: document.getElementById('input-correo')?.value || '',
-    contacto: document.getElementById('input-contacto')?.value || '',
+    telefono: elTel?.value || '',
+    representado: elRep?.value || '',
+    representadoId: elRepId?.value || '',
     canal: selectedCanal,
     categoria: selectedCategoria,
     estado: selectedEstado,
@@ -579,7 +789,7 @@ function saveDraft() {
     timestamp: Date.now()
   };
 
-  const hasContent = draft.solicitante.trim() || draft.motivo.trim() || draft.solucion.trim() || draft.depto.trim();
+  const hasContent = draft.solicitante.trim() || draft.motivo.trim() || draft.solucion.trim() || draft.direccion.trim() || draft.representado.trim();
   if (hasContent) {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } else {
@@ -598,20 +808,35 @@ function restoreDraft() {
       return;
     }
 
-    if (draft.solicitante) document.getElementById('input-solicitante').value = draft.solicitante;
-    if (draft.depto) document.getElementById('input-depto').value = draft.depto;
-    if (draft.correo) document.getElementById('input-correo').value = draft.correo;
-    if (draft.contacto) document.getElementById('input-contacto').value = draft.contacto;
-    if (draft.folio) document.getElementById('input-folio').value = draft.folio;
-    if (draft.motivo) document.getElementById('input-motivo').value = draft.motivo;
-    if (draft.solucion) document.getElementById('input-solucion').value = draft.solucion;
+    const elSol = document.getElementById('input-solicitante');
+    const elDir = document.getElementById('input-direccion');
+    const elCor = document.getElementById('input-correo');
+    const elTel = document.getElementById('input-telefono');
+    const elRep = document.getElementById('input-representado');
+    const elRepId = document.getElementById('input-representado-id');
+    const clearRepBtn = document.getElementById('btn-clear-representado');
+    const elFol = document.getElementById('input-folio');
+    const elMot = document.getElementById('input-motivo');
+    const elSolu = document.getElementById('input-solucion');
+
+    if (draft.solicitante && elSol) elSol.value = draft.solicitante;
+    if (draft.direccion && elDir) elDir.value = draft.direccion;
+    if (draft.correo && elCor) elCor.value = draft.correo;
+    if (draft.telefono && elTel) elTel.value = draft.telefono;
+    if (draft.representado && elRep) {
+      elRep.value = draft.representado;
+      if (clearRepBtn) clearRepBtn.classList.remove('hidden');
+    }
+    if (draft.representadoId && elRepId) elRepId.value = draft.representadoId;
+    if (draft.folio && elFol) elFol.value = draft.folio;
+    if (draft.motivo && elMot) elMot.value = draft.motivo;
+    if (draft.solucion && elSolu) elSolu.value = draft.solucion;
     if (draft.contactoId) currentContactId = draft.contactoId;
     if (draft.canal) setCanalUI(draft.canal);
     if (draft.categoria) setCategoriaUI(draft.categoria);
     if (draft.estado) setEstadoUI(draft.estado);
     if (draft.timerSeconds) {
       timerSeconds = draft.timerSeconds;
-      updateTimerDisplay();
     }
 
     if (draft.contactoId) {
@@ -706,9 +931,9 @@ function renderSuggestions(contacts) {
   if (!box) return;
 
   box.innerHTML = contacts.map(c => {
-    const rawAnexo = (c.telefono_anexo || '').replace(/anexo/gi, '').trim();
-    const anexoStr = rawAnexo ? ` · Anexo ${rawAnexo}` : '';
-    const subline = `${c.depto_habitual || 'Sin departamento'}${anexoStr}`;
+    const rawTel = (c.telefono || c.telefono_anexo || '').trim();
+    const telStr = rawTel ? ` · Tel. ${rawTel}` : '';
+    const subline = `${c.direccion || c.depto_habitual || 'Sin dirección'}${telStr}`;
 
     return `
       <button type="button" class="w-full px-3.5 py-2.5 text-left hover:bg-border-ui flex items-center gap-3 cursor-pointer transition-colors" data-contact='${JSON.stringify(c).replace(/'/g, "&#39;")}'>
@@ -733,6 +958,21 @@ function renderSuggestions(contacts) {
       box.classList.add('hidden');
     });
   });
+}
+
+function seleccionarContactoExistente(c) {
+  if (!c) return;
+  currentContactId = c.id || null;
+  const elSol = document.getElementById('input-solicitante');
+  const elDir = document.getElementById('input-direccion');
+  const elCor = document.getElementById('input-correo');
+  const elTel = document.getElementById('input-telefono');
+  if (elSol && c.nombre) elSol.value = c.nombre;
+  if (elDir) elDir.value = c.direccion || c.depto_habitual || '';
+  if (elCor && c.correo) elCor.value = c.correo;
+  if (elTel) elTel.value = (c.telefono || c.telefono_anexo || '').replace(/\D/g, '');
+  document.getElementById('indicator-contacto-vinculado')?.classList.remove('hidden');
+  saveDraft();
 }
 // ============================================================================
 // 9. ACCIONES (GUARDAR, EDITAR, CANCELAR, DESCARTAR, NUEVA, CORREO, PDF)
@@ -832,13 +1072,27 @@ function resetForm() {
 
   applyNewMode();
 
-  document.getElementById('input-solicitante').value = '';
-  document.getElementById('input-depto').value = '';
-  document.getElementById('input-correo').value = '';
-  document.getElementById('input-contacto').value = '';
-  document.getElementById('input-folio').value = '';
-  document.getElementById('input-motivo').value = '';
-  document.getElementById('input-solucion').value = '';
+  const elSol = document.getElementById('input-solicitante');
+  const elDir = document.getElementById('input-direccion');
+  const elCor = document.getElementById('input-correo');
+  const elTel = document.getElementById('input-telefono');
+  const elRep = document.getElementById('input-representado');
+  const elRepId = document.getElementById('input-representado-id');
+  const clearRepBtn = document.getElementById('btn-clear-representado');
+  const elFol = document.getElementById('input-folio');
+  const elMot = document.getElementById('input-motivo');
+  const elSolu = document.getElementById('input-solucion');
+
+  if (elSol) elSol.value = '';
+  if (elDir) elDir.value = '';
+  if (elCor) elCor.value = '';
+  if (elTel) elTel.value = '';
+  if (elRep) elRep.value = '';
+  if (elRepId) elRepId.value = '';
+  if (clearRepBtn) clearRepBtn.classList.add('hidden');
+  if (elFol) elFol.value = '';
+  if (elMot) elMot.value = '';
+  if (elSolu) elSolu.value = '';
   
   setCanalUI('telefono');
   if (categoriasList.length > 0) setCategoriaUI(categoriasList[0].nombre);
@@ -878,6 +1132,12 @@ function unlockFormForEditing() {
     el.classList.remove('opacity-75', 'cursor-not-allowed');
   });
 
+  const triggerBtn = document.getElementById('btn-trigger-fecha');
+  if (triggerBtn) {
+    triggerBtn.disabled = false;
+    triggerBtn.classList.remove('opacity-50', 'pointer-events-none');
+  }
+
   const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion');
   if (btnCancelarEdicion) btnCancelarEdicion.classList.remove('hidden');
 
@@ -900,30 +1160,125 @@ function unlockFormForEditing() {
 // 10. GUARDAR ASISTENCIA (SIN BLOQUEOS ANTE ERRORES)
 // ============================================================================
 async function guardarAsistencia() {
+  const inputFecha = document.getElementById('input-fecha-atencion');
   const inputSolicitante = document.getElementById('input-solicitante');
+  const inputDireccion = document.getElementById('input-direccion');
+  const inputCorreo = document.getElementById('input-correo');
+  const inputTelefono = document.getElementById('input-telefono');
+  const inputFolio = document.getElementById('input-folio');
   const inputMotivo = document.getElementById('input-motivo');
+  const inputSolucion = document.getElementById('input-solucion');
 
+  const fechaVal = inputFecha?.value.trim();
   const nombre = inputSolicitante?.value.trim();
-  const depto = document.getElementById('input-depto')?.value.trim();
-  const correo = document.getElementById('input-correo')?.value.trim();
-  const contacto = document.getElementById('input-contacto')?.value.trim();
-  const folio = document.getElementById('input-folio')?.value.trim();
+  const direccion = inputDireccion?.value.trim();
+  const correo = inputCorreo?.value.trim();
+  const telefono = inputTelefono?.value.trim();
+  const folio = inputFolio?.value.trim();
   const motivo = inputMotivo?.value.trim();
-  const solucion = document.getElementById('input-solucion')?.value.trim();
+  const solucion = inputSolucion?.value.trim();
 
-  if (!nombre) {
-    showToast('Por favor indica el nombre del solicitante.', 'warning');
-    inputSolicitante?.focus();
-    inputSolicitante?.classList.add('ring-2', 'ring-rose-500');
-    setTimeout(() => inputSolicitante?.classList.remove('ring-2', 'ring-rose-500'), 2500);
+  let finalFechaHora = null;
+  if (fechaAirDatepicker && fechaAirDatepicker.selectedDates && fechaAirDatepicker.selectedDates.length > 0) {
+    const d = fechaAirDatepicker.selectedDates[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const s = String(d.getSeconds()).padStart(2, '0');
+    finalFechaHora = `${y}-${m}-${day} ${h}:${min}:${s}`;
+  }
+
+  const highlightField = (el) => {
+    if (!el) return;
+    el.focus();
+    el.classList.add('ring-2', 'ring-rose-500');
+    setTimeout(() => el.classList.remove('ring-2', 'ring-rose-500'), 2500);
+  };
+
+  // 1. Fecha y Hora Obligatoria
+  if (!fechaVal || !finalFechaHora) {
+    showToast('La fecha y hora de atención es obligatoria.', 'warning');
+    highlightField(inputFecha);
     return;
   }
 
+  // 2. Canal de Contacto Obligatorio
+  if (!selectedCanal) {
+    showToast('Debes seleccionar el canal de contacto.', 'warning');
+    return;
+  }
+
+  // 3. Materia / Categoría Obligatoria
+  if (!selectedCategoria) {
+    showToast('Debes seleccionar la materia o categoría.', 'warning');
+    return;
+  }
+
+  // 4. Nombre Solicitante Obligatorio
+  if (!nombre) {
+    showToast('Por favor indica el nombre del solicitante.', 'warning');
+    highlightField(inputSolicitante);
+    return;
+  }
+
+  // 5. Dirección Municipal Obligatoria y Validación de Catálogo Oficial
+  if (!direccion) {
+    showToast('Por favor selecciona una Dirección Municipal.', 'warning');
+    highlightField(inputDireccion);
+    return;
+  }
+
+  const direccionVal = direccion.toLowerCase();
+  const direccionEncontrada = direccionesList.find(d => 
+    (d.acronimo && d.acronimo.toLowerCase() === direccionVal) || 
+    (d.nombre && d.nombre.toLowerCase() === direccionVal)
+  );
+
+  if (!direccionEncontrada) {
+    showToast('La dirección ingresada no existe en el catálogo oficial. Selecciona una válida.', 'warning');
+    highlightField(inputDireccion);
+    return;
+  }
+
+  // 6. Correo Electrónico Obligatorio
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!correo) {
+    showToast('Por favor indica el correo electrónico del solicitante.', 'warning');
+    highlightField(inputCorreo);
+    return;
+  }
+  if (!emailRegex.test(correo)) {
+    showToast('Por favor ingresa un formato de correo electrónico válido.', 'warning');
+    highlightField(inputCorreo);
+    return;
+  }
+
+  // 7. Teléfono de Contacto Obligatorio
+  if (!telefono) {
+    showToast('Por favor indica el teléfono de contacto.', 'warning');
+    highlightField(inputTelefono);
+    return;
+  }
+
+  // 8. Motivo de la Consulta Obligatorio
   if (!motivo) {
     showToast('Por favor describe el motivo de la consulta.', 'warning');
-    inputMotivo?.focus();
-    inputMotivo?.classList.add('ring-2', 'ring-rose-500');
-    setTimeout(() => inputMotivo?.classList.remove('ring-2', 'ring-rose-500'), 2500);
+    highlightField(inputMotivo);
+    return;
+  }
+
+  // 9. Orientación o Solución Entregada Obligatoria
+  if (!solucion) {
+    showToast('Por favor indica la orientación o respuesta brindada.', 'warning');
+    highlightField(inputSolucion);
+    return;
+  }
+
+  // 10. Estado de Cierre Obligatorio
+  if (!selectedEstado) {
+    showToast('Debes seleccionar el estado de cierre de la atención.', 'warning');
     return;
   }
 
@@ -946,16 +1301,21 @@ async function guardarAsistencia() {
       method,
       body: {
         solicitante_nombre: nombre,
-        solicitante_cargo_depto: depto,
+        solicitante_direccion: direccionEncontrada.acronimo,
+        solicitante_cargo_depto: direccionEncontrada.acronimo,
         solicitante_correo: correo,
-        solicitante_contacto: contacto,
+        solicitante_telefono: telefono,
+        solicitante_contacto: telefono,
+        representado: document.getElementById('input-representado')?.value.trim() || null,
+        representado_id_lobby: document.getElementById('input-representado-id')?.value || null,
         canal: selectedCanal,
         categoria: selectedCategoria,
         folio_lobby: folio,
         motivo_consulta: motivo,
         solucion_orientacion: solucion,
         estado: selectedEstado,
-        contacto_id: currentContactId
+        contacto_id: currentContactId,
+        fecha_hora: finalFechaHora
       }
     });
 
@@ -1002,8 +1362,9 @@ async function prepararCorreoOutlook() {
   }
 
   const nombre = document.getElementById('input-solicitante')?.value.trim() || lastSavedTicket.solicitante_nombre;
-  const depto = document.getElementById('input-depto')?.value.trim() || lastSavedTicket.solicitante_cargo_depto;
+  const direccion = document.getElementById('input-direccion')?.value.trim() || lastSavedTicket.solicitante_direccion || lastSavedTicket.solicitante_cargo_depto;
   const correo = document.getElementById('input-correo')?.value.trim() || lastSavedTicket.solicitante_correo;
+  const representado = lastSavedTicket.representado || document.getElementById('input-representado')?.value.trim() || null;
   const motivo = document.getElementById('input-motivo')?.value.trim() || lastSavedTicket.motivo_consulta;
   const solucion = document.getElementById('input-solucion')?.value.trim() || lastSavedTicket.solucion_orientacion;
   const folio = document.getElementById('input-folio')?.value.trim() || lastSavedTicket.folio_lobby;
@@ -1011,7 +1372,7 @@ async function prepararCorreoOutlook() {
 
   let fechaAtencionStr = '--';
   if (lastSavedTicket.fecha_hora) {
-    const d = new Date(lastSavedTicket.fecha_hora);
+    const d = new Date(lastSavedTicket.fecha_hora.replace(' ', 'T'));
     if (!isNaN(d.getTime())) {
       fechaAtencionStr = d.toLocaleDateString('es-CL', {
         day: '2-digit', month: '2-digit', year: 'numeric',
@@ -1042,7 +1403,7 @@ async function prepararCorreoOutlook() {
         <tr>
           <td style="padding: 18px; border: 1px solid #cbd5e1; border-top: none; background-color: #ffffff;">
             <p style="margin: 0 0 12px 0; font-size: 13px; color: #1e293b;">
-              Estimado(a) <strong>${nombre}</strong>${depto ? ' (' + depto + ')' : ''}:
+              Estimado(a) <strong>${nombre}</strong>${direccion ? ' (' + direccion + ')' : ''}:
             </p>
             <p style="margin: 0 0 14px 0; font-size: 13px; color: #1e293b;">
               A continuación se detalla el registro y la orientación técnica brindada a su consulta:
@@ -1053,6 +1414,11 @@ async function prepararCorreoOutlook() {
                 <td width="140" style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">Ticket N°:</td>
                 <td style="padding: 8px 10px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold; color: #0284c7; font-size: 13px;">${ticket}</td>
               </tr>
+              ${representado ? `
+              <tr style="background-color: #f8fafc;">
+                <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">En representación de:</td>
+                <td style="padding: 8px 10px; border: 1px solid #cbd5e1; color: #1e293b; font-weight: 600;">${representado}</td>
+              </tr>` : ''}
               ${folio ? `
               <tr>
                 <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">Folio Lobby:</td>
@@ -1104,9 +1470,10 @@ async function generarFichaPDF() {
   }
 
   const nombre = document.getElementById('input-solicitante')?.value.trim() || lastSavedTicket.solicitante_nombre;
-  const depto = document.getElementById('input-depto')?.value.trim() || lastSavedTicket.solicitante_cargo_depto;
+  const direccion = document.getElementById('input-direccion')?.value.trim() || lastSavedTicket.solicitante_direccion || lastSavedTicket.solicitante_cargo_depto;
   const correo = document.getElementById('input-correo')?.value.trim() || lastSavedTicket.solicitante_correo;
-  const contacto = document.getElementById('input-contacto')?.value.trim() || lastSavedTicket.solicitante_contacto;
+  const telefono = document.getElementById('input-telefono')?.value.trim() || lastSavedTicket.solicitante_telefono || lastSavedTicket.solicitante_contacto;
+  const representado = lastSavedTicket.representado || document.getElementById('input-representado')?.value.trim() || null;
   const motivo = document.getElementById('input-motivo')?.value.trim() || lastSavedTicket.motivo_consulta;
   const solucion = document.getElementById('input-solucion')?.value.trim() || lastSavedTicket.solucion_orientacion;
   const folio = document.getElementById('input-folio')?.value.trim() || lastSavedTicket.folio_lobby;
@@ -1114,7 +1481,7 @@ async function generarFichaPDF() {
 
   let fechaAtencionPdf = '--';
   if (lastSavedTicket.fecha_hora) {
-    const d = new Date(lastSavedTicket.fecha_hora);
+    const d = new Date(lastSavedTicket.fecha_hora.replace(' ', 'T'));
     if (!isNaN(d.getTime())) {
       fechaAtencionPdf = d.toLocaleDateString('es-CL', {
         day: '2-digit', month: '2-digit', year: 'numeric',
@@ -1171,13 +1538,18 @@ async function generarFichaPDF() {
           <td class="label">Funcionario / Solicitante:</td>
           <td><strong>${nombre}</strong></td>
         </tr>
+        ${representado ? `
         <tr>
-          <td class="label">Dirección / Depto:</td>
-          <td>${depto || 'No especificado'}</td>
+          <td class="label">En representación de:</td>
+          <td><strong>${representado}</strong></td>
+        </tr>` : ''}
+        <tr>
+          <td class="label">Dirección Municipal:</td>
+          <td>${direccion || 'No especificada'}</td>
         </tr>
         <tr>
-          <td class="label">Correo / Contacto:</td>
-          <td>${correo || ''} ${contacto ? ' (' + contacto + ')' : ''}</td>
+          <td class="label">Correo y Teléfono:</td>
+          <td>${correo || ''} ${telefono ? ' (' + telefono + ')' : ''}</td>
         </tr>
         <tr>
           <td class="label">Canal y Categoría:</td>

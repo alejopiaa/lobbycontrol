@@ -4,6 +4,13 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-09-02
+
+### Fixed
+- **Módulo de Asistencias Técnicas**: Corrección de errores en la validación, captura y guardado de información en el formulario de atención.
+- **Bitácora de Asistencias Técnicas**: Corrección de inconsistencias en la persistencia y almacenamiento de registros.
+- **Sincronización**: Corrección de fallos y mejoras de estabilidad en la sincronización de datos.
+
 ## [3.0.0] - 2026-08-31
 
 ### Added
@@ -213,7 +220,8 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Estructura de Datos y Validaciones**: Modelos de almacenamiento, importador de datos y normalización de registros.
 - **Dashboard de Métricas**: Indicadores de cumplimiento y visualización de estados.
 
-[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.10.0...v3.0.0
 [2.10.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.9.1...v2.10.0
 [2.9.1]: https://github.com/alejopiaa/lobbycontrol/compare/v2.9.0...v2.9.1

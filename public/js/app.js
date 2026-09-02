@@ -1471,10 +1471,10 @@ function selectDashboardSuggestion(fieldName, value) {
   if (fieldName === 'nombre' && filters.nombre !== value) {
     filters.cargo = '';
     
-    // Si estamos en vistas con bloqueo reactivo, forzar bloqueo en DOM
+    // Si estamos en cualquier vista con cargo, sincronizar DOM
     const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-    if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
-      if (value === '') {
+    if (cargoInput) {
+      if (!value) {
         cargoInput.disabled = true;
         cargoInput.placeholder = 'Seleccione nombre primero...';
         cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
@@ -1485,7 +1485,19 @@ function selectDashboardSuggestion(fieldName, value) {
         cargoInput.placeholder = 'Escribir cargo...';
         cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
         cargoInput.classList.add('text-text-secondary');
+        cargoInput.value = '';
       }
+      if (typeof syncSearchInputBadge === 'function') {
+        syncSearchInputBadge(cargoInput, '');
+      }
+    }
+  } else if (fieldName === 'nombre' && value) {
+    const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
+    if (cargoInput) {
+      cargoInput.disabled = false;
+      cargoInput.placeholder = 'Escribir cargo...';
+      cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
+      cargoInput.classList.add('text-text-secondary');
     }
   }
 
@@ -1502,6 +1514,9 @@ function selectDashboardSuggestion(fieldName, value) {
   const input = document.getElementById(`${idPrefix}${fieldName}`);
   if (input) {
     input.value = value;
+    if (typeof syncSearchInputBadge === 'function') {
+      syncSearchInputBadge(input, value);
+    }
     input.blur();
   }
   
@@ -1537,7 +1552,7 @@ function hideDashboardSuggestions(fieldName) {
       let list;
       if (fieldName === 'nombre') {
         // En reportes: aceptar cualquier nombre del historial completo (vigentes o no)
-        list = dashboardDropdownCache.nombres;
+        list = dashboardDropdownCache.nombres || [];
       } else if (fieldName === 'sujetoActivoRepresentado') {
         list = dashboardDropdownCache.sujetosActivosRepresentados || [];
       } else if (fieldName === 'cargo') {
@@ -1552,13 +1567,13 @@ function hideDashboardSuggestions(fieldName) {
           });
           list = Array.from(cargosSet);
         } else {
-          list = dashboardDropdownCache.cargos;
+          list = dashboardDropdownCache.cargos || [];
         }
         if (idPrefix === 'report-filter-') {
           list = ['Todos', ...list];
         }
       } else {
-        list = dashboardDropdownCache.anios;
+        list = dashboardDropdownCache.anios || [];
       }
       
       if (val === '') {
@@ -1567,14 +1582,16 @@ function hideDashboardSuggestions(fieldName) {
           if (fieldName === 'nombre') {
             filters.cargo = '';
             
-            // Si estamos en vistas con bloqueo reactivo, forzar bloqueo de cargo en DOM
             const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-            if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
+            if (cargoInput) {
               cargoInput.disabled = true;
               cargoInput.placeholder = 'Seleccione nombre primero...';
               cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
               cargoInput.classList.remove('text-text-secondary');
               cargoInput.value = '';
+              if (typeof syncSearchInputBadge === 'function') {
+                syncSearchInputBadge(cargoInput, '');
+              }
             }
           }
           if (fieldName === 'anio') {
@@ -1583,7 +1600,14 @@ function hideDashboardSuggestions(fieldName) {
             const mainEl = document.getElementById('main-content');
             if (mainEl) mainEl.innerHTML = '';
           }
+          if (typeof syncSearchInputBadge === 'function') {
+            syncSearchInputBadge(input, '');
+          }
           triggerRenderOrFetch();
+        } else {
+          if (typeof syncSearchInputBadge === 'function') {
+            syncSearchInputBadge(input, '');
+          }
         }
       } else {
         const isReportes = (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'));
@@ -1594,13 +1618,16 @@ function hideDashboardSuggestions(fieldName) {
             if (fieldName === 'nombre') {
               filters.cargo = '';
               
-              // Si estamos en vistas con bloqueo reactivo, forzar desbloqueo de cargo en DOM
               const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-              if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
+              if (cargoInput) {
                 cargoInput.disabled = false;
                 cargoInput.placeholder = 'Escribir cargo...';
                 cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
                 cargoInput.classList.add('text-text-secondary');
+                cargoInput.value = '';
+                if (typeof syncSearchInputBadge === 'function') {
+                  syncSearchInputBadge(cargoInput, '');
+                }
               }
             }
             if (fieldName === 'anio') {
@@ -1611,11 +1638,23 @@ function hideDashboardSuggestions(fieldName) {
             }
             filters[fieldName] = matchedItem;
             input.value = matchedItem;
+          } else if (fieldName === 'nombre') {
+            const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
+            if (cargoInput) {
+              cargoInput.disabled = false;
+              cargoInput.placeholder = 'Escribir cargo...';
+              cargoInput.classList.remove('glass-input-disabled', 'cursor-not-allowed');
+              cargoInput.classList.add('text-text-secondary');
+            }
+          }
+          if (typeof syncSearchInputBadge === 'function') {
+            syncSearchInputBadge(input, matchedItem);
           }
           triggerRenderOrFetch();
-        } else if (isReportes) {
-          // En reportes se permite la búsqueda libre / parcial de texto sin rechazar la entrada
+        } else if (isReportes || currentView === 'solicitudes' || currentView === 'publicadas') {
+          // En solicitudes, publicadas y reportes se permite búsqueda libre
           filters[fieldName] = val;
+          input.value = val;
           if (fieldName === 'nombre') {
             const cargoInput = document.getElementById(`${idPrefix}cargo`);
             if (cargoInput) {
@@ -1625,10 +1664,16 @@ function hideDashboardSuggestions(fieldName) {
               cargoInput.classList.add('text-text-secondary');
             }
           }
+          if (typeof syncSearchInputBadge === 'function') {
+            syncSearchInputBadge(input, val);
+          }
           triggerRenderOrFetch();
         } else {
           // Si no existe y no estamos en reportes, rechazar la entrada y volver al valor anterior
           input.value = filters[fieldName] || '';
+          if (typeof syncSearchInputBadge === 'function') {
+            syncSearchInputBadge(input, filters[fieldName] || '');
+          }
           showToast(`El ${fieldName === 'nombre' ? 'nombre' : (fieldName === 'cargo' ? 'cargo' : (fieldName === 'sujetoActivoRepresentado' ? 'sujeto activo/representado' : 'año'))} ingresado no existe en el sistema.`, 'error');
           triggerRenderOrFetch();
         }
@@ -2759,6 +2804,9 @@ document.addEventListener('click', (e) => {
         cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
         cargoInput.classList.remove('text-text-secondary');
         cargoInput.value = '';
+        if (typeof syncSearchInputBadge === 'function') {
+          syncSearchInputBadge(cargoInput, '');
+        }
       }
     }
     
@@ -2773,6 +2821,9 @@ document.addEventListener('click', (e) => {
     if (input) {
       input.value = '';
       input.disabled = (fieldName === 'cargo' && !filters.nombre);
+      if (typeof syncSearchInputBadge === 'function') {
+        syncSearchInputBadge(input, '');
+      }
     }
     
     triggerRenderOrFetch();
@@ -3980,7 +4031,7 @@ async function triggerSharepointSync() {
     // Restaurar los botones
     btn.disabled = false;
     btn.classList.remove('opacity-60', 'cursor-not-allowed');
-    btn.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4"></i> <span>Sincronizar desde SharePoint</span>`;
+    btn.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4"></i> <span>Sincronizar con SharePoint</span>`;
     
     if (btnRegistrar) btnRegistrar.disabled = false;
     
@@ -5089,7 +5140,7 @@ function initDashboardCharts() {
     },
     series: distData,
     labels: ['Ingresadas', 'Aceptadas', 'Rechazadas', 'Suspendidas', 'Canceladas', 'Encomendadas'],
-    colors: [colorSky, colorBrand, colorRose, colorPurple, colorSlate, colorAmber],
+    colors: ['#0284c7', '#2563eb', '#e11d48', '#7c3aed', '#64748b', '#d97706'],
     stroke: {
       show: true,
       width: 2,
@@ -6236,10 +6287,14 @@ function changeAsistenciaSubTab(subTab) {
   } else if (subTab === 'categorias') {
     container.innerHTML = renderAsistenciaCategoriasViewHtml();
     loadCategoriasData();
+  } else if (subTab === 'direcciones') {
+    container.innerHTML = renderAsistenciaDireccionesViewHtml();
+    loadDireccionesData();
   } else {
     container.innerHTML = renderAsistenciaBitacoraViewHtml();
     loadAsistenciaStats();
     loadAsistenciasData();
+    populateBitacoraCategoriasFilter();
   }
 
   // Actualizar estilos de los botones de sub-pestaña
@@ -6259,9 +6314,14 @@ window.changeAsistenciaSubTab = changeAsistenciaSubTab;
 function initAsistenciaTab() {
   if (window.activeAsistenciaSubTab === 'contactos') {
     loadContactosData();
+  } else if (window.activeAsistenciaSubTab === 'categorias') {
+    loadCategoriasData();
+  } else if (window.activeAsistenciaSubTab === 'direcciones') {
+    loadDireccionesData();
   } else {
     loadAsistenciaStats();
     loadAsistenciasData();
+    populateBitacoraCategoriasFilter();
   }
 }
 window.initAsistenciaTab = initAsistenciaTab;
@@ -6589,6 +6649,29 @@ async function loadAsistenciaStats() {
 }
 window.loadAsistenciaStats = loadAsistenciaStats;
 
+async function populateBitacoraCategoriasFilter() {
+  const select = document.getElementById('filter-asistencia-categoria');
+  if (!select) return;
+
+  const currentValue = select.value;
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/asistencias/categorias', method: 'GET' });
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      const options = ['<option value="todas">Materia: Todas</option>'];
+      res.data.forEach(cat => {
+        options.push(`<option value="${cat.nombre}">${cat.nombre}</option>`);
+      });
+      select.innerHTML = options.join('');
+      if (currentValue && (currentValue === 'todas' || res.data.some(c => c.nombre === currentValue))) {
+        select.value = currentValue;
+      }
+    }
+  } catch (err) {
+    console.warn('Error al poblar filtro de materias en bitácora:', err);
+  }
+}
+window.populateBitacoraCategoriasFilter = populateBitacoraCategoriasFilter;
+
 // 2. Cargar Listado Paginado de la Bitácora
 async function loadAsistenciasData() {
   const tbody = document.getElementById('tabla-asistencias-body');
@@ -6695,12 +6778,13 @@ async function loadAsistenciasData() {
             <!-- 3. FUNCIONARIO SOLICITANTE -->
             <td class="px-4 py-3 align-middle text-left min-w-[150px]">
               <div class="font-bold text-text-primary">${r.solicitante_nombre}</div>
-              <div class="text-[10px] text-text-tertiary">${r.solicitante_correo || ''} ${r.solicitante_contacto ? '· ' + r.solicitante_contacto : ''}</div>
+              ${r.representado ? `<div class="text-[11px] leading-snug text-brand-600 dark:text-brand-400 font-medium mt-0.5 break-words" title="En representación de: ${r.representado.replace(/"/g, '&quot;')}">↳ Por: ${r.representado}</div>` : ''}
+              <div class="text-[10px] text-text-tertiary mt-0.5">${r.solicitante_correo || ''} ${(r.solicitante_telefono || r.solicitante_contacto) ? '· ' + (r.solicitante_telefono || r.solicitante_contacto) : ''}</div>
             </td>
 
-            <!-- 4. DIRECCIÓN / DEPTO -->
+            <!-- 4. DIRECCIÓN MUNICIPAL -->
             <td class="px-4 py-3 align-middle text-left w-28">
-              <span class="font-semibold text-text-primary">${r.solicitante_cargo_depto || '<span class="text-text-tertiary italic font-normal">General</span>'}</span>
+              <span class="font-semibold text-text-primary">${r.solicitante_direccion || r.solicitante_cargo_depto || '<span class="text-text-tertiary italic font-normal">General</span>'}</span>
             </td>
 
             <!-- 5. MATERIA (Limpio y legible estilo shadcn/ui) -->
@@ -6814,13 +6898,13 @@ async function loadContactosData() {
             </div>
           </td>
           <td class="px-4 py-3 text-text-secondary">
-            ${c.depto_habitual || '<span class="text-text-tertiary italic">No especificado</span>'}
+            ${c.direccion || c.depto_habitual || '<span class="text-text-tertiary italic">No especificada</span>'}
           </td>
           <td class="px-4 py-3 text-text-secondary font-mono text-[11px]">
             ${c.correo || '<span class="text-text-tertiary italic">Sin correo</span>'}
           </td>
           <td class="px-4 py-3 text-text-secondary">
-            ${c.telefono_anexo || '<span class="text-text-tertiary italic">Sin anexo</span>'}
+            ${c.telefono || c.telefono_anexo || '<span class="text-text-tertiary italic">Sin teléfono</span>'}
           </td>
           <td class="px-3 py-3 text-center">
             <button onclick="filtrarBitacoraPorContacto('${c.nombre}')" class="px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-400 hover:bg-brand-500/20 border border-brand-500/30 text-[10px] font-bold transition-all cursor-pointer" title="Ver atenciones de este contacto">
@@ -6879,7 +6963,7 @@ function openModalNuevoContacto() {
 window.openModalNuevoContacto = openModalNuevoContacto;
 
 async function openModalEditarContacto(id) {
-  let contact = { nombre: '', depto_habitual: '', correo: '', telefono_anexo: '', notas: '' };
+  let contact = { nombre: '', direccion: '', correo: '', telefono: '', notas: '' };
   if (id) {
     try {
       const res = await window.api.invokeRoute({ url: '/api/asistencias/contactos', method: 'GET' });
@@ -6916,8 +7000,8 @@ async function openModalEditarContacto(id) {
             <input type="text" id="modal-contacto-nombre" value="${contact.nombre}" placeholder="Ej. Lorena Soto" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Dirección / Depto Habitual</label>
-            <input type="text" id="modal-contacto-depto" value="${contact.depto_habitual || ''}" placeholder="Ej. Dirección de Tránsito" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Dirección Municipal</label>
+            <input type="text" id="modal-contacto-direccion" value="${contact.direccion || contact.depto_habitual || ''}" placeholder="Ej. Dirección de Obras Municipales" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
@@ -6925,8 +7009,8 @@ async function openModalEditarContacto(id) {
               <input type="text" id="modal-contacto-correo" value="${contact.correo || ''}" placeholder="lsoto@maipu.cl" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
             </div>
             <div>
-              <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Anexo / Teléfono</label>
-              <input type="text" id="modal-contacto-telefono" value="${contact.telefono_anexo || ''}" placeholder="4321" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+              <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Teléfono</label>
+              <input type="text" id="modal-contacto-telefono" value="${contact.telefono || contact.telefono_anexo || ''}" placeholder="4321" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
             </div>
           </div>
           <div>
@@ -6955,7 +7039,7 @@ window.openModalEditarContacto = openModalEditarContacto;
 
 async function guardarContacto(id) {
   const nombre = document.getElementById('modal-contacto-nombre')?.value.trim();
-  const depto = document.getElementById('modal-contacto-depto')?.value.trim();
+  const direccion = document.getElementById('modal-contacto-direccion')?.value.trim();
   const correo = document.getElementById('modal-contacto-correo')?.value.trim();
   const telefono = document.getElementById('modal-contacto-telefono')?.value.trim();
   const notas = document.getElementById('modal-contacto-notas')?.value.trim();
@@ -6974,9 +7058,9 @@ async function guardarContacto(id) {
       method,
       body: {
         nombre,
-        depto_habitual: depto,
+        direccion,
         correo,
-        telefono_anexo: telefono,
+        telefono,
         notas
       }
     });
@@ -7034,7 +7118,7 @@ async function openModalMergeContactos() {
             <div>
               <label class="text-[10px] font-bold uppercase text-emerald-400 block mb-1">1. Selecciona el Contacto Principal (Destino que prevalece):</label>
               <select id="merge-target-id" class="w-full glass-input border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
-                ${contacts.map(c => `<option value="${c.id}">${c.nombre} (${c.depto_habitual || 'Sin Depto'}) - ${c.total_asistencias} atenciones</option>`).join('')}
+                ${contacts.map(c => `<option value="${c.id}">${c.nombre} (${c.direccion || c.depto_habitual || 'Sin Dirección'}) - ${c.total_asistencias} atenciones</option>`).join('')}
               </select>
             </div>
 
@@ -7045,7 +7129,7 @@ async function openModalMergeContactos() {
                   <label class="flex items-center gap-2 p-1.5 hover:bg-border-ui rounded cursor-pointer">
                     <input type="checkbox" name="merge-source" value="${c.id}" class="rounded border-border-ui bg-bg-card text-purple-600 focus:ring-0">
                     <span class="font-medium text-text-secondary">${c.nombre}</span>
-                    <span class="text-[10px] text-text-tertiary">(${c.depto_habitual || 'Sin depto'}) · ${c.total_asistencias} atenciones</span>
+                    <span class="text-[10px] text-text-tertiary">(${c.direccion || c.depto_habitual || 'Sin dirección'}) · ${c.total_asistencias} atenciones</span>
                   </label>
                 `).join('')}
               </div>
@@ -7177,17 +7261,17 @@ async function exportAsistenciasExcel() {
       { header: 'Ticket', key: 'ticket_codigo', width: 16 },
       { header: 'Fecha y Hora', key: 'fecha_hora', width: 20 },
       { header: 'Solicitante', key: 'solicitante_nombre', width: 28 },
-      { header: 'Dirección / Depto', key: 'solicitante_cargo_depto', width: 28 },
+      { header: 'En representación de', key: 'representado', width: 32 },
+      { header: 'Dirección Municipal', key: 'solicitante_direccion', width: 28 },
       { header: 'Correo', key: 'solicitante_correo', width: 25 },
-      { header: 'Contacto / Anexo', key: 'solicitante_contacto', width: 18 },
+      { header: 'Teléfono', key: 'solicitante_telefono', width: 18 },
       { header: 'Canal', key: 'canal', width: 14 },
       { header: 'Materia', key: 'categoria', width: 18 },
       { header: 'Folio Lobby', key: 'folio_lobby', width: 18 },
       { header: 'Motivo de Consulta', key: 'motivo_consulta', width: 40 },
       { header: 'Solución / Orientación', key: 'solucion_orientacion', width: 45 },
       { header: 'Estado', key: 'estado', width: 15 },
-      { header: 'Duración (min)', key: 'duracion_minutos', width: 14 },
-      { header: 'Atendido Por', key: 'created_by', width: 22 }
+      { header: 'Atendido Por', key: 'creado_por', width: 22 }
     ];
 
     const excelRes = await window.api.generateExcelFile({
@@ -7304,9 +7388,10 @@ async function exportAsistenciasConsolidadoPDF() {
                 </td>
                 <td>
                   <strong>${r.solicitante_nombre}</strong><br>
+                  ${r.representado ? `<span style="color: #0284c7; font-size: 8px; font-weight: bold;">↳ Por: ${r.representado}</span><br>` : ''}
                   <span style="color: #64748b;">${r.solicitante_correo || ''}</span>
                 </td>
-                <td>${r.solicitante_cargo_depto || 'General'}</td>
+                <td>${r.solicitante_direccion || r.solicitante_cargo_depto || 'General'}</td>
                 <td>${r.canal.toUpperCase()}</td>
                 <td>${r.categoria.toUpperCase()}</td>
                 <td>
@@ -7357,6 +7442,247 @@ window.exportAsistenciasConsolidadoPDF = exportAsistenciasConsolidadoPDF;
 // ==========================================
 // CONTROLADORES DE CATEGORÍAS DE ASISTENCIA
 // ==========================================
+// MATERIAS / CATEGORÍAS DE ASISTENCIA: REORDENAMIENTO
+// ==========================================
+let ordenCategoriasModificado = false;
+let draggedCategoriaRow = null;
+
+function actualizarIndicesYBotonesCategorias(tbody) {
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll('tr[data-id]');
+  const total = rows.length;
+
+  rows.forEach((row, idx) => {
+    const badge = row.querySelector('.row-order-badge');
+    if (badge) badge.textContent = idx + 1;
+
+    const btnSubir = row.querySelector('.btn-order-up');
+    const btnBajar = row.querySelector('.btn-order-down');
+
+    // Gestión de foco en extremo superior (idx === 0)
+    if (idx === 0) {
+      if (btnSubir && document.activeElement === btnSubir && btnBajar) {
+        btnBajar.focus();
+      }
+      if (btnSubir) btnSubir.disabled = true;
+    } else {
+      if (btnSubir) btnSubir.disabled = false;
+    }
+
+    // Gestión de foco en extremo inferior (idx === total - 1)
+    if (idx === total - 1) {
+      if (btnBajar && document.activeElement === btnBajar && btnSubir) {
+        btnSubir.focus();
+      }
+      if (btnBajar) btnBajar.disabled = true;
+    } else {
+      if (btnBajar) btnBajar.disabled = false;
+    }
+  });
+}
+
+function moverFilaCategoriasDOM(row, direccion) {
+  if (!row || !row.parentNode) return false;
+  const tbody = row.parentNode;
+
+  if (direccion === -1) {
+    const prevRow = row.previousElementSibling;
+    if (prevRow && prevRow.hasAttribute('data-id')) {
+      tbody.insertBefore(row, prevRow);
+      ordenCategoriasModificado = true;
+      actualizarIndicesYBotonesCategorias(tbody);
+      return true;
+    }
+  } else if (direccion === 1) {
+    const nextRow = row.nextElementSibling;
+    if (nextRow && nextRow.hasAttribute('data-id')) {
+      tbody.insertBefore(row, nextRow.nextElementSibling);
+      ordenCategoriasModificado = true;
+      actualizarIndicesYBotonesCategorias(tbody);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function persistirOrdenCategoriasInmediato() {
+  const tbody = document.getElementById('tabla-categorias-body');
+  if (!tbody) return;
+
+  const ids = Array.from(tbody.querySelectorAll('tr[data-id]'))
+                   .map(tr => parseInt(tr.dataset.id, 10))
+                   .filter(id => !isNaN(id) && id > 0);
+
+  if (ids.length === 0) return;
+
+  try {
+    const res = await window.api.invokeRoute({
+      url: '/api/asistencias/categorias/reordenar',
+      method: 'PUT',
+      body: { ids }
+    });
+
+    if (res && res.status === 200) {
+      showToast('Orden de materias actualizado exitosamente.', 'success');
+      populateBitacoraCategoriasFilter();
+    } else {
+      const msg = res?.data?.error || 'Error al persistir orden.';
+      showToast(`No se pudo guardar el orden: ${msg}`, 'error');
+      await loadCategoriasData(); // Rollback fiel a SQLite
+    }
+  } catch (err) {
+    showToast(`Error de comunicación: ${err.message}`, 'error');
+    await loadCategoriasData(); // Rollback fiel a SQLite
+  }
+}
+window.persistirOrdenCategoriasInmediato = persistirOrdenCategoriasInmediato;
+
+function setupCategoriasTableEvents(tbody) {
+  if (!tbody || tbody.dataset.eventsAttached === 'true') return;
+  tbody.dataset.eventsAttached = 'true';
+
+  // 1. TECLADO: keydown (Enter / Espacio)
+  tbody.addEventListener('keydown', (e) => {
+    const btnSubir = e.target.closest('[data-action="subir"]');
+    const btnBajar = e.target.closest('[data-action="bajar"]');
+    const btn = btnSubir || btnBajar;
+    if (!btn) return;
+
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault(); // Inhibe click sintético
+      const row = btn.closest('tr[data-id]');
+      if (!row) return;
+      moverFilaCategoriasDOM(row, btnSubir ? -1 : 1);
+    }
+  });
+
+  // 2. TECLADO: keyup (Enter / Espacio)
+  tbody.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      if (ordenCategoriasModificado) {
+        ordenCategoriasModificado = false;
+        persistirOrdenCategoriasInmediato();
+      }
+    }
+  });
+
+  // 3. MOUSE: click directo sobre botones de subir/bajar
+  tbody.addEventListener('click', (e) => {
+    const btnSubir = e.target.closest('[data-action="subir"]');
+    const btnBajar = e.target.closest('[data-action="bajar"]');
+    const btn = btnSubir || btnBajar;
+    if (!btn) return;
+    const row = btn.closest('tr[data-id]');
+    if (!row) return;
+    const moved = moverFilaCategoriasDOM(row, btnSubir ? -1 : 1);
+    if (moved) {
+      ordenCategoriasModificado = false;
+      persistirOrdenCategoriasInmediato();
+    }
+  });
+
+  // 4. HTML5 DRAG & DROP
+  tbody.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('tr[data-id]');
+    if (!row) return;
+    draggedCategoriaRow = row;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', row.dataset.id);
+
+    // Clon para setDragImage respetando ancho exacto de cada celda
+    const clone = row.cloneNode(true);
+    clone.style.width = `${row.offsetWidth}px`;
+    const origTds = row.querySelectorAll('td');
+    clone.querySelectorAll('td').forEach((td, i) => {
+      if (origTds[i]) td.style.width = `${origTds[i].offsetWidth}px`;
+    });
+    clone.style.position = 'absolute';
+    clone.style.top = '-9999px';
+    clone.style.left = '-9999px';
+    clone.classList.add('bg-bg-header', 'shadow-2xl', 'border', 'border-brand-500');
+    document.body.appendChild(clone);
+    e.dataTransfer.setDragImage(clone, 20, 20);
+    setTimeout(() => clone.remove(), 0);
+
+    row.classList.add('opacity-40', 'bg-brand-500/10');
+  });
+
+  tbody.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetRow = e.target.closest('tr[data-id]');
+    if (!targetRow || targetRow === draggedCategoriaRow) return;
+
+    tbody.querySelectorAll('tr[data-id]').forEach(r => {
+      if (r !== targetRow) r.classList.remove('border-t-2', 'border-b-2', 'border-brand-500');
+    });
+
+    const rect = targetRow.getBoundingClientRect();
+    const offset = e.clientY - rect.top;
+    if (offset < rect.height / 2) {
+      targetRow.classList.add('border-t-2', 'border-brand-500');
+      targetRow.classList.remove('border-b-2');
+    } else {
+      targetRow.classList.add('border-b-2', 'border-brand-500');
+      targetRow.classList.remove('border-t-2');
+    }
+  });
+
+  tbody.addEventListener('dragleave', (e) => {
+    const targetRow = e.target.closest('tr[data-id]');
+    if (targetRow && !targetRow.contains(e.relatedTarget)) {
+      targetRow.classList.remove('border-t-2', 'border-b-2', 'border-brand-500');
+    }
+  });
+
+  tbody.addEventListener('drop', (e) => {
+    e.preventDefault();
+    tbody.querySelectorAll('tr[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-b-2', 'border-brand-500'));
+
+    const targetRow = e.target.closest('tr[data-id]');
+    if (!targetRow || !draggedCategoriaRow || targetRow === draggedCategoriaRow) return;
+
+    const rect = targetRow.getBoundingClientRect();
+    const offset = e.clientY - rect.top;
+
+    if (offset < rect.height / 2) {
+      tbody.insertBefore(draggedCategoriaRow, targetRow);
+    } else {
+      tbody.insertBefore(draggedCategoriaRow, targetRow.nextElementSibling);
+    }
+
+    actualizarIndicesYBotonesCategorias(tbody);
+    persistirOrdenCategoriasInmediato();
+  });
+
+  tbody.addEventListener('dragend', () => {
+    if (draggedCategoriaRow) {
+      draggedCategoriaRow.classList.remove('opacity-40', 'bg-brand-500/10');
+      draggedCategoriaRow = null;
+    }
+    tbody.querySelectorAll('tr[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-b-2', 'border-brand-500'));
+  });
+}
+
+window.isCategoriasReordering = false;
+
+function toggleReordenarCategorias() {
+  window.isCategoriasReordering = !window.isCategoriasReordering;
+  const btn = document.getElementById('btn-toggle-reordenar-categorias');
+  if (btn) {
+    if (window.isCategoriasReordering) {
+      btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold border border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs";
+      btn.innerHTML = '<i data-lucide="check" class="h-3.5 w-3.5"></i> <span>Finalizar Orden</span>';
+    } else {
+      btn.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border border-border-ui bg-bg-card hover:bg-border-ui text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-all cursor-pointer";
+      btn.innerHTML = '<i data-lucide="arrow-up-down" class="h-3.5 w-3.5"></i> <span>Reordenar</span>';
+    }
+    if (window.lucide) window.lucide.createIcons();
+  }
+  loadCategoriasData();
+}
+window.toggleReordenarCategorias = toggleReordenarCategorias;
+
 async function loadCategoriasData() {
   const tbody = document.getElementById('tabla-categorias-body');
   if (!tbody) return;
@@ -7370,12 +7696,50 @@ async function loadCategoriasData() {
         return;
       }
 
+      const isReordering = Boolean(window.isCategoriasReordering);
+
       tbody.innerHTML = rows.map((cat, idx) => `
-        <tr class="hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors">
-          <td class="px-4 py-3 font-mono text-text-tertiary text-xs">${idx + 1}</td>
-          <td class="px-4 py-3 font-bold text-text-primary flex items-center gap-2">
-            <i data-lucide="tag" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i>
-            <span>${cat.nombre}</span>
+        <tr data-id="${cat.id}" ${isReordering ? 'draggable="true"' : ''} class="hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors group">
+          <td class="px-4 py-2.5 text-xs text-text-secondary whitespace-nowrap text-center">
+            ${isReordering ? `
+              <div class="flex items-center justify-center gap-2">
+                <!-- Drag Handle -->
+                <span class="drag-handle cursor-grab active:cursor-grabbing p-1 rounded hover:bg-border-ui text-text-tertiary hover:text-text-primary transition-colors inline-flex items-center" title="Arrastrar para reordenar">
+                  <i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i>
+                </span>
+                <!-- Posición / Índice -->
+                <span class="row-order-badge font-mono text-[11px] font-semibold text-text-tertiary w-5 text-center">${idx + 1}</span>
+                <!-- Botones Subir / Bajar -->
+                <div class="flex flex-col gap-0.5">
+                  <button type="button" 
+                          data-action="subir" 
+                          data-id="${cat.id}" 
+                          aria-label="Subir materia ${cat.nombre}" 
+                          title="Subir"
+                          class="btn-order-up p-0.5 rounded hover:bg-border-ui hover:text-brand-600 dark:hover:text-brand-400 text-text-tertiary transition-colors disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer" 
+                          ${idx === 0 ? 'disabled' : ''}>
+                    <i data-lucide="chevron-up" class="h-3 w-3"></i>
+                  </button>
+                  <button type="button" 
+                          data-action="bajar" 
+                          data-id="${cat.id}" 
+                          aria-label="Bajar materia ${cat.nombre}" 
+                          title="Bajar"
+                          class="btn-order-down p-0.5 rounded hover:bg-border-ui hover:text-brand-600 dark:hover:text-brand-400 text-text-tertiary transition-colors disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer" 
+                          ${idx === rows.length - 1 ? 'disabled' : ''}>
+                    <i data-lucide="chevron-down" class="h-3 w-3"></i>
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <span class="font-mono text-[11px] font-semibold text-text-tertiary">${idx + 1}</span>
+            `}
+          </td>
+          <td class="px-4 py-3 font-bold text-text-primary">
+            <div class="flex items-center gap-2">
+              <i data-lucide="tag" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400 shrink-0"></i>
+              <span>${cat.nombre}</span>
+            </div>
           </td>
           <td class="px-4 py-3 text-text-secondary text-xs">${cat.descripcion || '-'}</td>
           <td class="px-4 py-3 text-right">
@@ -7391,6 +7755,9 @@ async function loadCategoriasData() {
         </tr>
       `).join('');
 
+      if (isReordering) {
+        setupCategoriasTableEvents(tbody);
+      }
       if (window.lucide) window.lucide.createIcons();
     }
   } catch (err) {
@@ -7499,12 +7866,10 @@ async function guardarCategoria(id) {
 window.guardarCategoria = guardarCategoria;
 
 function eliminarCategoria(id, nombre) {
-  showLobbyConfirmModal({
-    title: 'Eliminar Materia',
-    message: `¿Estás seguro de eliminar la materia "${nombre}"?`,
-    acceptText: 'Sí, Eliminar',
-    isDanger: true,
-    onConfirm: async () => {
+  openConfirmModal(
+    'Eliminar Materia',
+    `¿Estás seguro de eliminar la materia "${nombre}"?`,
+    async () => {
       try {
         const res = await window.api.invokeRoute({
           url: `/api/asistencias/categorias/${id}`,
@@ -7521,9 +7886,402 @@ function eliminarCategoria(id, nombre) {
         showToast('Error al eliminar: ' + err.message, 'error');
       }
     }
-  });
+  );
 }
 window.eliminarCategoria = eliminarCategoria;
+
+// ─── GESTIÓN DE DIRECCIONES MUNICIPALES ─────────────────────────────────────
+window.isDireccionesReordering = false;
+
+function toggleReordenarDirecciones() {
+  window.isDireccionesReordering = !window.isDireccionesReordering;
+  const btn = document.getElementById('btn-toggle-reordenar-direcciones');
+  if (btn) {
+    if (window.isDireccionesReordering) {
+      btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold border border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs";
+      btn.innerHTML = '<i data-lucide="check" class="h-3.5 w-3.5"></i> <span>Finalizar Orden</span>';
+    } else {
+      btn.className = "px-3 py-1.5 rounded-xl text-xs font-semibold border border-border-ui bg-bg-card hover:bg-border-ui text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-all cursor-pointer";
+      btn.innerHTML = '<i data-lucide="arrow-up-down" class="h-3.5 w-3.5"></i> <span>Reordenar</span>';
+    }
+    if (window.lucide) window.lucide.createIcons();
+  }
+  loadDireccionesData();
+}
+window.toggleReordenarDirecciones = toggleReordenarDirecciones;
+
+async function reorderDirecciones(orderedIds) {
+  try {
+    const res = await window.api.invokeRoute({
+      url: '/api/direcciones/reordenar',
+      method: 'PUT',
+      body: { ids: orderedIds }
+    });
+
+    if (res && res.status === 200) {
+      showToast('Orden de direcciones actualizado.', 'success');
+      await loadDireccionesData();
+    } else if (res && res.status === 409 && res.data?.refresh_required) {
+      showToast('El catálogo de direcciones cambió concurrentemente. Refrescando...', 'warn');
+      await loadDireccionesData();
+    } else {
+      showToast(res?.data?.error || 'No se pudo guardar el nuevo orden.', 'error');
+      await loadDireccionesData();
+    }
+  } catch (err) {
+    showToast('Error al reordenar direcciones: ' + err.message, 'error');
+    await loadDireccionesData();
+  }
+}
+
+function setupDireccionesTableEvents(tbody) {
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn || btn.disabled) return;
+
+    const action = btn.getAttribute('data-action');
+    const currentRow = btn.closest('tr[data-id]');
+    if (!currentRow) return;
+
+    const allRows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+    const currentIndex = allRows.indexOf(currentRow);
+    if (currentIndex === -1) return;
+
+    let targetIndex = -1;
+    if (action === 'subir' && currentIndex > 0) {
+      targetIndex = currentIndex - 1;
+    } else if (action === 'bajar' && currentIndex < allRows.length - 1) {
+      targetIndex = currentIndex + 1;
+    }
+
+    if (targetIndex !== -1) {
+      const targetRow = allRows[targetIndex];
+      if (action === 'subir') {
+        tbody.insertBefore(currentRow, targetRow);
+      } else {
+        tbody.insertBefore(currentRow, targetRow.nextSibling);
+      }
+
+      const newOrderedRows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+      const newIds = newOrderedRows.map(r => parseInt(r.getAttribute('data-id'), 10));
+
+      newOrderedRows.forEach((row, idx) => {
+        const badge = row.querySelector('.row-order-badge');
+        if (badge) badge.textContent = idx + 1;
+        const upBtn = row.querySelector('.btn-order-up');
+        const downBtn = row.querySelector('.btn-order-down');
+        if (upBtn) upBtn.disabled = (idx === 0);
+        if (downBtn) downBtn.disabled = (idx === newOrderedRows.length - 1);
+      });
+
+      const movedBtn = currentRow.querySelector(`button[data-action="${action}"]`);
+      if (movedBtn && !movedBtn.disabled) {
+        movedBtn.focus();
+      } else {
+        const alternateAction = action === 'subir' ? 'bajar' : 'subir';
+        const alternateBtn = currentRow.querySelector(`button[data-action="${alternateAction}"]`);
+        if (alternateBtn) alternateBtn.focus();
+      }
+
+      await reorderDirecciones(newIds);
+    }
+  });
+
+  // Drag & Drop nativo
+  let draggedRow = null;
+
+  tbody.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('tr[data-id]');
+    if (!row) return;
+    draggedRow = row;
+    row.classList.add('opacity-40', 'bg-brand-500/10');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', row.getAttribute('data-id'));
+  });
+
+  tbody.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetRow = e.target.closest('tr[data-id]');
+    if (!targetRow || targetRow === draggedRow) return;
+
+    tbody.querySelectorAll('tr[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-b-2', 'border-brand-500'));
+    const rect = targetRow.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      targetRow.classList.add('border-t-2', 'border-brand-500');
+    } else {
+      targetRow.classList.add('border-b-2', 'border-brand-500');
+    }
+  });
+
+  tbody.addEventListener('dragleave', (e) => {
+    const targetRow = e.target.closest('tr[data-id]');
+    if (targetRow && !targetRow.contains(e.relatedTarget)) {
+      targetRow.classList.remove('border-t-2', 'border-b-2', 'border-brand-500');
+    }
+  });
+
+  tbody.addEventListener('dragend', () => {
+    if (draggedRow) {
+      draggedRow.classList.remove('opacity-40', 'bg-brand-500/10');
+      draggedRow = null;
+    }
+    tbody.querySelectorAll('tr[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-b-2', 'border-brand-500'));
+  });
+
+  tbody.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const targetRow = e.target.closest('tr[data-id]');
+    if (!targetRow || !draggedRow || targetRow === draggedRow) return;
+
+    const rect = targetRow.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      tbody.insertBefore(draggedRow, targetRow);
+    } else {
+      tbody.insertBefore(draggedRow, targetRow.nextSibling);
+    }
+
+    tbody.querySelectorAll('tr[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-b-2', 'border-brand-500'));
+    const newOrderedRows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+    const newIds = newOrderedRows.map(r => parseInt(r.getAttribute('data-id'), 10));
+
+    newOrderedRows.forEach((row, idx) => {
+      const badge = row.querySelector('.row-order-badge');
+      if (badge) badge.textContent = idx + 1;
+      const upBtn = row.querySelector('.btn-order-up');
+      const downBtn = row.querySelector('.btn-order-down');
+      if (upBtn) upBtn.disabled = (idx === 0);
+      if (downBtn) downBtn.disabled = (idx === newOrderedRows.length - 1);
+    });
+
+    await reorderDirecciones(newIds);
+  });
+}
+
+async function loadDireccionesData() {
+  const tbody = document.getElementById('tabla-direcciones-body');
+  if (!tbody) return;
+
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/direcciones', method: 'GET' });
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      const rows = res.data;
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-text-tertiary">No hay direcciones municipales registradas.</td></tr>';
+        return;
+      }
+
+      const isReordering = Boolean(window.isDireccionesReordering);
+
+      tbody.innerHTML = rows.map((dir, idx) => `
+        <tr data-id="${dir.id}" ${isReordering ? 'draggable="true"' : ''} class="hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors group">
+          <td class="px-4 py-2.5 text-xs text-text-secondary whitespace-nowrap text-center">
+            ${isReordering ? `
+              <div class="flex items-center justify-center gap-2">
+                <!-- Drag Handle -->
+                <span class="drag-handle cursor-grab active:cursor-grabbing p-1 rounded hover:bg-border-ui text-text-tertiary hover:text-text-primary transition-colors inline-flex items-center" title="Arrastrar para reordenar">
+                  <i data-lucide="grip-vertical" class="h-3.5 w-3.5"></i>
+                </span>
+                <!-- Posición / Índice -->
+                <span class="row-order-badge font-mono text-[11px] font-semibold text-text-tertiary w-5 text-center">${idx + 1}</span>
+                <!-- Botones Subir / Bajar -->
+                <div class="flex flex-col gap-0.5">
+                  <button type="button" 
+                          data-action="subir" 
+                          data-id="${dir.id}" 
+                          aria-label="Subir dirección ${dir.acronimo}" 
+                          title="Subir"
+                          class="btn-order-up p-0.5 rounded hover:bg-border-ui hover:text-brand-600 dark:hover:text-brand-400 text-text-tertiary transition-colors disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer" 
+                          ${idx === 0 ? 'disabled' : ''}>
+                    <i data-lucide="chevron-up" class="h-3 w-3"></i>
+                  </button>
+                  <button type="button" 
+                          data-action="bajar" 
+                          data-id="${dir.id}" 
+                          aria-label="Bajar dirección ${dir.acronimo}" 
+                          title="Bajar"
+                          class="btn-order-down p-0.5 rounded hover:bg-border-ui hover:text-brand-600 dark:hover:text-brand-400 text-text-tertiary transition-colors disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer" 
+                          ${idx === rows.length - 1 ? 'disabled' : ''}>
+                    <i data-lucide="chevron-down" class="h-3 w-3"></i>
+                  </button>
+                </div>
+              </div>
+            ` : `
+              <span class="font-mono text-[11px] font-semibold text-text-tertiary">${idx + 1}</span>
+            `}
+          </td>
+          <td class="px-4 py-3 font-bold text-text-primary">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 font-mono font-bold text-xs border border-brand-500/20">
+                ${dir.acronimo}
+              </span>
+            </div>
+          </td>
+          <td class="px-4 py-3 text-text-primary font-medium text-xs">
+            ${dir.nombre}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="openModalEditarDireccion(${dir.id})" class="p-1.5 rounded-lg bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary hover:text-brand-600 dark:hover:text-brand-400 border border-border-ui transition-colors cursor-pointer" title="Editar dirección">
+                <i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
+              </button>
+              <button onclick="eliminarDireccion(${dir.id}, '${dir.acronimo.replace(/'/g, "\\'")}', '${dir.nombre.replace(/'/g, "\\'")}')" class="p-1.5 rounded-lg bg-border-ui hover:bg-rose-50 dark:hover:bg-rose-600/20 text-text-tertiary hover:text-rose-600 dark:hover:text-rose-400 border border-border-ui transition-colors cursor-pointer" title="Eliminar dirección">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      if (isReordering) {
+        setupDireccionesTableEvents(tbody);
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-rose-500">Error al cargar direcciones: ${err.message}</td></tr>`;
+  }
+}
+window.loadDireccionesData = loadDireccionesData;
+
+function openModalNuevaDireccion() {
+  openModalEditarDireccion(null);
+}
+window.openModalNuevaDireccion = openModalNuevaDireccion;
+
+async function openModalEditarDireccion(id) {
+  let dir = { acronimo: '', nombre: '', orden: 0 };
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/direcciones', method: 'GET' });
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      if (id) {
+        const found = res.data.find(d => d.id === id);
+        if (found) dir = found;
+      } else {
+        const maxOrden = res.data.length > 0 ? Math.max(...res.data.map(d => parseInt(d.orden, 10) || 0)) : 0;
+        dir.orden = maxOrden + 1;
+      }
+    }
+  } catch (err) {
+    console.error('Error al cargar datos para modal de dirección:', err);
+  }
+
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div class="fixed inset-0 bg-bg-main backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="glass-card bg-bg-card border border-border-ui rounded-3xl w-full max-w-md shadow-2xl overflow-hidden modal-animate-in flex flex-col text-text-primary text-left">
+        
+        <div class="p-4 border-b border-border-ui flex items-center justify-between bg-bg-main">
+          <h3 class="font-bold text-sm text-text-primary flex items-center gap-2">
+            <i data-lucide="building-2" class="h-4 w-4 text-brand-600 dark:text-brand-400"></i>
+            <span>${id ? 'Editar Dirección Municipal' : 'Nueva Dirección Municipal'}</span>
+          </h3>
+          <button onclick="closeModal()" class="p-1.5 rounded-lg hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-tertiary hover:text-text-primary dark:hover:text-text-primary transition-colors cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <div class="p-4 space-y-3 text-xs">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="col-span-1">
+              <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Acrónimo *</label>
+              <input type="text" id="modal-dir-acronimo" value="${dir.acronimo}" placeholder="Ej. DOM" maxlength="10" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-mono font-bold uppercase" oninput="this.value = this.value.toUpperCase()">
+            </div>
+            <div class="col-span-2">
+              <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Orden de Visualización</label>
+              <input type="number" id="modal-dir-orden" value="${dir.orden || 0}" min="1" placeholder="1" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+            </div>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre Oficial de la Dirección *</label>
+            <input type="text" id="modal-dir-nombre" value="${dir.nombre}" placeholder="Ej. Dirección de Obras Municipales" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+          </div>
+        </div>
+
+        <div class="p-3.5 border-t border-border-ui bg-bg-main flex items-center justify-end gap-2">
+          <button onclick="closeModal()" class="px-3.5 py-1.5 rounded-lg bg-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-secondary text-xs font-semibold transition-colors cursor-pointer">
+            Cancelar
+          </button>
+          <button onclick="guardarDireccion(${id || 'null'})" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer">
+            Guardar Dirección
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  if (window.lucide) window.lucide.createIcons();
+}
+window.openModalEditarDireccion = openModalEditarDireccion;
+
+async function guardarDireccion(id) {
+  const acronimo = document.getElementById('modal-dir-acronimo')?.value.trim().toUpperCase();
+  const nombre = document.getElementById('modal-dir-nombre')?.value.trim();
+  const orden = parseInt(document.getElementById('modal-dir-orden')?.value, 10) || 0;
+
+  if (!acronimo) {
+    showToast('El acrónimo de la dirección es obligatorio (ej. DOM).', 'error');
+    return;
+  }
+  if (!nombre) {
+    showToast('El nombre oficial de la dirección es obligatorio.', 'error');
+    return;
+  }
+
+  try {
+    const isEdit = Boolean(id);
+    const url = isEdit ? `/api/direcciones/${id}` : '/api/direcciones';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await window.api.invokeRoute({
+      url,
+      method,
+      body: { acronimo, nombre, orden }
+    });
+
+    if (res && (res.status === 200 || res.status === 201)) {
+      showToast(isEdit ? 'Dirección actualizada con éxito.' : 'Dirección creada con éxito.', 'success');
+      closeModal();
+      loadDireccionesData();
+    } else {
+      showToast('Error: ' + (res?.data?.error || 'No se pudo guardar'), 'error');
+    }
+  } catch (err) {
+    showToast('Error al guardar dirección: ' + err.message, 'error');
+  }
+}
+window.guardarDireccion = guardarDireccion;
+
+function eliminarDireccion(id, acronimo, nombre) {
+  openConfirmModal(
+    'Eliminar Dirección',
+    `¿Estás seguro de eliminar la dirección "${acronimo} - ${nombre}"?`,
+    async () => {
+      try {
+        const res = await window.api.invokeRoute({
+          url: `/api/direcciones/${id}`,
+          method: 'DELETE'
+        });
+
+        if (res && res.status === 200) {
+          showToast('Dirección eliminada exitosamente.', 'success');
+          loadDireccionesData();
+        } else {
+          showToast('Error al eliminar dirección: ' + (res?.data?.error || 'Error desconocido'), 'error');
+        }
+      } catch (err) {
+        showToast('Error al eliminar: ' + err.message, 'error');
+      }
+    }
+  );
+}
+window.eliminarDireccion = eliminarDireccion;
 
 
 // ─── ACCIONES DE ASISTENCIA TÉCNICA ───────────────────────────────────────

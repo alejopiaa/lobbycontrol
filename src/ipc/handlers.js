@@ -46,6 +46,8 @@ app.whenReady().then(async () => {
                 console.log(`[SSO Sync] Sincronización de usuarios en arranque terminada. ¿Cambios?: ${usersUpdated}`);
                 const lobbyUpdated = await checkAndSyncDatabase(database, cookieHeader, "lobby");
                 console.log(`[SSO Sync] Sincronización de lobby en arranque terminada. ¿Cambios?: ${lobbyUpdated}`);
+                const asistenciasUpdated = await checkAndSyncDatabase(database.asistenciasDb, cookieHeader, "asistencias");
+                console.log(`[SSO Sync] Sincronización de asistencias en arranque terminada. ¿Cambios?: ${asistenciasUpdated}`);
               } catch (syncErr) {
                 console.error("[SSO Sync] Error al sincronizar en arranque:", syncErr.message);
                 const { logError } = require("../config/logger");

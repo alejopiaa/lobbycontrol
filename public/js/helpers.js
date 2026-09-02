@@ -398,6 +398,9 @@ function calculateDashboardStats(rawData, filters) {
   // Calcular porcentajes para pendientes (DDP vs FDP relativas a pendientes)
   const [pctDdp, pctFdp] = roundPercentagesTo100([ddpCount, fdpCount], pendientesCount);
 
+  const rawTotal = Array.isArray(rawData) ? rawData.length : 0;
+  const pctUniversal = rawTotal > 0 ? (total >= rawTotal ? 100 : parseFloat(((total / rawTotal) * 100).toFixed(1))) : 100;
+
   return {
     totales: { 
       total, 
@@ -406,7 +409,8 @@ function calculateDashboardStats(rawData, filters) {
       publicadas: publicadasCount, 
       pendientesPublicacion: pendientesPublicacionCount,
       pctPublicadas,
-      pctPendientesPublicacion
+      pctPendientesPublicacion,
+      pctUniversal
     },
     respondidas: { rdp: rdpCount, rfp: rfpCount, pctRdp, pctRfp, pctTotal: pctRespondidas },
     pendientes: { ddp: ddpCount, fdp: fdpCount, pctDdp, pctFdp, pctTotal: pctPendientes },

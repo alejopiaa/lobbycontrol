@@ -66,7 +66,9 @@ async function downloadAuthenticatedFile(url, destPath, cookieHeader) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Fallo de descarga HTTP ${response.status}: ${response.statusText}`);
+      const httpErr = new Error(`Fallo de descarga HTTP ${response.status}: ${response.statusText}`);
+      httpErr.status = response.status;
+      throw httpErr;
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -116,10 +118,73 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
     });
   });
 
+  const execRun = (dbHandle, sql, params = []) => new Promise((resolve, reject) => {
+    dbHandle.run(sql, params, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
   try {
+    // 0. Asegurar esquema y columnas canónicas en targetAsistenciasDb antes de procesar el delta
+    const contactCols = await queryAll(targetAsistenciasDb, "PRAGMA table_info(contactos_asistencia)");
+    const contactColNames = contactCols.map(c => c.name);
+
+    if (!contactColNames.includes('direccion')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE contactos_asistencia ADD COLUMN direccion TEXT");
+      if (contactColNames.includes('depto_habitual')) {
+        await execRun(targetAsistenciasDb, "UPDATE contactos_asistencia SET direccion = depto_habitual WHERE direccion IS NULL OR direccion = ''");
+      }
+    }
+    if (!contactColNames.includes('telefono')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE contactos_asistencia ADD COLUMN telefono TEXT");
+      if (contactColNames.includes('telefono_anexo')) {
+        await execRun(targetAsistenciasDb, "UPDATE contactos_asistencia SET telefono = telefono_anexo WHERE telefono IS NULL OR telefono = ''");
+      }
+    }
+    if (!contactColNames.includes('uuid')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE contactos_asistencia ADD COLUMN uuid TEXT");
+      try {
+        await execRun(targetAsistenciasDb, "CREATE UNIQUE INDEX IF NOT EXISTS idx_contactos_uuid ON contactos_asistencia(uuid)");
+      } catch (e) {}
+    }
+
+    const bitacoraCols = await queryAll(targetAsistenciasDb, "PRAGMA table_info(bitacora_asistencias)");
+    const bitacoraColNames = bitacoraCols.map(c => c.name);
+
+    if (!bitacoraColNames.includes('solicitante_direccion')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN solicitante_direccion TEXT");
+      if (bitacoraColNames.includes('solicitante_cargo_depto')) {
+        await execRun(targetAsistenciasDb, "UPDATE bitacora_asistencias SET solicitante_direccion = solicitante_cargo_depto WHERE solicitante_direccion IS NULL OR solicitante_direccion = ''");
+      }
+    }
+    if (!bitacoraColNames.includes('solicitante_telefono')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN solicitante_telefono TEXT");
+      if (bitacoraColNames.includes('solicitante_contacto')) {
+        await execRun(targetAsistenciasDb, "UPDATE bitacora_asistencias SET solicitante_telefono = solicitante_contacto WHERE solicitante_telefono IS NULL OR solicitante_telefono = ''");
+      }
+    }
+    if (!bitacoraColNames.includes('representado')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN representado TEXT");
+    }
+    if (!bitacoraColNames.includes('representado_id_lobby')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN representado_id_lobby INTEGER");
+    }
+    if (!bitacoraColNames.includes('contacto_uuid')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN contacto_uuid TEXT");
+      try {
+        await execRun(targetAsistenciasDb, "CREATE INDEX IF NOT EXISTS idx_bitacora_contacto_uuid ON bitacora_asistencias(contacto_uuid)");
+      } catch (e) {}
+    }
+
     const remoteCategories = await queryAll(sourceDb, "SELECT * FROM asistencia_categorias");
     const remoteContacts = await queryAll(sourceDb, "SELECT * FROM contactos_asistencia");
     const remoteBitacoras = await queryAll(sourceDb, "SELECT * FROM bitacora_asistencias");
+
+    let remoteDirecciones = [];
+    try {
+      remoteDirecciones = await queryAll(sourceDb, "SELECT * FROM direcciones_municipales");
+    } catch (dErr) {}
 
     // 1. Sincronizar Categorías
     for (const cat of remoteCategories) {
@@ -140,23 +205,44 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
       });
     }
 
+    // 1.1 Sincronizar Direcciones Municipales
+    for (const d of remoteDirecciones) {
+      await new Promise((resolve, reject) => {
+        targetAsistenciasDb.run(`
+          INSERT INTO direcciones_municipales (acronimo, nombre, orden, activo, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(acronimo) DO UPDATE SET
+            nombre = COALESCE(excluded.nombre, direcciones_municipales.nombre),
+            orden = COALESCE(excluded.orden, direcciones_municipales.orden),
+            activo = COALESCE(excluded.activo, direcciones_municipales.activo),
+            updated_at = excluded.updated_at
+          WHERE excluded.updated_at > direcciones_municipales.updated_at
+        `, [d.acronimo, d.nombre, d.orden || 0, d.activo !== undefined ? d.activo : 1, d.created_at, d.updated_at], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
     // 2. Sincronizar Contactos (Identificador Universal: uuid)
     const crypto = require('crypto');
     for (const c of remoteContacts) {
       const contactUuid = c.uuid || crypto.randomUUID();
+      const contactDir = c.direccion !== undefined ? c.direccion : (c.depto_habitual || '');
+      const contactTel = c.telefono !== undefined ? c.telefono : (c.telefono_anexo || '');
       await new Promise((resolve, reject) => {
         targetAsistenciasDb.run(`
-          INSERT INTO contactos_asistencia (uuid, nombre, depto_habitual, correo, telefono_anexo, notas, created_at, updated_at)
+          INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, notas, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(uuid) DO UPDATE SET
             nombre = excluded.nombre,
-            depto_habitual = COALESCE(excluded.depto_habitual, contactos_asistencia.depto_habitual),
+            direccion = COALESCE(excluded.direccion, contactos_asistencia.direccion),
             correo = COALESCE(excluded.correo, contactos_asistencia.correo),
-            telefono_anexo = COALESCE(excluded.telefono_anexo, contactos_asistencia.telefono_anexo),
+            telefono = COALESCE(excluded.telefono, contactos_asistencia.telefono),
             notas = COALESCE(excluded.notas, contactos_asistencia.notas),
             updated_at = excluded.updated_at
           WHERE excluded.updated_at > contactos_asistencia.updated_at
-        `, [contactUuid, c.nombre, c.depto_habitual, c.correo, c.telefono_anexo, c.notas, c.created_at, c.updated_at], (err) => {
+        `, [contactUuid, c.nombre, contactDir, c.correo, contactTel, c.notas, c.created_at, c.updated_at], (err) => {
           if (err) reject(err);
           else resolve();
         });
@@ -179,36 +265,41 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
         }
       }
 
+      const bitacoraDir = b.solicitante_direccion !== undefined ? b.solicitante_direccion : (b.solicitante_cargo_depto || '');
+      const bitacoraTel = b.solicitante_telefono !== undefined ? b.solicitante_telefono : (b.solicitante_contacto || '');
+      const bitacoraRep = (b.representado !== undefined && b.representado !== null && typeof b.representado === 'string' && b.representado.trim()) ? b.representado.trim() : null;
+      const bitacoraRepId = (b.representado_id_lobby !== undefined && b.representado_id_lobby !== null && !isNaN(b.representado_id_lobby)) ? parseInt(b.representado_id_lobby, 10) : null;
+
       await new Promise((resolve, reject) => {
         targetAsistenciasDb.run(`
           INSERT INTO bitacora_asistencias (
-            ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_cargo_depto,
-            solicitante_correo, solicitante_contacto, categoria, folio_lobby, sujeto_pasivo,
-            motivo_consulta, solucion_orientacion, estado, duracion_minutos, creado_por, updated_by, created_at, updated_at
+            ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_direccion,
+            solicitante_correo, solicitante_telefono, categoria, folio_lobby,
+            motivo_consulta, solucion_orientacion, estado, representado, representado_id_lobby, creado_por, updated_by, created_at, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(ticket_codigo) DO UPDATE SET
             contacto_id = excluded.contacto_id,
             contacto_uuid = excluded.contacto_uuid,
             solicitante_nombre = excluded.solicitante_nombre,
-            solicitante_cargo_depto = excluded.solicitante_cargo_depto,
+            solicitante_direccion = excluded.solicitante_direccion,
             solicitante_correo = excluded.solicitante_correo,
-            solicitante_contacto = excluded.solicitante_contacto,
+            solicitante_telefono = excluded.solicitante_telefono,
             canal = excluded.canal,
             categoria = excluded.categoria,
             folio_lobby = excluded.folio_lobby,
-            sujeto_pasivo = excluded.sujeto_pasivo,
             motivo_consulta = excluded.motivo_consulta,
             solucion_orientacion = excluded.solucion_orientacion,
             estado = excluded.estado,
-            duracion_minutos = excluded.duracion_minutos,
+            representado = excluded.representado,
+            representado_id_lobby = excluded.representado_id_lobby,
             updated_by = excluded.updated_by,
             updated_at = excluded.updated_at
           WHERE excluded.updated_at > bitacora_asistencias.updated_at
         `, [
-          b.ticket_codigo, resolvedContactId, resolvedContactUuid, b.fecha_hora, b.canal || 'telefono', b.solicitante_nombre, b.solicitante_cargo_depto,
-          b.solicitante_correo, b.solicitante_contacto, b.categoria, b.folio_lobby,
-          b.sujeto_pasivo || b.sujeto_pasivo_nombre, b.motivo_consulta, b.solucion_orientacion, b.estado,
-          b.duracion_minutos || 5, b.creado_por || b.created_by, b.updated_by, b.created_at, b.updated_at
+          b.ticket_codigo, resolvedContactId, resolvedContactUuid, b.fecha_hora, b.canal || 'telefono', b.solicitante_nombre, bitacoraDir,
+          b.solicitante_correo, bitacoraTel, b.categoria, b.folio_lobby,
+          b.motivo_consulta, b.solucion_orientacion, b.estado, bitacoraRep, bitacoraRepId,
+          b.creado_por || b.created_by, b.updated_by, b.created_at, b.updated_at
         ], (err) => {
           if (err) reject(err);
           else resolve();
@@ -222,10 +313,65 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
 }
 
 /**
+ * Resuelve metadatos y nombres de archivos de forma genérica para cualquier base de datos.
+ * Casos específicos conocidos:
+ *  - 'lobby' -> 'lobby_control.db', 'version_lobby.json'
+ *  - 'usuarios' -> 'usuarios.db', 'version_users.json'
+ *  - 'local' / 'asistencias' -> 'asistencias.db', 'version_asistencias.json'
+ * Para cualquier base de datos futura (ej: 'inventario'):
+ *  - '${type}.db', 'version_${type}.json'
+ */
+function resolveDbMetadata(type) {
+  const normType = String(type || 'lobby').trim().toLowerCase();
+  let remoteDbName = `${normType}.db`;
+  let remoteVersionName = `version_${normType}.json`;
+
+  if (normType === 'lobby') {
+    remoteDbName = 'lobby_control.db';
+    remoteVersionName = 'version_lobby.json';
+  } else if (normType === 'usuarios') {
+    remoteDbName = 'usuarios.db';
+    remoteVersionName = 'version_users.json';
+  } else if (normType === 'local' || normType === 'asistencias') {
+    remoteDbName = 'asistencias.db';
+    remoteVersionName = 'version_asistencias.json';
+  }
+
+  return { remoteDbName, remoteVersionName, normType };
+}
+
+/**
+ * Guarda la marca de tiempo de sincronización en la base de datos de manera universal.
+ * Para 'lobby' se almacena en su tabla 'configuracion' ('db_last_update').
+ * Para cualquier otra base de datos se almacena en 'configuracion_local' con clave `${normType}_last_update`.
+ */
+async function saveSyncTimestamp(db, type, timestampStr) {
+  const { normType } = resolveDbMetadata(type);
+  const database = require('./database');
+
+  if (normType === 'lobby') {
+    return new Promise((resolve, reject) => {
+      db.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+
+  const configKey = normType === 'usuarios' ? 'users_last_update' : `${normType}_last_update`;
+  return new Promise((resolve, reject) => {
+    database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES (?, ?)", [configKey, timestampStr], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+/**
  * Ejecuta la verificación y sincronización de base de datos desde SharePoint.
  * @param {Object} db - Instancia del proxy de la base de datos
  * @param {String} cookieHeader - Cookies de sesión válidas de SharePoint
- * @param {String} type - Tipo de base de datos a sincronizar ('lobby', 'usuarios', 'asistencias' o 'local')
+ * @param {String} type - Tipo de base de datos a sincronizar ('lobby', 'usuarios', 'asistencias', etc.)
  * @returns {Promise<Boolean>} - Retorna true si hubo actualización, false de lo contrario.
  */
 async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
@@ -237,18 +383,8 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
     return false;
   }
 
-  const isLobby = type === 'lobby';
-  const isAsistencias = type === 'asistencias' || type === 'local';
-  
-  let remoteDbName = 'lobby_control.db';
-  let remoteVersionName = 'version_lobby.json';
-  if (type === 'usuarios') {
-    remoteDbName = 'usuarios.db';
-    remoteVersionName = 'version_users.json';
-  } else if (isAsistencias) {
-    remoteDbName = 'asistencias.db';
-    remoteVersionName = 'version_asistencias.json';
-  }
+  const { remoteDbName, remoteVersionName, normType } = resolveDbMetadata(type);
+  const isAsistencias = normType === 'asistencias' || normType === 'local';
 
   // Construir las URLs de la API REST de SharePoint
   const cleanSiteUrl = siteUrl.replace(/\/$/, '');
@@ -266,7 +402,15 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
   try {
     console.log(`Comprobando versión de ${remoteDbName} remota en SharePoint...`);
     // 1. Descargar versión remota
-    await downloadAuthenticatedFile(versionUrl, tempVersionPath, cookieHeader);
+    try {
+      await downloadAuthenticatedFile(versionUrl, tempVersionPath, cookieHeader);
+    } catch (verErr) {
+      if (verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) {
+        console.log(`ℹ️ Archivo de versión ${remoteVersionName} no existe en SharePoint (404). Se asume primera sincronización.`);
+        return false;
+      }
+      throw verErr;
+    }
     const remoteVersion = JSON.parse(fs.readFileSync(tempVersionPath, 'utf8'));
 
     // 2. Calcular firma de la base de datos local actual si existe
@@ -335,7 +479,15 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
       else console.log(logMessage);
       
       // 5. Descargar nueva base de datos
-      await downloadAuthenticatedFile(dbUrl, tempDbPath, cookieHeader);
+      try {
+        await downloadAuthenticatedFile(dbUrl, tempDbPath, cookieHeader);
+      } catch (dbErr) {
+        if (dbErr.status === 404 || (dbErr.message && dbErr.message.includes('404'))) {
+          console.log(`ℹ️ Base de datos ${remoteDbName} no existe en SharePoint (404). Se omite descarga.`);
+          return false;
+        }
+        throw dbErr;
+      }
       
       // Verificar si el archivo descargado está comprimido en GZIP
       let isCompressed = false;
@@ -380,13 +532,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         try { fs.unlinkSync(tempVersionPath); } catch (e) {}
 
         const timestampStr = remoteVersion.last_import_timestamp;
-        const database = require('./database');
-        await new Promise((resolve, reject) => {
-          database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES ('asistencias_last_update', ?)", [timestampStr], (err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        });
+        await saveSyncTimestamp(db, normType, timestampStr);
         console.log(`✓ Delta Merge de ${remoteDbName} completado con éxito.`);
         return true;
       }
@@ -429,22 +575,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
       
       // Guardar marca de tiempo en la base correspondiente
       const timestampStr = remoteVersion.last_import_timestamp;
-      if (isLobby) {
-        await new Promise((resolve, reject) => {
-          db.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        });
-      } else {
-        const database = require('./database');
-        await new Promise((resolve, reject) => {
-          database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES ('users_last_update', ?)", [timestampStr], (err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        });
-      }
+      await saveSyncTimestamp(db, normType, timestampStr);
 
       console.log(`✓ Base de datos ${remoteDbName} sincronizada con éxito.`);
       return true;
@@ -501,17 +632,7 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
     throw new Error('Falta configuración de SHAREPOINT_SITE_URL o SHAREPOINT_FOLDER_PATH en las variables de entorno.');
   }
 
-  const isLobby = type === 'lobby';
-  const isAsistencias = type === 'asistencias' || type === 'local';
-  let remoteDbName = 'lobby_control.db';
-  let remoteVersionName = 'version_lobby.json';
-  if (type === 'usuarios') {
-    remoteDbName = 'usuarios.db';
-    remoteVersionName = 'version_users.json';
-  } else if (isAsistencias) {
-    remoteDbName = 'asistencias.db';
-    remoteVersionName = 'version_asistencias.json';
-  }
+  const { remoteDbName, remoteVersionName, normType } = resolveDbMetadata(type);
 
   const dbDir = db.getUserDataDir();
   const localDbPath = db.getDbPath();
@@ -639,34 +760,9 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
     throw new Error(`Fallo al subir ${remoteDbName} (HTTP ${dbRes.status}): ${errText}`);
   }
 
-  // 6. Guardar localmente los archivos de versión
+  // 6. Guardar localmente los archivos de versión y timestamp
   fs.writeFileSync(localVersionPath, versionStr, 'utf8');
-  
-  // Guardar en la base de datos correspondiente la fecha de última actualización
-  if (isLobby) {
-    await new Promise((resolve, reject) => {
-      db.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  } else if (isLocal) {
-    const database = require('./database');
-    await new Promise((resolve, reject) => {
-      database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES ('asistencias_last_update', ?)", [timestampStr], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  } else {
-    const database = require('./database');
-    await new Promise((resolve, reject) => {
-      database.localDb.run("INSERT OR REPLACE INTO configuracion_local (clave, valor) VALUES ('users_last_update', ?)", [timestampStr], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  }
+  await saveSyncTimestamp(db, normType, timestampStr);
 
   console.log(`✓ Sincronización de subida exitosa para ${remoteDbName}.`);
 }
@@ -731,4 +827,48 @@ async function downloadUsersDatabaseTemp(cookieHeader, tempDbPath, tempVersionPa
   }
 }
 
-module.exports = { checkAndSyncDatabase, uploadDatabaseToSharePoint, downloadUsersDatabaseTemp, mergeAsistenciasDatabase };
+let isAsistenciasSyncing = false;
+let hasPendingAsistenciasSync = false;
+
+/**
+ * Ejecuta un ciclo seguro Pull-Merge-Push para asistencias.db:
+ * 1. Descarga deltas remotos de SharePoint y fusiona con SQLite local.
+ * 2. Sube la base local consolidada resultante a SharePoint.
+ * Cuenta con un candado en memoria para evitar colisiones entre llamadas simultáneas.
+ * @param {Object} db - Instancia de asistenciasDb
+ * @param {String} cookieHeader - Cookies de SharePoint activas
+ * @returns {Promise<Boolean>}
+ */
+async function safeSyncAndUploadAsistencias(db, cookieHeader) {
+  if (!cookieHeader) return false;
+  if (isAsistenciasSyncing) {
+    hasPendingAsistenciasSync = true;
+    return false;
+  }
+
+  isAsistenciasSyncing = true;
+  try {
+    await checkAndSyncDatabase(db, cookieHeader, 'asistencias');
+    await uploadDatabaseToSharePoint(db, cookieHeader, 'asistencias');
+    return true;
+  } catch (err) {
+    console.error('[safeSyncAndUploadAsistencias] Error en ciclo Pull-Merge-Push:', err.message);
+    throw err;
+  } finally {
+    isAsistenciasSyncing = false;
+    if (hasPendingAsistenciasSync) {
+      hasPendingAsistenciasSync = false;
+      safeSyncAndUploadAsistencias(db, cookieHeader).catch(e => {
+        console.warn('[safeSyncAndUploadAsistencias] Error en sincronización encolada:', e.message);
+      });
+    }
+  }
+}
+
+module.exports = { 
+  checkAndSyncDatabase, 
+  uploadDatabaseToSharePoint, 
+  downloadUsersDatabaseTemp, 
+  mergeAsistenciasDatabase,
+  safeSyncAndUploadAsistencias
+};

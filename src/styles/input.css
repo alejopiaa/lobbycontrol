@@ -11,13 +11,13 @@
   --bg-main: #f8f7fc;           /* Misty Lavender pálido (muy fácil en los ojos) */
   --bg-header: #ffffff;         /* Blanco puro para paneles y tarjetas */
   --bg-card: rgba(255, 255, 255, 0.9);
-  --border-ui: #edeaf5;         /* Bordes lavanda suaves */
+  --border-ui: #e2e8f0;         /* Bordes lavanda suaves */
   --border-ui-focus: #7c3aed;
   
   /* Jerarquía de Texto */
   --text-primary: #18112b;      /* Violeta índigo profundo */
   --text-secondary: #3b2a66;    /* Violeta medio */
-  --text-tertiary: #9d8dbf;     /* Lavanda desaturado */
+  --text-tertiary: #64748b;     /* Lavanda desaturado */
   
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.8);
@@ -49,37 +49,37 @@
   --badge-otros-border: color-mix(in srgb, #a855f7, transparent 75%);
 
   /* Dashboard Card Colors - Light Mode (Soft-tech pastels) */
-  --card-blue-bg: color-mix(in srgb, var(--brand-color), transparent 92%);
-  --card-blue-text: var(--brand-color);
-  --card-blue-border: color-mix(in srgb, var(--brand-color), transparent 82%);
+  --card-blue-bg: rgba(59, 130, 246, 0.08);
+  --card-blue-text: #2563eb;
+  --card-blue-border: #3b82f6;
 
-  --card-emerald-bg: color-mix(in srgb, #6366f1, transparent 92%); /* Mapped to brand-blue/indigo for RDP */
-  --card-emerald-text: #4f46e5;
-  --card-emerald-border: color-mix(in srgb, #6366f1, transparent 82%);
+  --card-emerald-bg: rgba(5, 150, 105, 0.08);
+  --card-emerald-text: #059669;
+  --card-emerald-border: #10b981;
 
-  --card-amber-bg: color-mix(in srgb, #d97706, transparent 92%);
-  --card-amber-text: #b45309;
-  --card-amber-border: color-mix(in srgb, #d97706, transparent 82%);
+  --card-amber-bg: rgba(202, 138, 4, 0.08);
+  --card-amber-text: #ca8a04;
+  --card-amber-border: #eab308;
 
-  --card-purple-bg: color-mix(in srgb, #a78bfa, transparent 92%);
-  --card-purple-text: #8b5cf6;
-  --card-purple-border: color-mix(in srgb, #a78bfa, transparent 82%);
+  --card-purple-bg: rgba(124, 58, 237, 0.08);
+  --card-purple-text: #7c3aed;
+  --card-purple-border: #8b5cf6;
 
-  --card-orange-bg: color-mix(in srgb, #f43f5e, transparent 92%); /* Washed pink instead of orange */
-  --card-orange-text: #e11d48;
-  --card-orange-border: color-mix(in srgb, #f43f5e, transparent 82%);
+  --card-orange-bg: rgba(217, 119, 6, 0.08);
+  --card-orange-text: #d97706;
+  --card-orange-border: #f59e0b;
 
-  --card-teal-bg: color-mix(in srgb, #0d9488, transparent 92%);
-  --card-teal-text: #0d9488;
-  --card-teal-border: color-mix(in srgb, #0d9488, transparent 82%);
+  --card-teal-bg: rgba(5, 150, 105, 0.08);
+  --card-teal-text: #059669;
+  --card-teal-border: #10b981;
 
-  --card-slate-bg: color-mix(in srgb, #94a3b8, transparent 92%);
+  --card-slate-bg: rgba(100, 116, 139, 0.08);
   --card-slate-text: #475569;
-  --card-slate-border: color-mix(in srgb, #94a3b8, transparent 82%);
+  --card-slate-border: #64748b;
 
-  --card-pink-bg: color-mix(in srgb, #f43f5e, transparent 92%);
+  --card-pink-bg: rgba(225, 29, 72, 0.08);
   --card-pink-text: #e11d48;
-  --card-pink-border: color-mix(in srgb, #f43f5e, transparent 82%);
+  --card-pink-border: #f43f5e;
 
   --deadline-ok-color: var(--brand-color);
   --deadline-overdue-color: #fca5a5;

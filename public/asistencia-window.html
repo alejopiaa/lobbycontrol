@@ -13,6 +13,12 @@
   <!-- Lucide & Theme -->
   <script src="/vendor/lucide.min.js"></script>
   <script src="/js/theme-init.js?v=1.0.21"></script>
+  
+  <!-- Air Datepicker v3 -->
+  <link rel="stylesheet" href="/vendor/air-datepicker.min.css">
+  <script src="/vendor/air-datepicker.min.js"></script>
+  <script src="/vendor/air-datepicker.es.js"></script>
+
   <link rel="stylesheet" href="/css/output.css">
 </head>
 <body class="h-full flex flex-col font-sans antialiased overflow-hidden select-none relative">
@@ -71,11 +77,24 @@
   <!-- FORMULARIO PRINCIPAL -->
   <main class="flex-1 overflow-y-auto p-6 space-y-5">
 
-    <!-- 1. CLASIFICACIÓN DE LA ATENCIÓN Y FOLIO (3 COLUMNAS) -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+    <!-- 1. CLASIFICACIÓN DE LA ATENCIÓN, FECHA Y FOLIO (4 COLUMNAS) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+      <!-- Fecha y Hora de Atención -->
+      <div class="relative">
+        <label class="block text-xs font-semibold text-text-secondary mb-1.5 flex items-center justify-between">
+          <span>Fecha y Hora *</span>
+        </label>
+        <div class="relative">
+          <input type="text" id="input-fecha-atencion" readonly placeholder="DD/MM/AAAA HH:mm *" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg pl-3 pr-8 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs cursor-pointer">
+          <button type="button" id="btn-trigger-fecha" class="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-brand-500 transition-colors p-0.5 cursor-pointer">
+            <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
+          </button>
+        </div>
+      </div>
+
       <!-- Canal de Contacto -->
       <div class="relative">
-        <label class="block text-xs font-semibold text-text-secondary mb-1.5">Canal de Contacto</label>
+        <label class="block text-xs font-semibold text-text-secondary mb-1.5">Canal de Contacto *</label>
         <button id="btn-dropdown-canal" type="button" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3 py-2 text-xs text-text-primary flex items-center justify-between shadow-2xs hover:border-brand-500 transition-colors cursor-pointer">
           <span id="selected-canal-label" class="flex items-center gap-2 truncate">
             <i data-lucide="phone" class="h-3.5 w-3.5 text-brand-500 shrink-0"></i>
@@ -105,7 +124,7 @@
 
       <!-- Materia / Categoría -->
       <div class="relative">
-        <label class="block text-xs font-semibold text-text-secondary mb-1.5">Materia / Categoría</label>
+        <label class="block text-xs font-semibold text-text-secondary mb-1.5">Materia / Categoría *</label>
         <button id="btn-dropdown-categoria" type="button" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3 py-2 text-xs text-text-primary flex items-center justify-between shadow-2xs hover:border-brand-500 transition-colors cursor-pointer">
           <span id="selected-categoria-label" class="flex items-center gap-2 truncate">
             <i data-lucide="tag" class="h-3.5 w-3.5 text-brand-500 shrink-0"></i>
@@ -143,25 +162,43 @@
         <div id="autocomplete-suggestions" class="hidden absolute top-full left-0 right-0 mt-1.5 bg-bg-header border border-border-ui rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-border-ui"></div>
       </div>
 
-      <!-- Dirección / Depto (Combobox Desplegable Editable) -->
+      <!-- Dirección Municipal (Combobox Desplegable Editable) -->
       <div class="relative">
         <div class="relative flex items-center">
-          <input type="text" id="input-depto" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg pl-3.5 pr-8 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs" placeholder="Dirección o departamento (Ej: DOM, SECMUN, DIDECO)" autocomplete="off">
-          <button id="btn-toggle-depto-dropdown" type="button" class="absolute right-2 text-text-tertiary hover:text-text-primary p-1 cursor-pointer" title="Ver lista de direcciones">
+          <input type="text" id="input-direccion" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg pl-3.5 pr-8 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs" placeholder="Dirección Municipal (Ej: DOM, SECMUN, DIDECO) *" autocomplete="off">
+          <button id="btn-toggle-direccion-dropdown" type="button" class="absolute right-2 text-text-tertiary hover:text-text-primary p-1 cursor-pointer" title="Ver lista de direcciones">
             <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
           </button>
         </div>
-        <div id="menu-dropdown-depto" class="hidden absolute top-full left-0 right-0 mt-1.5 bg-bg-header border border-border-ui rounded-xl shadow-xl z-50 max-h-52 overflow-y-auto divide-y divide-border-ui"></div>
+        <div id="menu-dropdown-direccion" class="hidden absolute top-full left-0 right-0 mt-1.5 bg-bg-header border border-border-ui rounded-xl shadow-xl z-50 max-h-52 overflow-y-auto divide-y divide-border-ui"></div>
       </div>
 
-      <!-- Correo y Anexo (2 Columnas) -->
+      <!-- Correo y Teléfono (2 Columnas) -->
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <input type="email" id="input-correo" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3.5 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs" placeholder="Correo electrónico">
+          <input type="email" id="input-correo" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3.5 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs" placeholder="Correo electrónico *">
         </div>
         <div>
-          <input type="text" id="input-contacto" inputmode="numeric" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3.5 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs font-mono" placeholder="Anexo o teléfono (solo números)">
+          <input type="text" id="input-telefono" inputmode="numeric" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3.5 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs font-mono" placeholder="Teléfono de contacto (solo números) *">
         </div>
+      </div>
+
+      <!-- En representación de (Sujeto Pasivo Vigente - Opcional) -->
+      <div class="relative">
+        <label class="block text-xs font-semibold text-text-secondary mb-1">En representación de (Opcional)</label>
+        <div class="relative flex items-center">
+          <input type="text" id="input-representado" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg pl-3.5 pr-14 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors shadow-2xs" placeholder="¿En representación de alguna autoridad? (Opcional)..." autocomplete="off">
+          <input type="hidden" id="input-representado-id">
+          <div class="absolute right-2 flex items-center gap-1">
+            <button id="btn-clear-representado" type="button" class="hidden text-text-tertiary hover:text-rose-500 p-1 cursor-pointer transition-colors" title="Limpiar autoridad representada">
+              <i data-lucide="x" class="h-3.5 w-3.5"></i>
+            </button>
+            <button id="btn-toggle-representado-dropdown" type="button" class="text-text-tertiary hover:text-text-primary p-1 cursor-pointer" title="Ver lista de autoridades vigentes">
+              <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
+            </button>
+          </div>
+        </div>
+        <div id="menu-dropdown-representado" class="hidden absolute top-full left-0 right-0 mt-1.5 bg-bg-header border border-border-ui rounded-xl shadow-xl z-50 max-h-52 overflow-y-auto divide-y divide-border-ui"></div>
       </div>
     </div>
 
@@ -180,14 +217,14 @@
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-text-secondary mb-1.5">Orientación o Solución Entregada</label>
+        <label class="block text-xs font-semibold text-text-secondary mb-1.5">Orientación o Solución Entregada *</label>
         <textarea id="input-solucion" rows="3" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg px-3.5 py-2.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors resize-none leading-relaxed shadow-2xs" placeholder="Indica la orientación normativa o respuesta brindada..."></textarea>
       </div>
     </div>
 
     <!-- 4. ESTADO DE CIERRE -->
     <div class="space-y-1.5">
-      <label class="block text-xs font-semibold text-text-secondary">Estado de Cierre</label>
+      <label class="block text-xs font-semibold text-text-secondary">Estado de Cierre *</label>
       <div class="relative">
         <button id="btn-dropdown-estado" type="button" class="form-field-control w-full sm:w-72 bg-bg-card border border-border-ui rounded-lg px-3 py-2 text-xs text-text-primary flex items-center justify-between shadow-2xs hover:border-brand-500 transition-colors cursor-pointer">
           <span id="selected-estado-label" class="flex items-center gap-2">

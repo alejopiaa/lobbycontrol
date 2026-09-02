@@ -120,6 +120,63 @@ function renderSearchInput(options) {
 }
 
 /**
+ * Sincroniza dinámicamente el badge/chip de un input de búsqueda autocompletable.
+ * @param {HTMLElement|string} inputOrId - Elemento input o su ID.
+ * @param {string} [customValue] - Valor opcional a forzar (si no se pasa, toma input.value).
+ */
+function syncSearchInputBadge(inputOrId, customValue) {
+  const input = typeof inputOrId === 'string' ? document.getElementById(inputOrId) : inputOrId;
+  if (!input) return;
+
+  const fieldName = input.dataset.field || '';
+  const hasSuggestions = input.dataset.autocomplete === 'true';
+  const id = input.id;
+  const val = (customValue !== undefined ? customValue : input.value || '').trim();
+  const wrapper = input.closest('.relative');
+  if (!wrapper) return;
+
+  let overlay = wrapper.querySelector('[data-element="badge-overlay"]');
+  const isFocused = typeof document !== 'undefined' && document.activeElement && document.activeElement.id === id;
+
+  if (val && !isFocused && hasSuggestions) {
+    input.classList.add('placeholder-transparent', 'select-none');
+    input.style.setProperty('color', 'transparent', 'important');
+
+    const overlayLeftClass = input.classList.contains('pl-9') ? 'left-9' : 'left-2';
+
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.dataset.element = 'badge-overlay';
+      overlay.className = `absolute inset-y-0 ${overlayLeftClass} right-2 flex items-center pointer-events-none`;
+      wrapper.appendChild(overlay);
+    }
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-border-ui text-text-primary text-[11px] font-semibold border border-border-ui shadow-sm max-w-[95%] pointer-events-auto">
+        <span class="truncate max-w-[150px]">${escapeHtml(val)}</span>
+        <button type="button" 
+                data-action="clear-input-badge" 
+                data-field="${escapeHtmlAttr(fieldName)}" 
+                data-input-id="${escapeHtmlAttr(id)}"
+                class="text-text-tertiary hover:text-text-primary hover:bg-bg-header rounded p-0.5 transition-colors flex items-center justify-center shrink-0">
+          <i data-lucide="x" class="h-3 w-3"></i>
+        </button>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+      lucide.createIcons();
+    }
+  } else {
+    input.classList.remove('placeholder-transparent', 'select-none');
+    input.style.removeProperty('color');
+    if (overlay) {
+      overlay.remove();
+    }
+  }
+}
+window.syncSearchInputBadge = syncSearchInputBadge;
+
+/**
  * Input de Fecha con máscara DD/MM/AAAA
  * Usa un input de texto visible (DD/MM/AAAA) y un input date oculto para almacenar el valor en YYYY-MM-DD.
  * @param {Object} options - Configuración.

@@ -4,13 +4,13 @@ const zlib = require('zlib');
 const crypto = require('crypto');
 
 const dataDir = path.join(__dirname, '../data');
-const bakDbPath = path.join(dataDir, 'lobby.db.bak');
-const localDbPath = path.join(dataDir, 'lobby.db');
-const localVersionPath = path.join(dataDir, 'version.json');
+const bakDbPath = path.join(dataDir, 'data.db.bak');
+const localDbPath = path.join(dataDir, 'data.db');
+const localVersionPath = path.join(dataDir, 'version_data.json');
 
 const uploadDir = path.join(dataDir, 'sharepoint_upload');
-const uploadDbPath = path.join(uploadDir, 'lobby.db');
-const uploadVersionPath = path.join(uploadDir, 'version.json');
+const uploadDbPath = path.join(uploadDir, 'data.db');
+const uploadVersionPath = path.join(uploadDir, 'version_data.json');
 
 async function run() {
   try {

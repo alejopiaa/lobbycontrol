@@ -177,9 +177,7 @@ if (process.env.PRODUCTION_DB === "true") {
     process.env.USER_DATA_DIR ||
     (process.env.APPDATA
       ? path.join(process.env.APPDATA, "LobbyControl")
-      : (fs.existsSync(path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"))
-        ? path.join(os.homedir(), "AppData", "Roaming", "LobbyControl")
-        : path.join(os.homedir(), "AppData", "Local", "LobbyControl")));
+      : path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"));
   dbDir = path.join(baseDir, "data");
   excelPath = path.join(dbDir, "lobby_data.xlsx");
 } else {

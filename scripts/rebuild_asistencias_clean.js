@@ -1,10 +1,10 @@
-const sqlite3 = require('c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\node_modules\\sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = 'c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\data\\asistencias.db';
+const dbPath = process.env.APP_DB_PATH || path.join(__dirname, '../data/app.db');
 const backupTimestamp = Date.now();
-const backupFile = `c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\data\\asistencias.db.backup_clean_rebuild_${backupTimestamp}`;
+const backupFile = `${dbPath}.backup_clean_rebuild_${backupTimestamp}`;
 
 console.log('--- RECONSTRUCCIÓN LIMPIA DESDE CERO (CLEAN SLATE) ---');
 console.log('1. Creando respaldo previo obligatorio en:', backupFile);

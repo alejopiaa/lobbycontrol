@@ -5,7 +5,9 @@ const os = require("os");
 // Determinar el directorio de bases de datos de producción
 const prodBaseDir =
   process.env.USER_DATA_DIR ||
-  path.join(os.homedir(), "AppData", "Roaming", "LobbyControl");
+  (process.env.APPDATA
+    ? path.join(process.env.APPDATA, "LobbyControl")
+    : path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"));
 const prodDbDir = path.join(prodBaseDir, "data");
 
 // Directorio de destino local (subdirectorio 'data' en desarrollo)
@@ -17,20 +19,30 @@ if (!fs.existsSync(devDbDir)) {
 }
 
 const filesToCopy = [
-  "lobby_control.db",
-  "lobby_control.db-wal",
-  "lobby_control.db-shm",
+  // Arquitectura canónica
+  "data.db",
+  "data.db-wal",
+  "data.db-shm",
+  "version_data.json",
+  "app.db",
+  "app.db-wal",
+  "app.db-shm",
+  "version_app.json",
   "usuarios.db",
   "usuarios.db-wal",
   "usuarios.db-shm",
-  "asistencias.db",
-  "asistencias.db-wal",
-  "asistencias.db-shm",
+  "version_users.json",
   "local.db",
   "local.db-wal",
   "local.db-shm",
+  // Archivos de retrocompatibilidad / fallback
+  "lobby_control.db", /* fallback / legacy */
+  "lobby_control.db-wal", /* fallback / legacy */
+  "lobby_control.db-shm", /* fallback / legacy */
+  "asistencias.db", /* fallback / legacy */
+  "asistencias.db-wal", /* fallback / legacy */
+  "asistencias.db-shm", /* fallback / legacy */
   "version_lobby.json",
-  "version_users.json",
   "version_asistencias.json",
 ];
 
@@ -62,7 +74,7 @@ if (!fs.existsSync(prodDbDir)) {
   process.exit(1);
 }
 
-const criticalDbs = ["lobby_control.db", "usuarios.db", "asistencias.db"];
+const criticalDbs = ["data.db", "usuarios.db", "app.db"];
 const lockedFiles = criticalDbs.filter((f) => isDatabaseLocked(path.join(prodDbDir, f)));
 if (lockedFiles.length > 0) {
   console.warn("⚠️  ADVERTENCIA: La aplicación LobbyControl (Producción) parece estar abierta.");

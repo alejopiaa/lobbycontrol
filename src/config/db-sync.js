@@ -586,7 +586,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         throw new Error(`La firma de ${remoteDbName} descargada no coincide con el servidor.`);
       }
 
-      // Si es app.db (o asistencias.db legado), ejecutar Delta Merge para no perder registros locales
+      // Si es app.db (o asistencias.db /* legacy / fallback */), ejecutar Delta Merge para no perder registros locales
       if (isAsistencias) {
         console.log(`Ejecutando Row-Level Delta Merge en ${remoteDbName}...`);
         await mergeAsistenciasDatabase(db, tempDbPath);

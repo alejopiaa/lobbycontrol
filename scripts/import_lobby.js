@@ -168,30 +168,39 @@ function uploadFileToSharePoint(
   });
 }
 
-let dbPath;
+let dbDir;
 let excelPath;
 
 if (process.env.PRODUCTION_DB === "true") {
+  const os = require("os");
   const baseDir =
     process.env.USER_DATA_DIR ||
-    path.join(require("os").homedir(), "AppData", "Local", "LobbyControl");
-  dbPath = path.join(baseDir, "data", "lobby_control.db");
-  excelPath = path.join(baseDir, "data", "lobby_data.xlsx");
+    (fs.existsSync(path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"))
+      ? path.join(os.homedir(), "AppData", "Roaming", "LobbyControl")
+      : path.join(os.homedir(), "AppData", "Local", "LobbyControl"));
+  dbDir = path.join(baseDir, "data");
+  excelPath = path.join(dbDir, "lobby_data.xlsx");
 } else {
-  dbPath = path.join(
-    __dirname,
-    "..",
-    process.env.DATABASE_PATH || "lobby_control.db",
-  );
+  const envDbPath = process.env.DATABASE_PATH;
+  if (envDbPath) {
+    const fullEnvDbPath = path.isAbsolute(envDbPath) ? envDbPath : path.join(__dirname, "..", envDbPath);
+    dbDir = path.dirname(fullEnvDbPath);
+  } else {
+    dbDir = path.join(__dirname, "..", "data");
+  }
   excelPath = path.join(
     __dirname,
     "..",
-    process.env.EXCEL_PATH || "lobby_data.xlsx",
+    process.env.EXCEL_PATH || "data/lobby_data.xlsx",
   );
 }
 
+// Rutas canónicas
+const dataDbPath = path.join(dbDir, "data.db");
+const appDbPath = path.join(dbDir, "app.db");
+const dbPath = dataDbPath;
+
 // Asegurar que la carpeta de destino de la base de datos exista
-const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
@@ -1387,20 +1396,34 @@ function saveLastImportTimestamp(callback) {
   const min = String(mtime.getMinutes()).padStart(2, "0");
   const timestampStr = `${dd}-${mm}-${yyyy} ${hh}:${min}`;
 
-  db.run(
-    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('last_import_timestamp', ?)",
-    [timestampStr],
-    (err) => {
-      if (err) {
-        console.error("Error al registrar fecha de importación:", err.message);
-      } else {
-        console.log(
-          `✓ Fecha de última actualización registrada en la base de datos: ${timestampStr}`,
-        );
-      }
-      callback(err);
-    },
-  );
+  if (!fs.existsSync(appDbPath)) {
+    if (typeof callback === "function") callback(null);
+    return;
+  }
+
+  const appDbConn = new sqlite3.Database(appDbPath, (openErr) => {
+    if (openErr) {
+      console.error("Error al abrir app.db para timestamp:", openErr.message);
+      if (typeof callback === "function") callback(openErr);
+      return;
+    }
+    appDbConn.run(
+      "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('last_import_timestamp', ?)",
+      [timestampStr],
+      (err) => {
+        if (err) {
+          console.error("Error al registrar fecha de importación:", err.message);
+        } else {
+          console.log(
+            `✓ Fecha de última actualización registrada en la base de datos: ${timestampStr}`,
+          );
+        }
+        appDbConn.close(() => {
+          if (typeof callback === "function") callback(err);
+        });
+      },
+    );
+  });
 }
 
 // Objeto acumulador de estadísticas de importación
@@ -1627,207 +1650,238 @@ db.serialize(() => {
     const userStr = userEmail ? `${userName} (${userEmail})` : userName;
 
     const nextStep = () => {
-      console.log("Registrando bitácora de importación en el historial...");
-      db.run(
-        "INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)",
-        [userStr, "Exitoso", JSON.stringify(allStats)],
-        (bitErr) => {
-          if (bitErr)
+      const mtime = new Date();
+      const yyyy = mtime.getFullYear();
+      const mm = String(mtime.getMonth() + 1).padStart(2, "0");
+      const dd = String(mtime.getDate()).padStart(2, "0");
+      const hh = String(mtime.getHours()).padStart(2, "0");
+      const min = String(mtime.getMinutes()).padStart(2, "0");
+      const timestampStr = `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+
+      // 1. Registrar bitácora y timestamp de importación en app.db
+      if (fs.existsSync(appDbPath)) {
+        console.log("Registrando bitácora y timestamp de importación en app.db...");
+        const appDb = new sqlite3.Database(appDbPath);
+        appDb.serialize(() => {
+          appDb.run("PRAGMA busy_timeout = 30000");
+          appDb.run(
+            "INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)",
+            [userStr, "Exitoso", JSON.stringify(allStats)],
+            (bitErr) => {
+              if (bitErr) console.error("Error al registrar bitácora en app.db:", bitErr.message);
+            }
+          );
+          appDb.run(
+            "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('last_import_timestamp', ?)",
+            [timestampStr],
+            (cfgErr) => {
+              if (cfgErr) console.error("Error al registrar last_import_timestamp en app.db:", cfgErr.message);
+            }
+          );
+          appDb.run("PRAGMA wal_checkpoint(TRUNCATE)", () => {
+            appDb.close();
+          });
+        });
+      }
+
+      console.log(
+        "Ejecutando limpieza y optimización de base de datos (VACUUM)...",
+      );
+      console.time("Tiempo: VACUUM");
+      db.run("VACUUM", (vErr) => {
+        console.timeEnd("Tiempo: VACUUM");
+        if (vErr) {
+          console.error("Error al ejecutar VACUUM:", vErr.message);
+        } else {
+          console.log(
+            "✓ Base de datos optimizada y compactada con éxito (VACUUM).",
+          );
+        }
+
+        console.log("Ejecutando checkpoint de WAL en data.db...");
+        db.run("PRAGMA wal_checkpoint(TRUNCATE)", (cpErr) => {
+          if (cpErr)
             console.error(
-              "Error al registrar bitácora de importación:",
-              bitErr.message,
+              "Error al ejecutar checkpoint de WAL:",
+              cpErr.message,
             );
 
-          console.log(
-            "Ejecutando limpieza y optimización de base de datos (VACUUM)...",
-          );
-          console.time("Tiempo: VACUUM");
-          db.run("VACUUM", (vErr) => {
-            console.timeEnd("Tiempo: VACUUM");
-            if (vErr) {
-              console.error("Error al ejecutar VACUUM:", vErr.message);
-            } else {
-              console.log(
-                "✓ Base de datos optimizada y compactada con éxito (VACUUM).",
+          console.timeEnd("Tiempo: Ejecución total de importación");
+          console.log("\nImportación masiva completada con éxito.");
+
+          // Secuencia estricta Windows: cerrar la conexión db antes de leer el binario para Gzip
+          db.close(async (closeErr) => {
+            if (closeErr) console.error("Error al cerrar data.db:", closeErr.message);
+            try {
+              // Calcular firma digital HMAC de data.db para prevenir alteraciones
+              const dbBuffer = fs.readFileSync(dbPath);
+              const dbSignature = crypto
+                .createHmac("sha256", "LobbyControl_Secure_Key_2026_Maipu")
+                .update(dbBuffer)
+                .digest("hex");
+
+              const versionData = {
+                last_import_timestamp: timestampStr,
+                db_size: dbBuffer.length,
+                db_signature: dbSignature,
+                db_compression: "gzip",
+              };
+
+              const localJsonPath = path.join(dbDir, "version_data.json");
+              const legacyJsonPath = path.join(dbDir, "version_lobby.json");
+              fs.writeFileSync(
+                localJsonPath,
+                JSON.stringify(versionData, null, 2),
               );
-            }
+              try {
+                fs.writeFileSync(legacyJsonPath, JSON.stringify(versionData, null, 2));
+              } catch (e) {}
+              console.log(
+                `✓ [Local Version] Generado archivo de versión local (Firmado) en: ${localJsonPath}`,
+              );
 
-            console.log("Ejecutando checkpoint de WAL...");
-            db.run("PRAGMA wal_checkpoint(TRUNCATE)", (cpErr) => {
-              if (cpErr)
-                console.error(
-                  "Error al ejecutar checkpoint de WAL:",
-                  cpErr.message,
+              // Subir a SharePoint vía REST API si hay cookies
+              if (process.env.SHAREPOINT_COOKIES) {
+                console.log(
+                  "[SharePoint Upload] Cookies de sesión encontradas. Iniciando subida directa a la nube...",
                 );
+                const siteUrl =
+                  process.env.SHAREPOINT_SITE_URL ||
+                  "https://immaipu.sharepoint.com/sites/SECMU";
+                const folderPath =
+                  process.env.SHAREPOINT_FOLDER_PATH ||
+                  "/sites/SECMU/Lobby/LobbyControl";
+                const cookies = process.env.SHAREPOINT_COOKIES;
 
-              console.timeEnd("Tiempo: Ejecución total de importación");
-              console.log("\nImportación masiva completada con éxito.");
-
-              db.close(async () => {
-                // Generar versión local primero en el directorio de la base de datos
-                try {
-                  const mtime = new Date();
-                  const yyyy = mtime.getFullYear();
-                  const mm = String(mtime.getMonth() + 1).padStart(2, "0");
-                  const dd = String(mtime.getDate()).padStart(2, "0");
-                  const hh = String(mtime.getHours()).padStart(2, "0");
-                  const min = String(mtime.getMinutes()).padStart(2, "0");
-                  const timestampStr = `${dd}-${mm}-${yyyy} ${hh}:${min}`;
-
-                  // Calcular firma digital HMAC de la base de datos para prevenir alteraciones
-                  const dbBuffer = fs.readFileSync(dbPath);
-                  const dbSignature = crypto
-                    .createHmac("sha256", "LobbyControl_Secure_Key_2026_Maipu")
-                    .update(dbBuffer)
-                    .digest("hex");
-
-                  const versionData = {
-                    last_import_timestamp: timestampStr,
-                    db_size: dbBuffer.length,
-                    db_signature: dbSignature,
-                    db_compression: "gzip",
+                if (!folderPath) {
+                  console.error(
+                    "❌ [SharePoint Upload] Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
+                  );
+                  allStats.sharepoint = {
+                    uploaded: false,
+                    error:
+                      "Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
                   };
-
-                  const localJsonPath = path.join(
-                    path.dirname(dbPath),
-                    "version_lobby.json",
-                  );
-                  fs.writeFileSync(
-                    localJsonPath,
-                    JSON.stringify(versionData, null, 2),
-                  );
+                } else {
+                  console.log(`[SharePoint Upload] Sitio: ${siteUrl}`);
                   console.log(
-                    `✓ [Local Version] Generado archivo de versión local (Firmado) en: ${localJsonPath}`,
+                    `[SharePoint Upload] Carpeta destino: ${folderPath}`,
                   );
 
-                  // Subir a SharePoint vía REST API si hay cookies
-                  if (process.env.SHAREPOINT_COOKIES) {
+                  const tempGzPath = dbPath + ".gz.tmp";
+                  try {
                     console.log(
-                      "[SharePoint Upload] Cookies de sesión encontradas. Iniciando subida directa a la nube...",
+                      "[SharePoint Upload] Comprimiendo base de datos de forma asíncrona...",
                     );
-                    const siteUrl =
-                      process.env.SHAREPOINT_SITE_URL ||
-                      "https://immaipu.sharepoint.com/sites/SECMU";
-                    const folderPath =
-                      process.env.SHAREPOINT_FOLDER_PATH ||
-                      "/sites/SECMU/Lobby/LobbyControl";
-                    const cookies = process.env.SHAREPOINT_COOKIES;
-
-                    if (!folderPath) {
-                      console.error(
-                        "❌ [SharePoint Upload] Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
-                      );
-                      allStats.sharepoint = {
-                        uploaded: false,
-                        error:
-                          "Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
-                      };
-                    } else {
-                      console.log(`[SharePoint Upload] Sitio: ${siteUrl}`);
-                      console.log(
-                        `[SharePoint Upload] Carpeta destino: ${folderPath}`,
-                      );
-
-                      const tempGzPath = dbPath + ".gz.tmp";
-                      try {
-                        console.log(
-                          "[SharePoint Upload] Comprimiendo base de datos de forma asíncrona...",
-                        );
-                        await compressFileAsync(dbPath, tempGzPath);
-                        console.log(
-                          "[SharePoint Upload] Compresión finalizada.",
-                        );
-
-                        const digest = await getRequestDigest(siteUrl, cookies);
-                        console.log(
-                          "[SharePoint Upload] Request Digest obtenido.",
-                        );
-
-                        console.log(
-                          "[SharePoint Upload] Subiendo version_lobby.json...",
-                        );
-                        await uploadFileToSharePoint(
-                          siteUrl,
-                          folderPath,
-                          "version_lobby.json",
-                          localJsonPath,
-                          digest,
-                          cookies,
-                        );
-
-                        console.log(
-                          "[SharePoint Upload] Subiendo lobby_control.db (comprimido)...",
-                        );
-                        await uploadFileToSharePoint(
-                          siteUrl,
-                          folderPath,
-                          "lobby_control.db",
-                          tempGzPath,
-                          digest,
-                          cookies,
-                        );
-
-                        console.log(
-                          "✓ [SharePoint Upload] Sincronización directa en la nube completada con éxito.",
-                        );
-                        allStats.sharepoint = { uploaded: true, error: null };
-                      } catch (spErr) {
-                        console.error(
-                          "❌ [SharePoint Upload] Error al subir directamente a SharePoint:",
-                          spErr.message,
-                        );
-                        allStats.sharepoint = {
-                          uploaded: false,
-                          error: spErr.message,
-                        };
-                      } finally {
-                        if (fs.existsSync(tempGzPath)) {
-                          try {
-                            fs.unlinkSync(tempGzPath);
-                            console.log(
-                              "[SharePoint Upload] Archivo temporal comprimido eliminado.",
-                            );
-                          } catch (e) {
-                            console.error(
-                              "[SharePoint Upload] No se pudo eliminar el archivo temporal comprimido:",
-                              e.message,
-                            );
-                          }
-                        }
-                      }
-                    }
-                  } else {
+                    await compressFileAsync(dbPath, tempGzPath);
                     console.log(
-                      "[SharePoint Upload] No se encontraron cookies de sesión (SHAREPOINT_COOKIES). Se omite la subida directa.",
+                      "[SharePoint Upload] Compresión finalizada.",
+                    );
+
+                    const digest = await getRequestDigest(siteUrl, cookies);
+                    console.log(
+                      "[SharePoint Upload] Request Digest obtenido.",
+                    );
+
+                    console.log(
+                      "[SharePoint Upload] Subiendo version_data.json...",
+                    );
+                    await uploadFileToSharePoint(
+                      siteUrl,
+                      folderPath,
+                      "version_data.json",
+                      localJsonPath,
+                      digest,
+                      cookies,
+                    );
+
+                    console.log(
+                      "[SharePoint Upload] Subiendo data.db (comprimido)...",
+                    );
+                    await uploadFileToSharePoint(
+                      siteUrl,
+                      folderPath,
+                      "data.db",
+                      tempGzPath,
+                      digest,
+                      cookies,
+                    );
+
+                    console.log(
+                      "✓ [SharePoint Upload] Sincronización directa en la nube completada con éxito.",
+                    );
+                    allStats.sharepoint = { uploaded: true, error: null };
+                  } catch (spErr) {
+                    console.error(
+                      "❌ [SharePoint Upload] Error al subir directamente a SharePoint:",
+                      spErr.message,
                     );
                     allStats.sharepoint = {
                       uploaded: false,
-                      error:
-                        "Omitido: Se requiere inicio de sesión institucional (SSO) para subir a SharePoint.",
+                      error: spErr.message,
                     };
+                  } finally {
+                    if (fs.existsSync(tempGzPath)) {
+                      try {
+                        fs.unlinkSync(tempGzPath);
+                        console.log(
+                          "[SharePoint Upload] Archivo temporal comprimido eliminado.",
+                        );
+                      } catch (e) {
+                        console.error(
+                          "[SharePoint Upload] No se pudo eliminar el archivo temporal comprimido:",
+                          e.message,
+                        );
+                      }
+                    }
                   }
+                }
+              } else {
+                console.log(
+                  "[SharePoint Upload] No se encontraron cookies de sesión (SHAREPOINT_COOKIES). Se omite la subida directa.",
+                );
+                allStats.sharepoint = {
+                  uploaded: false,
+                  error:
+                    "Omitido: Se requiere inicio de sesión institucional (SSO) para subir a SharePoint.",
+                };
+              }
 
-                  // Copiar a la carpeta compartida de OneDrive si está configurada
-                  if (process.env.ONEDRIVE_SYNC_PATH) {
-                    const odPath = process.env.ONEDRIVE_SYNC_PATH;
-                    if (fs.existsSync(odPath)) {
-                      const destJsonPath = path.join(
-                        odPath,
-                        "version_lobby.json",
-                      );
-                      const destDbPath = path.join(odPath, "lobby_control.db");
+              // Copiar a la carpeta compartida de OneDrive si está configurada
+              if (process.env.ONEDRIVE_SYNC_PATH) {
+                const odPath = process.env.ONEDRIVE_SYNC_PATH;
+                if (fs.existsSync(odPath)) {
+                  const destJsonPath = path.join(
+                    odPath,
+                    "version_data.json",
+                  );
+                  const destDbPath = path.join(odPath, "data.db");
 
-                      fs.writeFileSync(
-                        destJsonPath,
-                        JSON.stringify(versionData, null, 2),
-                      );
-                      fs.copyFileSync(dbPath, destDbPath);
+                  fs.writeFileSync(
+                    destJsonPath,
+                    JSON.stringify(versionData, null, 2),
+                  );
+                  fs.copyFileSync(dbPath, destDbPath);
 
-                      console.log(
-                        `✓ [OneDrive Sync] Publicación de versión completada con éxito en: ${odPath}`,
-                      );
-                    } else {
-                      console.warn(
+                  console.log(
+                    `✓ [OneDrive Sync] Publicación de versión completada con éxito en: ${odPath}`,
+                  );
+                } else {
+                  console.warn(
+                    `⚠️ [OneDrive Sync] La ruta especificada en ONEDRIVE_SYNC_PATH no existe: ${odPath}`,
+                  );
+                }
+              }
+            } catch (err) {
+              console.error(
+                "❌ Error crítico al finalizar importación:",
+                err.message,
+              );
+            }
+          });
+        });
+      });
+    };
                         `⚠️ [OneDrive Sync] La ruta especificada en ONEDRIVE_SYNC_PATH no existe: ${odPath}`,
                       );
                     }

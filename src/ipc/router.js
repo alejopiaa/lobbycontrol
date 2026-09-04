@@ -5,6 +5,7 @@ const db = require("../config/database");
 const usersDb = db.usersDb;
 const localDb = db.localDb;
 const asistenciasDb = db.asistenciasDb;
+const appDb = db.appDb || asistenciasDb;
 const dateUtils = require("../utils/date-utils");
 
 // Semáforo de control para importaciones concurrentes
@@ -1576,7 +1577,7 @@ async function handle(req, setSharepointCookie) {
   // GET /api/admin/historial-sincronizaciones
   if (method === 'GET' && pathName === '/api/admin/historial-sincronizaciones') {
     return new Promise((resolve) => {
-      db.all('SELECT * FROM historial_sincronizaciones ORDER BY id DESC LIMIT 5', [], (err, rows) => {
+      appDb.all('SELECT * FROM historial_sincronizaciones ORDER BY id DESC LIMIT 5', [], (err, rows) => {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         resolve({ status: 200, data: rows });
       });
@@ -1741,7 +1742,7 @@ async function handle(req, setSharepointCookie) {
   // GET /api/admin/auditoria
   if (method === 'GET' && pathName === '/api/admin/auditoria') {
     return new Promise((resolve) => {
-      db.all('SELECT * FROM auditoria_semanal ORDER BY fecha ASC', [], (err, rows) => {
+      appDb.all('SELECT * FROM auditoria_semanal ORDER BY fecha ASC', [], (err, rows) => {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         resolve({ status: 200, data: rows });
       });
@@ -1797,13 +1798,13 @@ async function handle(req, setSharepointCookie) {
     `;
     const usuario = user.nombre || user.correo;
     return new Promise((resolve) => {
-      db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, usuario], async function(err) {
+      appDb.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, usuario], async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
-        await db.recalculateAndSignDatabase();
+        await appDb.recalculateAndSignDatabase();
         if (req.sharepointCookie) {
           const { uploadDatabaseToSharePoint } = require('../config/db-sync');
-          uploadDatabaseToSharePoint(db, req.sharepointCookie, 'lobby').catch(e => {
-            console.error('Error al subir base de datos de lobby a SharePoint:', e.message);
+          uploadDatabaseToSharePoint(appDb, req.sharepointCookie, 'app').catch(e => {
+            console.error('Error al subir base de datos app a SharePoint:', e.message);
           });
         }
         resolve({ status: 201, data: { id: this.lastID, message: 'Registro de auditoría guardado y sincronizado en SharePoint exitosamente.' } });
@@ -1825,14 +1826,14 @@ async function handle(req, setSharepointCookie) {
       WHERE id = ?
     `;
     return new Promise((resolve) => {
-      db.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, estado || null, id], async function(err) {
+      appDb.run(query, [fecha, total || 0, ingresada || 0, aceptada || 0, rechazada || 0, suspendida || 0, cancelada || 0, encomendada || 0, publicada || 0, estado || null, id], async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Registro no encontrado.' } });
-        await db.recalculateAndSignDatabase();
+        await appDb.recalculateAndSignDatabase();
         if (req.sharepointCookie) {
           const { uploadDatabaseToSharePoint } = require('../config/db-sync');
-          uploadDatabaseToSharePoint(db, req.sharepointCookie, 'lobby').catch(e => {
-            console.error('Error al subir base de datos de lobby a SharePoint:', e.message);
+          uploadDatabaseToSharePoint(appDb, req.sharepointCookie, 'app').catch(e => {
+            console.error('Error al subir base de datos app a SharePoint:', e.message);
           });
         }
         resolve({ status: 200, data: { message: 'Registro de auditoría actualizado y sincronizado en SharePoint exitosamente.' } });
@@ -1844,14 +1845,14 @@ async function handle(req, setSharepointCookie) {
   if (method === 'DELETE' && auditMatch) {
     const id = auditMatch[1];
     return new Promise((resolve) => {
-      db.run('DELETE FROM auditoria_semanal WHERE id = ?', id, async function(err) {
+      appDb.run('DELETE FROM auditoria_semanal WHERE id = ?', id, async function(err) {
         if (err) return resolve({ status: 500, data: { error: err.message } });
         if (this.changes === 0) return resolve({ status: 404, data: { error: 'Registro no encontrado.' } });
-        await db.recalculateAndSignDatabase();
+        await appDb.recalculateAndSignDatabase();
         if (req.sharepointCookie) {
           const { uploadDatabaseToSharePoint } = require('../config/db-sync');
-          uploadDatabaseToSharePoint(db, req.sharepointCookie, 'lobby').catch(e => {
-            console.error('Error al subir base de datos de lobby a SharePoint:', e.message);
+          uploadDatabaseToSharePoint(appDb, req.sharepointCookie, 'app').catch(e => {
+            console.error('Error al subir base de datos app a SharePoint:', e.message);
           });
         }
         resolve({ status: 200, data: { message: 'Registro de auditoría eliminado y sincronizado en SharePoint exitosamente.' } });
@@ -3054,9 +3055,9 @@ async function handle(req, setSharepointCookie) {
               if (err) return resolve({ status: 500, data: { error: err.message } });
 
               const tables = {
-                'lobby_control.db': lobbyRows.map(r => r.name).sort(),
+                'data.db': lobbyRows.map(r => r.name).sort(),
+                'app.db': asistenciasRows.map(r => r.name).sort(),
                 'usuarios.db': usersRows.map(r => r.name).sort(),
-                'asistencias.db': asistenciasRows.map(r => r.name).sort(),
                 'local.db': localRows.map(r => r.name).sort()
               };
               resolve({ status: 200, data: tables });
@@ -3098,8 +3099,16 @@ async function handle(req, setSharepointCookie) {
     let dbHandle = db;
     if (tableName === 'usuarios') {
       dbHandle = usersDb;
-    } else if (tableName === 'contactos_asistencia' || tableName === 'bitacora_asistencias' || tableName === 'asistencia_categorias' || tableName === 'direcciones_municipales') {
-      dbHandle = asistenciasDb;
+    } else if (
+      tableName === 'configuracion' ||
+      tableName === 'historial_sincronizaciones' ||
+      tableName === 'auditoria_semanal' ||
+      tableName === 'contactos_asistencia' ||
+      tableName === 'bitacora_asistencias' ||
+      tableName === 'asistencia_categorias' ||
+      tableName === 'direcciones_municipales'
+    ) {
+      dbHandle = appDb;
     } else if (tableName === 'alertas_gestionadas' || tableName === 'configuracion_local') {
       dbHandle = localDb;
     }

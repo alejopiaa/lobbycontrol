@@ -361,22 +361,28 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
  *  - '${type}.db', 'version_${type}.json'
  */
 function resolveDbMetadata(type) {
-  const normType = String(type || 'lobby').trim().toLowerCase();
+  const normType = String(type || 'data').trim().toLowerCase();
   let remoteDbName = `${normType}.db`;
   let remoteVersionName = `version_${normType}.json`;
+  let fallbackDbName = null;
+  let fallbackVersionName = null;
 
-  if (normType === 'lobby') {
-    remoteDbName = 'lobby_control.db';
-    remoteVersionName = 'version_lobby.json';
-  } else if (normType === 'usuarios') {
+  if (normType === 'data' || normType === 'lobby') {
+    remoteDbName = 'data.db';
+    remoteVersionName = 'version_data.json';
+    fallbackDbName = 'lobby_control.db';
+    fallbackVersionName = 'version_lobby.json';
+  } else if (normType === 'usuarios' || normType === 'users') {
     remoteDbName = 'usuarios.db';
     remoteVersionName = 'version_users.json';
-  } else if (normType === 'local' || normType === 'asistencias') {
-    remoteDbName = 'asistencias.db';
-    remoteVersionName = 'version_asistencias.json';
+  } else if (normType === 'app' || normType === 'asistencias' || normType === 'local') {
+    remoteDbName = 'app.db';
+    remoteVersionName = 'version_app.json';
+    fallbackDbName = 'asistencias.db';
+    fallbackVersionName = 'version_asistencias.json';
   }
 
-  return { remoteDbName, remoteVersionName, normType };
+  return { remoteDbName, remoteVersionName, fallbackDbName, fallbackVersionName, normType };
 }
 
 /**
@@ -388,9 +394,9 @@ async function saveSyncTimestamp(db, type, timestampStr) {
   const { normType } = resolveDbMetadata(type);
   const database = require('./database');
 
-  if (normType === 'lobby') {
+  if (normType === 'data' || normType === 'lobby') {
     return new Promise((resolve, reject) => {
-      db.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
+      database.appDb.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -422,14 +428,16 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
     return false;
   }
 
-  const { remoteDbName, remoteVersionName, normType } = resolveDbMetadata(type);
-  const isAsistencias = normType === 'asistencias' || normType === 'local';
+  const { remoteDbName, remoteVersionName, fallbackDbName, fallbackVersionName, normType } = resolveDbMetadata(type);
+  const isAsistencias = normType === 'asistencias' || normType === 'local' || normType === 'app';
 
-  // Construir las URLs de la API REST de SharePoint
+  // Construir las URLs de la API REST de SharePoint con fallback inteligente
   const cleanSiteUrl = siteUrl.replace(/\/$/, '');
   const cleanFolderPath = folderPath.replace(/\/$/, '');
-  const versionUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${remoteVersionName}')/$value`;
-  const dbUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${remoteDbName}')/$value`;
+  
+  let effectiveDbName = remoteDbName;
+  let effectiveVersionName = remoteVersionName;
+  let versionUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${effectiveVersionName}')/$value`;
 
   const dbDir = db.getUserDataDir();
   const localVersionPath = path.join(dbDir, remoteVersionName);
@@ -439,17 +447,33 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
   const tempVersionPath = path.join(dbDir, `${remoteVersionName}.tmp`);
 
   try {
-    console.log(`Comprobando versión de ${remoteDbName} remota en SharePoint...`);
+    console.log(`Comprobando versión de ${effectiveDbName} remota en SharePoint...`);
     // 1. Descargar versión remota
     try {
       await downloadAuthenticatedFile(versionUrl, tempVersionPath, cookieHeader);
     } catch (verErr) {
-      if (verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) {
+      if ((verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) && fallbackVersionName) {
+        console.log(`ℹ️ Archivo ${remoteVersionName} aún no existe en SharePoint. Verificando fallback ${fallbackVersionName}...`);
+        effectiveVersionName = fallbackVersionName;
+        effectiveDbName = fallbackDbName;
+        versionUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${effectiveVersionName}')/$value`;
+        try {
+          await downloadAuthenticatedFile(versionUrl, tempVersionPath, cookieHeader);
+        } catch (fbErr) {
+          if (fbErr.status === 404 || (fbErr.message && fbErr.message.includes('404'))) {
+            console.log(`ℹ️ Archivo de versión ${remoteVersionName} ni ${fallbackVersionName} existen en SharePoint (404). Se asume primera sincronización.`);
+            return false;
+          }
+          throw fbErr;
+        }
+      } else if (verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) {
         console.log(`ℹ️ Archivo de versión ${remoteVersionName} no existe en SharePoint (404). Se asume primera sincronización.`);
         return false;
+      } else {
+        throw verErr;
       }
-      throw verErr;
     }
+    const dbUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${effectiveDbName}')/$value`;
     const remoteVersion = JSON.parse(fs.readFileSync(tempVersionPath, 'utf8'));
 
     // 2. Calcular firma de la base de datos local actual si existe

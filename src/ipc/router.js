@@ -279,7 +279,7 @@ async function handle(req, setSharepointCookie) {
         .then((updated) => {
           // Obtener la fecha de última actualización para retornarla al cliente si hubo cambios
           if (updated) {
-            db.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
+            appDb.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
               const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
               const { logEvent } = require('../config/logger');
               logEvent("INFO-SYNC-203", "Sincronización automática completada (Con cambios)", `Firma actualizada: ${lastUpdate} | Por: ${user.correo}`);
@@ -327,7 +327,7 @@ async function handle(req, setSharepointCookie) {
           return resolve({ status: 403, data: { error: 'Acceso denegado: Tu correo corporativo no está registrado en el sistema. Solicita acceso al administrador.' } });
         }
         
-        // Sincronizar SharePoint en segundo plano (usuarios.db y lobby.db)
+        // Sincronizar SharePoint en segundo plano (usuarios.db y data.db)
         const { checkAndSyncDatabase } = require('../config/db-sync');
         setTimeout(async () => {
           try {
@@ -1143,7 +1143,7 @@ async function handle(req, setSharepointCookie) {
   // GET /api/db-last-update
   if (method === 'GET' && pathName === '/api/db-last-update') {
     return new Promise((resolve) => {
-      db.get("SELECT valor FROM configuracion WHERE clave = 'last_import_timestamp'", [], (err, row) => {
+      appDb.get("SELECT valor FROM configuracion WHERE clave = 'last_import_timestamp'", [], (err, row) => {
         const dbLastUpdate = (err || !row || !row.valor) ? 'No se registran importaciones' : row.valor;
         localDb.get("SELECT valor FROM configuracion_local WHERE clave = 'users_last_update'", [], (err2, row2) => {
           const usersLastUpdate = (err2 || !row2 || !row2.valor) ? 'Nunca' : row2.valor;
@@ -1416,7 +1416,7 @@ async function handle(req, setSharepointCookie) {
         const anyUpdated = usersUpdated || lobbyUpdated || asistenciasUpdated;
         const { logEvent } = require('../config/logger');
         if (lobbyUpdated) {
-          db.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
+          appDb.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
             const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
             logEvent("INFO-SYNC-201", "Sincronización manual completa con SharePoint (Con cambios)", `Firma actualizada: ${lastUpdate} | Por: ${user ? user.correo : 'Usuario'}`);
           });
@@ -1510,7 +1510,7 @@ async function handle(req, setSharepointCookie) {
             status: 200,
             data: {
               success: true,
-              message: 'Base de Asistencias Técnicas (asistencias.db) respaldada en SharePoint correctamente.'
+              message: 'Base de Operación y Asistencias (app.db) respaldada en SharePoint correctamente.'
             }
           });
         })

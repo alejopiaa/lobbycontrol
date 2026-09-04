@@ -597,13 +597,17 @@ asistenciasDb.serialize(() => {
       console.error('Error creando tabla asistencia_categorias en app.db:', err.message);
     } else {
       const defaultCategories = [
-        ['Plazos Legales (3 Días / Publicación)', 'Cómputo de 3 días hábiles y plazos de publicación oficial en InfoLobby', 1],
-        ['Plataforma / ClaveÚnica', 'Problemas de acceso, roles o vinculación de ClaveÚnica en InfoLobby', 2],
-        ['Sujetos Pasivos / Suplencias', 'Consultas sobre subrogancias, vigencia y decretos de nombramiento', 3],
-        ['Derivaciones / Improcedencia', 'Consultas que no constituyen Lobby o deben orientarse por OIRS/Partes', 4],
-        ['Carga de Actas y Respuestas', 'Procedimiento para registrar actas, materias tratadas y acuerdos', 5],
-        ['Normativa Ley N° 20.730', 'Orientación jurídica sobre el alcance de la ley y sujetos activos/pasivos', 6],
-        ['Consulta General / Otro', 'Otras consultas generales de usuarios o solicitantes', 7]
+        ['Consultas generales / otros', 'Dudas operativas o de tramitación que no correspondan a las demás categorías del catálogo.', 1],
+        ['Criterios de aplicación y derivación', 'Calificación de si un requerimiento constituye lobby/gestión de intereses o si debe derivarse por canales ordinarios (OIRS, Oficina de Partes).', 2],
+        ['Gestión de sujetos pasivos', 'Incorporación o desvinculación de autoridades/cargos, decretos de nombramiento, registro de subrogancias y suplencias.', 3],
+        ['Incidencias técnicas de la plataforma', 'Reporte de errores en la interfaz, problemas al guardar formularios o interrupciones en el funcionamiento del servicio.', 4],
+        ['Ingreso y llenado de formularios', 'Asistencia técnica sobre los campos requeridos, datos del solicitante, individualización del representado y descripción de la materia a tratar.', 5],
+        ['Interpretación y Marco Legal', 'Consultas jurídicas sobre el alcance de la Ley N° 20.730, dictámenes de Contraloría, excepciones legales y conceptos normativos.', 6],
+        ['Modificación y rectificación de registros', 'Procedimiento y autorizaciones para corregir errores, editar datos o solicitar la baja de audiencias, viajes o donativos ya ingresados o publicados.', 7],
+        ['Plazos legales y publicación', 'Consultas sobre plazos para responder solicitudes (aceptar/rechazar), días hábiles administrativos y fechas límites para publicar registros.', 8],
+        ['Registro de audiencias', 'Procedimiento para registrar reuniones sostenidas, individualizar asistentes/lobbistas y consignar la materia tratada.', 9],
+        ['Registro de viajes y donativos', 'Carga de viajes oficiales institucionales (destinos, costos, objeto) y declaración de donativos protocolares recibidos.', 10],
+        ['Usuarios y perfiles en plataforma', 'Creación y activación de cuentas, asignación de roles (administrador institucional, gestor de audiencias, sujeto pasivo) y permisos internos.', 11]
       ];
       defaultCategories.forEach(([nombre, desc, ord]) => {
         asistenciasDb.run(`INSERT OR IGNORE INTO asistencia_categorias (nombre, descripcion, orden) VALUES (?, ?, ?)`, [nombre, desc, ord]);

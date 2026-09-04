@@ -5,9 +5,11 @@ const fs = require('fs');
 const os = require('os');
 
 let dbPath;
+let dataDbPath;
 let usersDbPath;
 let localDbPath;
 let asistenciasDbPath;
+let appDbPath;
 let dbDir;
 
 // Detectar si estamos en Electron y si la aplicación está en producción
@@ -41,10 +43,12 @@ if (useProductionPath) {
   dbDir = path.dirname(devPath);
 }
 
-dbPath = path.join(dbDir, 'lobby_control.db');
+dataDbPath = path.join(dbDir, 'data.db');
+dbPath = dataDbPath; // Alias retrocompatible
 usersDbPath = path.join(dbDir, 'usuarios.db');
 localDbPath = path.join(dbDir, 'local.db');
-asistenciasDbPath = path.join(dbDir, 'asistencias.db');
+appDbPath = path.join(dbDir, 'app.db');
+asistenciasDbPath = appDbPath; // Alias retrocompatible
 
 // Asegurar que la carpeta de destino de la base de datos exista
 if (!fs.existsSync(dbDir)) {
@@ -91,7 +95,9 @@ ensureDecompressedDb(asistenciasDbPath);
 
 // Verificar firma digital del archivo de base de datos para depuración (sin acción destructiva)
 if (fs.existsSync(dbPath)) {
-  const localVersionPath = path.join(dbDir, 'version_lobby.json');
+  const localVersionPath = fs.existsSync(path.join(dbDir, 'version_data.json'))
+    ? path.join(dbDir, 'version_data.json')
+    : path.join(dbDir, 'version_lobby.json');
   if (fs.existsSync(localVersionPath)) {
     try {
       const crypto = require('crypto');
@@ -250,8 +256,8 @@ const db = {
         if (pragmaErr) console.error('Error en checkpoint antes de firmar lobby.db:', pragmaErr.message);
         
         try {
-          const crypto = require('crypto');
-          const localVersionPath = path.join(dbDir, 'version_lobby.json');
+          const localVersionPath = path.join(dbDir, 'version_data.json');
+          const legacyVersionPath = path.join(dbDir, 'version_lobby.json');
           if (fs.existsSync(dbPath)) {
             const dbBuffer = fs.readFileSync(dbPath);
             const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
@@ -259,20 +265,23 @@ const db = {
               .digest('hex');
             
             let versionData = { last_import_timestamp: 'Nunca' };
-            if (fs.existsSync(localVersionPath)) {
+            const existingPath = fs.existsSync(localVersionPath) ? localVersionPath : legacyVersionPath;
+            if (fs.existsSync(existingPath)) {
               try {
-                versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+                versionData = JSON.parse(fs.readFileSync(existingPath, 'utf8'));
               } catch (e) {}
             }
             
             versionData.db_size = dbBuffer.length;
             versionData.db_signature = calculatedSignature;
             
-            fs.writeFileSync(localVersionPath, JSON.stringify(versionData, null, 2));
-            console.log('✓ [Sign Database] Firma digital local de lobby.db recalculada y guardada.');
+            const versionStr = JSON.stringify(versionData, null, 2);
+            fs.writeFileSync(localVersionPath, versionStr);
+            try { fs.writeFileSync(legacyVersionPath, versionStr); } catch (e) {}
+            console.log('✓ [Sign Database] Firma digital local de data.db recalculada y guardada.');
           }
         } catch (err) {
-          console.error('Error al recalcular firma local de lobby.db:', err.message);
+          console.error('Error al recalcular firma local de data.db:', err.message);
         }
         resolve();
       });
@@ -521,7 +530,8 @@ const asistenciasDb = {
         if (pragmaErr) console.error('Error en checkpoint antes de firmar asistencias.db:', pragmaErr.message);
         try {
           const crypto = require('crypto');
-          const localVersionPath = path.join(dbDir, 'version_asistencias.json');
+          const localVersionPath = path.join(dbDir, 'version_app.json');
+          const legacyVersionPath = path.join(dbDir, 'version_asistencias.json');
           if (fs.existsSync(asistenciasDbPath)) {
             const dbBuffer = fs.readFileSync(asistenciasDbPath);
             const calculatedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
@@ -529,18 +539,21 @@ const asistenciasDb = {
               .digest('hex');
             
             let versionData = { last_import_timestamp: 'Nunca' };
-            if (fs.existsSync(localVersionPath)) {
+            const existingPath = fs.existsSync(localVersionPath) ? localVersionPath : legacyVersionPath;
+            if (fs.existsSync(existingPath)) {
               try {
-                versionData = JSON.parse(fs.readFileSync(localVersionPath, 'utf8'));
+                versionData = JSON.parse(fs.readFileSync(existingPath, 'utf8'));
               } catch (e) {}
             }
             versionData.db_size = dbBuffer.length;
             versionData.db_signature = calculatedSignature;
-            fs.writeFileSync(localVersionPath, JSON.stringify(versionData, null, 2));
-            console.log('✓ [Sign Database] Firma digital local de asistencias.db recalculada y guardada.');
+            const versionStr = JSON.stringify(versionData, null, 2);
+            fs.writeFileSync(localVersionPath, versionStr);
+            try { fs.writeFileSync(legacyVersionPath, versionStr); } catch (e) {}
+            console.log('✓ [Sign Database] Firma digital local de app.db recalculada y guardada.');
           }
         } catch (err) {
-          console.error('Error al recalcular firma local de asistencias.db:', err.message);
+          console.error('Error al recalcular firma local de app.db:', err.message);
         }
         resolve();
       });
@@ -692,6 +705,64 @@ asistenciasDb.serialize(() => {
       console.error('Error creando tabla direcciones_municipales en asistencias.db:', err.message);
     } else {
       migrateOrSeedDireccionesMunicipales();
+    }
+  });
+
+  // 2.5 Configuración Global Compartida
+  asistenciasDb.run(`
+    CREATE TABLE IF NOT EXISTS configuracion (
+      clave TEXT UNIQUE,
+      valor TEXT
+    )
+  `, (err) => {
+    if (err) console.error('Error creando tabla configuracion en app.db:', err.message);
+  });
+
+  // 2.6 Historial de Sincronizaciones Compartido
+  asistenciasDb.run(`
+    CREATE TABLE IF NOT EXISTS historial_sincronizaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      usuario TEXT,
+      estado TEXT,
+      detalles TEXT
+    )
+  `, (err) => {
+    if (err) console.error('Error creando tabla historial_sincronizaciones en app.db:', err.message);
+  });
+
+  // 2.7 Auditoría Semanal
+  asistenciasDb.run(`
+    CREATE TABLE IF NOT EXISTS auditoria_semanal (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT NOT NULL,
+      total INTEGER NOT NULL,
+      ingresada INTEGER NOT NULL,
+      aceptada INTEGER NOT NULL,
+      rechazada INTEGER NOT NULL,
+      suspendida INTEGER NOT NULL,
+      cancelada INTEGER NOT NULL,
+      encomendada INTEGER NOT NULL,
+      publicada INTEGER NOT NULL,
+      usuario TEXT,
+      estado TEXT DEFAULT 'Cerrado'
+    )
+  `, (err) => {
+    if (err) {
+      console.error('Error creando tabla auditoria_semanal en app.db:', err.message);
+    } else {
+      asistenciasDb.all("PRAGMA table_info(auditoria_semanal)", [], (err, rows) => {
+        if (!err && rows) {
+          const hasEstado = rows.some(r => r.name === 'estado');
+          const hasTotal = rows.some(r => r.name === 'total');
+          if (!hasEstado) {
+            asistenciasDb.run("ALTER TABLE auditoria_semanal ADD COLUMN estado TEXT DEFAULT 'Cerrado'");
+          }
+          if (!hasTotal) {
+            asistenciasDb.run("ALTER TABLE auditoria_semanal ADD COLUMN total INTEGER DEFAULT 0");
+          }
+        }
+      });
     }
   });
 
@@ -1154,80 +1225,7 @@ db.serialize(() => {
     if (err) {
       console.error('Error creando tabla sujetos_pasivos_sph:', err.message);
     } else {
-      db.all("PRAGMA table_info(sujetos_pasivos_sph)", [], (err, rows) => {
-        if (!err && rows && rows.length > 0) {
-          const hasRowHash = rows.some(r => r.name === 'row_hash');
-          if (!hasRowHash) {
-            db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN row_hash TEXT");
-          }
-          const hasAsistente = rows.some(r => r.name === 'asistente_tecnico');
-          if (!hasAsistente) {
-            db.run("ALTER TABLE sujetos_pasivos_sph ADD COLUMN asistente_tecnico TEXT");
-          }
-        }
-      });
-    }
-  });
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS configuracion (
-      clave TEXT UNIQUE,
-      valor TEXT
-    )
-  `, (err) => {
-    if (err) console.error('Error creando tabla configuracion:', err.message);
-  });
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS historial_sincronizaciones (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      usuario TEXT,
-      estado TEXT,
-      detalles TEXT
-    )
-  `, (err) => {
-    if (err) console.error('Error creando tabla historial_sincronizaciones:', err.message);
-  });
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS auditoria_semanal (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      fecha TEXT NOT NULL,
-      total INTEGER NOT NULL,
-      ingresada INTEGER NOT NULL,
-      aceptada INTEGER NOT NULL,
-      rechazada INTEGER NOT NULL,
-      suspendida INTEGER NOT NULL,
-      cancelada INTEGER NOT NULL,
-      encomendada INTEGER NOT NULL,
-      publicada INTEGER NOT NULL,
-      usuario TEXT,
-      estado TEXT DEFAULT 'Cerrado'
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creando tabla auditoria_semanal:', err.message);
-    } else {
-      db.all("PRAGMA table_info(auditoria_semanal)", [], (err, rows) => {
-        if (!err && rows) {
-          const hasEstado = rows.some(r => r.name === 'estado');
-          const hasTotal = rows.some(r => r.name === 'total');
-          
-          const runMigrations = async () => {
-            if (!hasEstado) {
-              await new Promise((resolve) => db.run("ALTER TABLE auditoria_semanal ADD COLUMN estado TEXT DEFAULT 'Cerrado'", () => resolve()));
-            }
-            if (!hasTotal) {
-              await new Promise((resolve) => db.run("ALTER TABLE auditoria_semanal ADD COLUMN total INTEGER DEFAULT 0", () => resolve()));
-            }
-            rebuildActiveSujetoIdsTable();
-          };
-          runMigrations();
-        } else {
-          rebuildActiveSujetoIdsTable();
-        }
-      });
+      rebuildActiveSujetoIdsTable();
     }
   });
 
@@ -1294,5 +1292,7 @@ function rebuildActiveSujetoIdsTable() {
 db.usersDb = usersDb;
 db.localDb = localDb;
 db.asistenciasDb = asistenciasDb;
+db.appDb = asistenciasDb; // Alias canónico estándar
+db.dataDb = db; // Alias canónico estándar
 
 module.exports = db;

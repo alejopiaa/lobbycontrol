@@ -4254,7 +4254,7 @@ async function renderLogin(container) {
 
 let inspectorState = {
   tables: {},
-  selectedDb: "lobby_control.db",
+  selectedDb: "data.db",
   selectedTable: "solicitudes_sh",
   page: 1,
   limit: 10,
@@ -4273,9 +4273,9 @@ async function initDatabaseInspector() {
       if (res.ok) {
         inspectorState.tables = await res.json();
         
-        // Buscar si solicitudes_sh existe en lobby_control.db
-        if (inspectorState.tables["lobby_control.db"] && inspectorState.tables["lobby_control.db"].includes("solicitudes_sh")) {
-          inspectorState.selectedDb = "lobby_control.db";
+        // Buscar si solicitudes_sh existe en data.db
+        if (inspectorState.tables["data.db"] && inspectorState.tables["data.db"].includes("solicitudes_sh")) {
+          inspectorState.selectedDb = "data.db";
           inspectorState.selectedTable = "solicitudes_sh";
         } else {
           const dbs = Object.keys(inspectorState.tables);
@@ -4473,7 +4473,8 @@ function renderDatabaseInspectorContent() {
                 const isSelected = inspectorState.selectedDb === dbName;
                 let badge = 'Compartida';
                 let iconColor = 'text-brand-500';
-                if (dbName === 'asistencias.db') { badge = 'Asistencias'; iconColor = 'text-emerald-500'; }
+                if (dbName === 'data.db') { badge = 'Datos'; iconColor = 'text-brand-500'; }
+                else if (dbName === 'app.db' || dbName === 'asistencias.db') { badge = 'Operación'; iconColor = 'text-emerald-500'; }
                 else if (dbName === 'usuarios.db') { badge = 'Seguridad'; iconColor = 'text-purple-500'; }
                 else if (dbName === 'local.db') { badge = 'Local'; iconColor = 'text-amber-500'; }
                 

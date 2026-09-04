@@ -4474,7 +4474,7 @@ function renderDatabaseInspectorContent() {
                 let badge = 'Compartida';
                 let iconColor = 'text-brand-500';
                 if (dbName === 'data.db') { badge = 'Datos'; iconColor = 'text-brand-500'; }
-                else if (dbName === 'app.db' || dbName === 'asistencias.db') { badge = 'Operación'; iconColor = 'text-emerald-500'; }
+                else if (dbName === 'app.db' || dbName === 'asistencias.db' /* compat / legacy */) { badge = 'Operación'; iconColor = 'text-emerald-500'; }
                 else if (dbName === 'usuarios.db') { badge = 'Seguridad'; iconColor = 'text-purple-500'; }
                 else if (dbName === 'local.db') { badge = 'Local'; iconColor = 'text-amber-500'; }
                 

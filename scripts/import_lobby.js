@@ -175,9 +175,11 @@ if (process.env.PRODUCTION_DB === "true") {
   const os = require("os");
   const baseDir =
     process.env.USER_DATA_DIR ||
-    (fs.existsSync(path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"))
-      ? path.join(os.homedir(), "AppData", "Roaming", "LobbyControl")
-      : path.join(os.homedir(), "AppData", "Local", "LobbyControl"));
+    (process.env.APPDATA
+      ? path.join(process.env.APPDATA, "LobbyControl")
+      : (fs.existsSync(path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"))
+        ? path.join(os.homedir(), "AppData", "Roaming", "LobbyControl")
+        : path.join(os.homedir(), "AppData", "Local", "LobbyControl")));
   dbDir = path.join(baseDir, "data");
   excelPath = path.join(dbDir, "lobby_data.xlsx");
 } else {

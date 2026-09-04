@@ -96,7 +96,7 @@ async function downloadAuthenticatedFile(url, destPath, cookieHeader) {
 }
 
 /**
- * Realiza una fusión a nivel de fila (Row-Level Delta Merge) para asistencias.db.
+ * Realiza una fusión a nivel de fila (Row-Level Delta Merge) para app.db (asistencias).
  * Garantiza cero pérdida de datos al sincronizar asistencias y contactos desde SharePoint
  * con remapeo dinámico de contacto_id por clave natural (nombre único).
  */
@@ -345,7 +345,7 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
       WHERE contacto_uuid IS NOT NULL AND contacto_id IS NULL
     `);
 
-    console.log(`✓ Delta merge de asistencias.db completado: ${remoteContacts.length} contactos y ${remoteBitacoras.length} asistencias procesadas con UUID.`);
+    console.log(`✓ Delta merge de app.db completado: ${remoteContacts.length} contactos y ${remoteBitacoras.length} asistencias procesadas con UUID.`);
   } finally {
     sourceDb.close();
   }
@@ -354,9 +354,9 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
 /**
  * Resuelve metadatos y nombres de archivos de forma genérica para cualquier base de datos.
  * Casos específicos conocidos:
- *  - 'lobby' -> 'lobby_control.db', 'version_lobby.json'
- *  - 'usuarios' -> 'usuarios.db', 'version_users.json'
- *  - 'local' / 'asistencias' -> 'asistencias.db', 'version_asistencias.json'
+ *  - 'data' / 'lobby' -> 'data.db', 'version_data.json'
+ *  - 'usuarios' / 'users' -> 'usuarios.db', 'version_users.json'
+ *  - 'app' / 'asistencias' / 'local' -> 'app.db', 'version_app.json'
  * Para cualquier base de datos futura (ej: 'inventario'):
  *  - '${type}.db', 'version_${type}.json'
  */
@@ -586,9 +586,9 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         throw new Error(`La firma de ${remoteDbName} descargada no coincide con el servidor.`);
       }
 
-      // Si es asistencias.db, ejecutar Delta Merge para no perder registros locales
+      // Si es app.db (o asistencias.db legado), ejecutar Delta Merge para no perder registros locales
       if (isAsistencias) {
-        console.log(`Ejecutando Row-Level Delta Merge en asistencias.db...`);
+        console.log(`Ejecutando Row-Level Delta Merge en ${remoteDbName}...`);
         await mergeAsistenciasDatabase(db, tempDbPath);
         fs.copyFileSync(tempVersionPath, localVersionPath);
         try { fs.unlinkSync(tempDbPath); } catch (e) {}
@@ -600,7 +600,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         return true;
       }
       
-      // 6. Intercambio seguro en caliente para lobby_control.db y usuarios.db
+      // 6. Intercambio seguro en caliente para data.db y usuarios.db
       console.log(`Reemplazando base de datos local ${remoteDbName} SQLite...`);
       await db.closeConnection();
       
@@ -894,7 +894,7 @@ let isAsistenciasSyncing = false;
 let hasPendingAsistenciasSync = false;
 
 /**
- * Ejecuta un ciclo seguro Pull-Merge-Push para asistencias.db:
+ * Ejecuta un ciclo seguro Pull-Merge-Push para app.db (asistencias):
  * 1. Descarga deltas remotos de SharePoint y fusiona con SQLite local.
  * 2. Sube la base local consolidada resultante a SharePoint.
  * Cuenta con un candado en memoria para evitar colisiones entre llamadas simultáneas.

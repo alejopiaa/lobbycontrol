@@ -1885,7 +1885,7 @@ async function handle(req, setSharepointCookie) {
       asistenciasDb.all(`
         SELECT id, nombre, direccion, correo, telefono
         FROM contactos_asistencia
-        WHERE nombre LIKE ? COLLATE NOCASE OR direccion LIKE ? COLLATE NOCASE
+        WHERE activo = 1 AND (nombre LIKE ? COLLATE NOCASE OR direccion LIKE ? COLLATE NOCASE)
         ORDER BY nombre ASC
         LIMIT 10
       `, [searchVal, searchVal], (err, rows) => {
@@ -1904,10 +1904,11 @@ async function handle(req, setSharepointCookie) {
           (SELECT COUNT(*) FROM bitacora_asistencias b WHERE b.contacto_id = c.id) AS total_asistencias,
           (SELECT MAX(b.fecha_hora) FROM bitacora_asistencias b WHERE b.contacto_id = c.id) AS ultima_asistencia
         FROM contactos_asistencia c
+        WHERE c.activo = 1
       `;
       let params = [];
       if (search) {
-        sql += ` WHERE c.nombre LIKE ? COLLATE NOCASE OR c.direccion LIKE ? COLLATE NOCASE OR c.correo LIKE ? COLLATE NOCASE`;
+        sql += ` AND (c.nombre LIKE ? COLLATE NOCASE OR c.direccion LIKE ? COLLATE NOCASE OR c.correo LIKE ? COLLATE NOCASE)`;
         const sVal = `%${search}%`;
         params.push(sVal, sVal, sVal);
       }
@@ -1919,7 +1920,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // POST /api/asistencias/contactos
+  // POST /api/asistencias/contactos (Con diferenciación determinista de homónimos)
   if (method === 'POST' && pathName === '/api/asistencias/contactos') {
     const { nombre, direccion, depto_habitual, correo, telefono, telefono_anexo, notas } = body;
     if (!nombre || !nombre.trim()) {
@@ -1932,13 +1933,59 @@ async function handle(req, setSharepointCookie) {
     const contactUuid = crypto.randomUUID();
 
     return new Promise((resolve) => {
-      asistenciasDb.run(`
-        INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, notas)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [contactUuid, cleanName, cleanDireccion, cleanEmail, cleanPhone, notas || ''], function(err) {
-        if (err) return resolve({ status: 500, data: { error: err.message } });
-        resolve({ status: 201, data: { id: this.lastID, uuid: contactUuid, nombre: cleanName, direccion: cleanDireccion, correo: cleanEmail, telefono: cleanPhone } });
-      });
+      // 1. Verificar si existe un contacto inactivo con coincidencia positiva de identidad
+      asistenciasDb.get(
+        "SELECT id, uuid, correo, direccion FROM contactos_asistencia WHERE nombre = ? COLLATE NOCASE AND activo = 0 ORDER BY updated_at DESC, id DESC LIMIT 1",
+        [cleanName],
+        (fErr, inactiveContact) => {
+          if (!fErr && inactiveContact) {
+            const sameEmail = cleanEmail && inactiveContact.correo && cleanEmail.toLowerCase() === inactiveContact.correo.toLowerCase();
+            const sameDireccion = cleanDireccion && inactiveContact.direccion && cleanDireccion.toLowerCase() === inactiveContact.direccion.toLowerCase();
+
+            if (sameEmail || sameDireccion) {
+              // Reactivación selectiva actualizando nombre, datos y fecha
+              return asistenciasDb.run(`
+                UPDATE contactos_asistencia
+                SET nombre = ?, direccion = ?, correo = ?, telefono = ?, notas = ?, activo = 1, updated_at = datetime('now', 'localtime')
+                WHERE id = ?
+              `, [cleanName, cleanDireccion, cleanEmail, cleanPhone, notas || '', inactiveContact.id], function(uErr) {
+                if (uErr) return resolve({ status: 500, data: { error: uErr.message } });
+                resolve({
+                  status: 200,
+                  data: {
+                    id: inactiveContact.id,
+                    uuid: inactiveContact.uuid,
+                    nombre: cleanName,
+                    direccion: cleanDireccion,
+                    correo: cleanEmail,
+                    telefono: cleanPhone,
+                    reactivado: true
+                  }
+                });
+              });
+            }
+          }
+
+          // 2. Si no hay coincidencia positiva previa o es un homónimo nuevo: INSERT con UUID nuevo
+          asistenciasDb.run(`
+            INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, notas, activo)
+            VALUES (?, ?, ?, ?, ?, ?, 1)
+          `, [contactUuid, cleanName, cleanDireccion, cleanEmail, cleanPhone, notas || ''], function(err) {
+            if (err) return resolve({ status: 500, data: { error: err.message } });
+            resolve({
+              status: 201,
+              data: {
+                id: this.lastID,
+                uuid: contactUuid,
+                nombre: cleanName,
+                direccion: cleanDireccion,
+                correo: cleanEmail,
+                telefono: cleanPhone
+              }
+            });
+          });
+        }
+      );
     });
   }
 
@@ -1966,7 +2013,69 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // POST /api/asistencias/contactos/unificar (Merge de contactos duplicados con UUID)
+  // DELETE /api/asistencias/contactos/:id (Eliminación con lápida digital y desvinculación segura)
+  if (method === 'DELETE' && contactoMatch) {
+    const id = parseInt(contactoMatch[1], 10);
+    return new Promise((resolve) => {
+      asistenciasDb.get("SELECT id, uuid, nombre FROM contactos_asistencia WHERE id = ?", [id], (gErr, row) => {
+        if (gErr) return resolve({ status: 500, data: { error: gErr.message } });
+        if (!row) return resolve({ status: 404, data: { error: 'Contacto no encontrado.' } });
+
+        asistenciasDb.serialize(() => {
+          asistenciasDb.run("BEGIN IMMEDIATE TRANSACTION", (bErr) => {
+            if (bErr) return resolve({ status: 500, data: { error: bErr.message } });
+
+            // 1. Desvincular punteros relacionales sin alterar updated_at de tickets históricos
+            asistenciasDb.run(`
+              UPDATE bitacora_asistencias
+              SET contacto_id = NULL, contacto_uuid = NULL
+              WHERE contacto_id = ? OR (contacto_uuid IS NOT NULL AND contacto_uuid = ?)
+            `, [row.id, row.uuid || ''], (uErr) => {
+              if (uErr) {
+                asistenciasDb.run("ROLLBACK");
+                return resolve({ status: 500, data: { error: uErr.message } });
+              }
+
+              // 2. Aplicar lápida digital al contacto
+              asistenciasDb.run(`
+                UPDATE contactos_asistencia
+                SET activo = 0, updated_at = datetime('now', 'localtime')
+                WHERE id = ?
+              `, [row.id], function(dErr) {
+                if (dErr) {
+                  asistenciasDb.run("ROLLBACK");
+                  return resolve({ status: 500, data: { error: dErr.message } });
+                }
+
+                asistenciasDb.run("COMMIT", (cErr) => {
+                  if (cErr) return resolve({ status: 500, data: { error: cErr.message } });
+
+                  // 3. Respuesta inmediata HTTP 200 (Offline-first)
+                  resolve({
+                    status: 200,
+                    data: {
+                      message: `Contacto '${row.nombre}' eliminado del directorio exitosamente. Sus atenciones históricas se conservan intactas.`,
+                      id: row.id
+                    }
+                  });
+
+                  // 4. Sincronización en segundo plano con SharePoint
+                  if (req.sharepointCookie) {
+                    const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+                    safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch((sErr) => {
+                      console.warn('[Sync-Contactos] Subida de lápida digital a SharePoint pendiente para próximo ciclo:', sErr.message);
+                    });
+                  }
+                });
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+
+  // POST /api/asistencias/contactos/unificar (Merge de contactos duplicados con lápida digital y parámetros dinámicos)
   if (method === 'POST' && pathName === '/api/asistencias/contactos/unificar') {
     const { target_id, target_uuid, source_ids, source_uuids } = body;
     
@@ -1992,42 +2101,93 @@ async function handle(req, setSharepointCookie) {
             asistenciasDb.run("BEGIN IMMEDIATE TRANSACTION", (bErr) => {
               if (bErr) return resolve({ status: 500, data: { error: bErr.message } });
 
-              const idPlaceholders = sIds.length > 0 ? sIds.map(() => '?').join(',') : 'NULL';
-              const uuidPlaceholders = sUuids.length > 0 ? sUuids.map(() => '?').join(',') : 'NULL';
+              // Función modular para marcar lápidas en contactos absorbidos
+              const executeTombstones = () => {
+                const uWhere = [];
+                const uParams = [];
+                if (sIds.length > 0) {
+                  uWhere.push(`id IN (${sIds.map(() => '?').join(',')})`);
+                  uParams.push(...sIds);
+                }
+                if (sUuids.length > 0) {
+                  uWhere.push(`uuid IN (${sUuids.map(() => '?').join(',')})`);
+                  uParams.push(...sUuids);
+                }
 
-              asistenciasDb.run(`
-                UPDATE bitacora_asistencias
-                SET contacto_id = ?, contacto_uuid = ?, updated_at = datetime('now', 'localtime')
-                WHERE contacto_id IN (${idPlaceholders}) OR contacto_uuid IN (${uuidPlaceholders})
-              `, [cleanTargetId, cleanTargetUuid, ...sIds, ...sUuids], (uErr) => {
-                if (uErr) {
-                  asistenciasDb.run("ROLLBACK");
-                  return resolve({ status: 500, data: { error: uErr.message } });
+                const commitAndFinish = () => {
+                  // Actualizar timestamp en contacto principal para propagar cambios
+                  asistenciasDb.run(`
+                    UPDATE contactos_asistencia
+                    SET activo = 1, updated_at = datetime('now', 'localtime')
+                    WHERE id = ?
+                  `, [cleanTargetId], () => {
+                    asistenciasDb.run("COMMIT", (cErr) => {
+                      if (cErr) return resolve({ status: 500, data: { error: cErr.message } });
+                      resolve({
+                        status: 200,
+                        data: {
+                          message: `Fusión completada con éxito. Se unificaron los registros en '${targetContact.nombre}'.`,
+                          target_id: cleanTargetId,
+                          target_uuid: cleanTargetUuid,
+                          merged_count: sIds.length || sUuids.length
+                        }
+                      });
+
+                      if (req.sharepointCookie) {
+                        const { safeSyncAndUploadAsistencias } = require('../config/db-sync');
+                        safeSyncAndUploadAsistencias(asistenciasDb, req.sharepointCookie).catch((sErr) => {
+                          console.warn('[Sync-Merge] Subida de unificación a SharePoint pendiente:', sErr.message);
+                        });
+                      }
+                    });
+                  });
+                };
+
+                // Guarda defensiva si uWhere está vacío
+                if (uWhere.length === 0) {
+                  return commitAndFinish();
                 }
 
                 asistenciasDb.run(`
-                  DELETE FROM contactos_asistencia
-                  WHERE id IN (${idPlaceholders}) OR uuid IN (${uuidPlaceholders})
-                `, [...sIds, ...sUuids], function(dErr) {
+                  UPDATE contactos_asistencia
+                  SET activo = 0, updated_at = datetime('now', 'localtime')
+                  WHERE ${uWhere.join(' OR ')}
+                `, uParams, function(dErr) {
                   if (dErr) {
                     asistenciasDb.run("ROLLBACK");
                     return resolve({ status: 500, data: { error: dErr.message } });
                   }
-
-                  asistenciasDb.run("COMMIT", (cErr) => {
-                    if (cErr) return resolve({ status: 500, data: { error: cErr.message } });
-                    resolve({
-                      status: 200,
-                      data: {
-                        message: `Fusión completada con éxito. Se unificaron los registros en '${targetContact.nombre}'.`,
-                        target_id: cleanTargetId,
-                        target_uuid: cleanTargetUuid,
-                        merged_count: sIds.length || sUuids.length
-                      }
-                    });
-                  });
+                  commitAndFinish();
                 });
-              });
+              };
+
+              // Reasignación de bitácoras si hay condiciones válidas
+              const bWhere = [];
+              const bWhereParams = [];
+              if (sIds.length > 0) {
+                bWhere.push(`contacto_id IN (${sIds.map(() => '?').join(',')})`);
+                bWhereParams.push(...sIds);
+              }
+              if (sUuids.length > 0) {
+                bWhere.push(`contacto_uuid IN (${sUuids.map(() => '?').join(',')})`);
+                bWhereParams.push(...sUuids);
+              }
+
+              if (bWhere.length > 0) {
+                asistenciasDb.run(`
+                  UPDATE bitacora_asistencias
+                  SET contacto_id = ?, contacto_uuid = ?, updated_at = datetime('now', 'localtime')
+                  WHERE ${bWhere.join(' OR ')}
+                `, [cleanTargetId, cleanTargetUuid, ...bWhereParams], (uErr) => {
+                  if (uErr) {
+                    asistenciasDb.run("ROLLBACK");
+                    return resolve({ status: 500, data: { error: uErr.message } });
+                  }
+                  executeTombstones();
+                });
+              } else {
+                executeTombstones();
+              }
             });
           });
         }
@@ -2242,131 +2402,145 @@ async function handle(req, setSharepointCookie) {
         asistenciasDb.run("BEGIN IMMEDIATE TRANSACTION", (bErr) => {
           if (bErr) return resolve({ status: 500, data: { error: bErr.message } });
 
-          // 1. Calcular folio correlativo único del día AST-AAMMDD-NNN
-          const datePrefix = getChileanDatePrefix();
-          const queryPrefix = `AST-${datePrefix}-%`;
+          // 1. Calcular folio correlativo anual particionado por operador AST{YY}{OP}-{NNN} (ej. AST26AB-001)
+          const targetYear = fecha_hora ? new Date(fecha_hora.replace(' ', 'T')).getFullYear() : new Date().getFullYear();
+          const yy = String(isNaN(targetYear) ? new Date().getFullYear() : targetYear).slice(-2);
 
-          asistenciasDb.all("SELECT ticket_codigo FROM bitacora_asistencias WHERE ticket_codigo LIKE ?", [queryPrefix], (tErr, rows) => {
-            if (tErr) {
-              asistenciasDb.run("ROLLBACK");
-              return resolve({ status: 500, data: { error: tErr.message } });
+          let opInitials = 'AB';
+          if (user && user.nombre) {
+            const nameParts = user.nombre.trim().split(/\s+/);
+            if (nameParts.length >= 2) {
+              opInitials = (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+            } else if (nameParts.length === 1 && nameParts[0].length >= 2) {
+              opInitials = nameParts[0].slice(0, 2).toUpperCase();
             }
+          } else if (currentUserEmail) {
+            const rawUser = currentUserEmail.split('@')[0].replace(/[^a-zA-Z]/g, '');
+            if (rawUser.length >= 2) {
+              opInitials = rawUser.slice(0, 2).toUpperCase();
+            }
+          }
+          const opPrefix = `AST${yy}${opInitials}-`;
 
-            let maxSeq = 0;
-            if (rows && rows.length > 0) {
-              for (const r of rows) {
-                if (r && r.ticket_codigo) {
-                  const parts = r.ticket_codigo.split('-');
-                  if (parts.length >= 3) {
-                    const num = parseInt(parts[2], 10);
-                    if (!isNaN(num) && num > maxSeq) {
-                      maxSeq = num;
-                    }
-                  }
-                }
+          asistenciasDb.get(
+            `SELECT MAX(CAST(SUBSTR(ticket_codigo, ?) AS INTEGER)) AS max_num FROM bitacora_asistencias WHERE ticket_codigo LIKE ?`,
+            [opPrefix.length + 1, `${opPrefix}%`],
+            (tErr, maxRow) => {
+              if (tErr) {
+                asistenciasDb.run("ROLLBACK");
+                return resolve({ status: 500, data: { error: tErr.message } });
               }
-            }
-            const ticketCodigo = `AST-${datePrefix}-${String(maxSeq + 1).padStart(3, '0')}`;
 
-            // 2. Gestionar contacto en contactos_asistencia
-            const proceedWithInsert = (resolvedContactId, resolvedContactUuid) => {
-              asistenciasDb.run(`
-                INSERT INTO bitacora_asistencias (
-                  ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_direccion,
-                  solicitante_correo, solicitante_telefono, categoria, folio_lobby,
-                  motivo_consulta, solucion_orientacion, estado, representado, representado_id_lobby, creado_por
-                ) VALUES (?, ?, ?, COALESCE(?, datetime('now', 'localtime')), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `, [
-                ticketCodigo,
-                resolvedContactId,
-                resolvedContactUuid,
-                fecha_hora ? fecha_hora.trim() : null,
-                canal || 'telefono',
-                cleanName,
-                cleanDireccion,
-                cleanEmail,
-                cleanPhone,
-                categoria,
-                (folio_lobby || '').trim() || null,
-                motivo_consulta.trim(),
-                (solucion_orientacion || '').trim(),
-                estado || 'resuelta',
-                rep,
-                repId,
-                currentUserEmail
-              ], function(insErr) {
-                if (insErr) {
-                  asistenciasDb.run("ROLLBACK");
-                  return resolve({ status: 500, data: { error: insErr.message } });
-                }
-                const newId = this.lastID;
-                asistenciasDb.run("COMMIT", (cErr) => {
-                  if (cErr) return resolve({ status: 500, data: { error: cErr.message } });
-                  resolve({
-                    status: 201,
-                    data: {
-                      id: newId,
-                      ticket_codigo: ticketCodigo,
-                      contacto_id: resolvedContactId,
-                      contacto_uuid: resolvedContactUuid,
-                      solicitante_nombre: cleanName,
-                      solicitante_direccion: cleanDireccion,
-                      solicitante_cargo_depto: cleanDireccion,
-                      solicitante_correo: cleanEmail,
-                      solicitante_telefono: cleanPhone,
-                      solicitante_contacto: cleanPhone,
-                      representado: rep,
-                      representado_id_lobby: repId,
-                      fecha_hora: new Date().toISOString(),
-                      message: `Asistencia ${ticketCodigo} guardada correctamente.`
-                    }
+              const nextNum = ((maxRow && maxRow.max_num) ? maxRow.max_num : 0) + 1;
+              const ticketCodigo = `${opPrefix}${String(nextNum).padStart(3, '0')}`;
+
+              // 2. Gestionar contacto en contactos_asistencia
+              const crypto = require('crypto');
+              const proceedWithInsert = (resolvedContactId, resolvedContactUuid) => {
+                const ticketUuid = crypto.randomUUID();
+                const nowUtc = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+                asistenciasDb.run(`
+                  INSERT INTO bitacora_asistencias (
+                    uuid, ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_direccion,
+                    solicitante_correo, solicitante_telefono, categoria, folio_lobby,
+                    motivo_consulta, solucion_orientacion, estado, representado, representado_id_lobby, creado_por, created_at, updated_at
+                  ) VALUES (?, ?, ?, ?, COALESCE(?, ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `, [
+                  ticketUuid,
+                  ticketCodigo,
+                  resolvedContactId,
+                  resolvedContactUuid,
+                  fecha_hora ? fecha_hora.trim() : null,
+                  nowUtc,
+                  canal || 'telefono',
+                  cleanName,
+                  cleanDireccion,
+                  cleanEmail,
+                  cleanPhone,
+                  categoria,
+                  (folio_lobby || '').trim() || null,
+                  motivo_consulta.trim(),
+                  (solucion_orientacion || '').trim(),
+                  estado || 'resuelta',
+                  rep,
+                  repId,
+                  currentUserEmail,
+                  nowUtc,
+                  nowUtc
+                ], function(insErr) {
+                  if (insErr) {
+                    asistenciasDb.run("ROLLBACK");
+                    return resolve({ status: 500, data: { error: insErr.message } });
+                  }
+                  const newId = this.lastID;
+                  asistenciasDb.run("COMMIT", (cErr) => {
+                    if (cErr) return resolve({ status: 500, data: { error: cErr.message } });
+                    resolve({
+                      status: 201,
+                      data: {
+                        id: newId,
+                        uuid: ticketUuid,
+                        ticket_codigo: ticketCodigo,
+                        contacto_id: resolvedContactId,
+                        contacto_uuid: resolvedContactUuid,
+                        solicitante_nombre: cleanName,
+                        solicitante_direccion: cleanDireccion,
+                        solicitante_cargo_depto: cleanDireccion,
+                        solicitante_correo: cleanEmail,
+                        solicitante_telefono: cleanPhone,
+                        solicitante_contacto: cleanPhone,
+                        representado: rep,
+                        representado_id_lobby: repId,
+                        fecha_hora: nowUtc,
+                        message: `Asistencia ${ticketCodigo} guardada correctamente.`
+                      }
+                    });
                   });
                 });
-              });
-            };
+              };
 
-            const crypto = require('crypto');
-            if (contacto_id) {
-              const cId = parseInt(contacto_id, 10);
-              asistenciasDb.get("SELECT uuid FROM contactos_asistencia WHERE id = ?", [cId], (uErr, cRow) => {
-                const cUuid = (cRow && cRow.uuid) ? cRow.uuid : null;
-                proceedWithInsert(cId, cUuid);
-              });
-            } else {
-              asistenciasDb.get("SELECT id, uuid, direccion, correo, telefono FROM contactos_asistencia WHERE nombre = ? COLLATE NOCASE", [cleanName], (cErr, contactRow) => {
-                if (cErr) {
-                  asistenciasDb.run("ROLLBACK");
-                  return resolve({ status: 500, data: { error: cErr.message } });
-                }
-                if (contactRow) {
-                  const updatedDir = contactRow.direccion || cleanDireccion;
-                  const updatedEmail = cleanEmail || contactRow.correo;
-                  const updatedPhone = cleanPhone || contactRow.telefono;
-                  const currentUuid = contactRow.uuid || crypto.randomUUID();
-                  asistenciasDb.run(
-                    "UPDATE contactos_asistencia SET uuid = ?, direccion = ?, correo = ?, telefono = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
-                    [currentUuid, updatedDir, updatedEmail, updatedPhone, contactRow.id],
-                    () => proceedWithInsert(contactRow.id, currentUuid)
-                  );
-                } else if (cleanName) {
-                  const newContactUuid = crypto.randomUUID();
-                  asistenciasDb.run(
-                    "INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono) VALUES (?, ?, ?, ?, ?)",
-                    [newContactUuid, cleanName, cleanDireccion, cleanEmail, cleanPhone],
-                    function(nErr) {
-                      if (nErr) {
-                        asistenciasDb.run("ROLLBACK");
-                        return resolve({ status: 500, data: { error: nErr.message } });
+              if (contacto_id) {
+                const cId = parseInt(contacto_id, 10);
+                asistenciasDb.get("SELECT uuid FROM contactos_asistencia WHERE id = ?", [cId], (uErr, cRow) => {
+                  const cUuid = (cRow && cRow.uuid) ? cRow.uuid : null;
+                  proceedWithInsert(cId, cUuid);
+                });
+              } else {
+                asistenciasDb.get("SELECT id, uuid, direccion, correo, telefono FROM contactos_asistencia WHERE nombre = ? COLLATE NOCASE", [cleanName], (cErr, contactRow) => {
+                  if (cErr) {
+                    asistenciasDb.run("ROLLBACK");
+                    return resolve({ status: 500, data: { error: cErr.message } });
+                  }
+                  if (contactRow) {
+                    const updatedDir = contactRow.direccion || cleanDireccion;
+                    const updatedEmail = cleanEmail || contactRow.correo;
+                    const updatedPhone = cleanPhone || contactRow.telefono;
+                    const currentUuid = contactRow.uuid || crypto.randomUUID();
+                    asistenciasDb.run(
+                      "UPDATE contactos_asistencia SET uuid = ?, direccion = ?, correo = ?, telefono = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
+                      [currentUuid, updatedDir, updatedEmail, updatedPhone, contactRow.id],
+                      () => proceedWithInsert(contactRow.id, currentUuid)
+                    );
+                  } else if (cleanName) {
+                    const newContactUuid = crypto.randomUUID();
+                    asistenciasDb.run(
+                      "INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+                      [newContactUuid, cleanName, cleanDireccion, cleanEmail, cleanPhone],
+                      function(nErr) {
+                        if (nErr) {
+                          asistenciasDb.run("ROLLBACK");
+                          return resolve({ status: 500, data: { error: nErr.message } });
+                        }
+                        proceedWithInsert(this.lastID, newContactUuid);
                       }
-                      proceedWithInsert(this.lastID, newContactUuid);
-                    }
-                  );
-                } else {
-                  proceedWithInsert(null, null);
-                }
-              });
+                    );
+                  } else {
+                    proceedWithInsert(null, null);
+                  }
+                });
+              }
             }
-          });
+          );
         });
       });
     });
@@ -2462,7 +2636,7 @@ async function handle(req, setSharepointCookie) {
               solicitante_direccion = ?, solicitante_correo = ?, solicitante_telefono = ?,
               categoria = ?, folio_lobby = ?, motivo_consulta = ?,
               solucion_orientacion = ?, estado = ?, representado = ?, representado_id_lobby = ?, updated_by = ?,
-              updated_at = datetime('now', 'localtime')
+              updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
           WHERE id = ?
         `, [
           finalFechaHora,

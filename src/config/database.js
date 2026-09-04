@@ -610,19 +610,22 @@ asistenciasDb.serialize(() => {
       correo TEXT,
       telefono TEXT,
       notas TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+      activo INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     )
   `, (err) => {
     if (err) console.error('Error creando tabla contactos_asistencia en asistencias.db:', err.message);
   });
 
   asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_contactos_nombre ON contactos_asistencia(nombre COLLATE NOCASE)`);
+  asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_contactos_activo ON contactos_asistencia(activo)`);
+  asistenciasDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_contactos_uuid ON contactos_asistencia(uuid)`);
 
   asistenciasDb.run(`
     CREATE TRIGGER IF NOT EXISTS trg_contactos_asistencia_updated_at 
     AFTER UPDATE ON contactos_asistencia BEGIN 
-      UPDATE contactos_asistencia SET updated_at = datetime('now', 'localtime') WHERE id = NEW.id; 
+      UPDATE contactos_asistencia SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id; 
     END;
   `);
 
@@ -630,6 +633,7 @@ asistenciasDb.serialize(() => {
   asistenciasDb.run(`
     CREATE TABLE IF NOT EXISTS bitacora_asistencias (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uuid TEXT UNIQUE NOT NULL,
       ticket_codigo TEXT UNIQUE NOT NULL,
       contacto_id INTEGER,
       contacto_uuid TEXT,
@@ -648,8 +652,8 @@ asistenciasDb.serialize(() => {
       representado_id_lobby INTEGER,
       creado_por TEXT,
       updated_by TEXT,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
-      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      created_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
       FOREIGN KEY (contacto_id) REFERENCES contactos_asistencia(id) ON DELETE SET NULL
     )
   `, (err) => {
@@ -661,11 +665,14 @@ asistenciasDb.serialize(() => {
   asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_bitacora_fecha ON bitacora_asistencias(fecha_hora)`);
   asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_bitacora_canal ON bitacora_asistencias(canal)`);
   asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_bitacora_estado ON bitacora_asistencias(estado)`);
+  asistenciasDb.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_bitacora_uuid ON bitacora_asistencias(uuid)`);
+  asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_bitacora_contacto_uuid ON bitacora_asistencias(contacto_uuid)`);
+  asistenciasDb.run(`CREATE INDEX IF NOT EXISTS idx_bitacora_updated ON bitacora_asistencias(updated_at)`);
 
   asistenciasDb.run(`
     CREATE TRIGGER IF NOT EXISTS trg_bitacora_asistencias_updated_at 
     AFTER UPDATE ON bitacora_asistencias BEGIN 
-      UPDATE bitacora_asistencias SET updated_at = datetime('now', 'localtime') WHERE id = NEW.id; 
+      UPDATE bitacora_asistencias SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id; 
     END;
   `);
 
@@ -774,6 +781,11 @@ function ensureUuidInAsistenciasDb() {
             }
           });
         }
+        if (!colNames.includes('activo')) {
+          asistenciasDb.run("ALTER TABLE contactos_asistencia ADD COLUMN activo INTEGER NOT NULL DEFAULT 1", () => {
+            asistenciasDb.run("CREATE INDEX IF NOT EXISTS idx_contactos_activo ON contactos_asistencia(activo)");
+          });
+        }
 
         const hasUuid = colNames.includes('uuid');
         const proceedWithContacts = () => {
@@ -851,6 +863,15 @@ function ensureUuidInAsistenciasDb() {
       if (!colNames.includes('representado_id_lobby')) {
         asistenciasDb.run("ALTER TABLE bitacora_asistencias ADD COLUMN representado_id_lobby INTEGER", () => {});
       }
+
+      if (!colNames.includes('uuid')) {
+        asistenciasDb.run("ALTER TABLE bitacora_asistencias ADD COLUMN uuid TEXT", () => {
+          asistenciasDb.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_bitacora_uuid ON bitacora_asistencias(uuid)", () => {});
+        });
+      } else {
+        asistenciasDb.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_bitacora_uuid ON bitacora_asistencias(uuid)", () => {});
+      }
+      asistenciasDb.run("CREATE INDEX IF NOT EXISTS idx_bitacora_updated ON bitacora_asistencias(updated_at)", () => {});
 
       const hasContactoUuid = colNames.includes('contacto_uuid');
       const backfillBitacora = () => {

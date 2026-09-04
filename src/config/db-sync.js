@@ -148,6 +148,12 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
         await execRun(targetAsistenciasDb, "CREATE UNIQUE INDEX IF NOT EXISTS idx_contactos_uuid ON contactos_asistencia(uuid)");
       } catch (e) {}
     }
+    if (!contactColNames.includes('activo')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE contactos_asistencia ADD COLUMN activo INTEGER NOT NULL DEFAULT 1");
+      try {
+        await execRun(targetAsistenciasDb, "CREATE INDEX IF NOT EXISTS idx_contactos_activo ON contactos_asistencia(activo)");
+      } catch (e) {}
+    }
 
     const bitacoraCols = await queryAll(targetAsistenciasDb, "PRAGMA table_info(bitacora_asistencias)");
     const bitacoraColNames = bitacoraCols.map(c => c.name);
@@ -170,6 +176,12 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
     if (!bitacoraColNames.includes('representado_id_lobby')) {
       await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN representado_id_lobby INTEGER");
     }
+    if (!bitacoraColNames.includes('uuid')) {
+      await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN uuid TEXT");
+      try {
+        await execRun(targetAsistenciasDb, "CREATE UNIQUE INDEX IF NOT EXISTS idx_bitacora_uuid ON bitacora_asistencias(uuid)");
+      } catch (e) {}
+    }
     if (!bitacoraColNames.includes('contacto_uuid')) {
       await execRun(targetAsistenciasDb, "ALTER TABLE bitacora_asistencias ADD COLUMN contacto_uuid TEXT");
       try {
@@ -179,14 +191,14 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
 
     const remoteCategories = await queryAll(sourceDb, "SELECT * FROM asistencia_categorias");
     const remoteContacts = await queryAll(sourceDb, "SELECT * FROM contactos_asistencia");
-    const remoteBitacoras = await queryAll(sourceDb, "SELECT * FROM bitacora_asistencias");
+    const remoteBitacoras = await queryAll(sourceDb, "SELECT * FROM bitacora_asistencias WHERE ticket_codigo NOT LIKE 'AST-%'");
 
     let remoteDirecciones = [];
     try {
       remoteDirecciones = await queryAll(sourceDb, "SELECT * FROM direcciones_municipales");
     } catch (dErr) {}
 
-    // 1. Sincronizar Categorías
+    // 1. Sincronizar Categorías con Lápida Digital y Comparación Temporal Canónica
     for (const cat of remoteCategories) {
       await new Promise((resolve, reject) => {
         targetAsistenciasDb.run(`
@@ -194,10 +206,11 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
           VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(nombre) DO UPDATE SET
             descripcion = COALESCE(excluded.descripcion, asistencia_categorias.descripcion),
-            activo = COALESCE(excluded.activo, asistencia_categorias.activo),
+            activo = excluded.activo,
             orden = COALESCE(excluded.orden, asistencia_categorias.orden),
             updated_at = excluded.updated_at
-          WHERE excluded.updated_at > asistencia_categorias.updated_at
+          WHERE datetime(substr(COALESCE(NULLIF(replace(excluded.updated_at, 'T', ' '), ''), '1970-01-01 00:00:00'), 1, 19)) > 
+                datetime(substr(COALESCE(NULLIF(replace(asistencia_categorias.updated_at, 'T', ' '), ''), '1970-01-01 00:00:00'), 1, 19))
         `, [cat.nombre, cat.descripcion, cat.activo !== undefined ? cat.activo : 1, cat.orden || 0, cat.created_at, cat.updated_at], (err) => {
           if (err) reject(err);
           else resolve();
@@ -216,7 +229,8 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
             orden = COALESCE(excluded.orden, direcciones_municipales.orden),
             activo = COALESCE(excluded.activo, direcciones_municipales.activo),
             updated_at = excluded.updated_at
-          WHERE excluded.updated_at > direcciones_municipales.updated_at
+          WHERE datetime(substr(COALESCE(NULLIF(replace(excluded.updated_at, 'T', ' '), ''), '1970-01-01 00:00:00'), 1, 19)) > 
+                datetime(substr(COALESCE(NULLIF(replace(direcciones_municipales.updated_at, 'T', ' '), ''), '1970-01-01 00:00:00'), 1, 19))
         `, [d.acronimo, d.nombre, d.orden || 0, d.activo !== undefined ? d.activo : 1, d.created_at, d.updated_at], (err) => {
           if (err) reject(err);
           else resolve();
@@ -224,33 +238,48 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
       });
     }
 
-    // 2. Sincronizar Contactos (Identificador Universal: uuid)
+    // 2. Sincronizar Contactos con Lápida Digital (Identificador Universal: uuid)
     const crypto = require('crypto');
     for (const c of remoteContacts) {
       const contactUuid = c.uuid || crypto.randomUUID();
       const contactDir = c.direccion !== undefined ? c.direccion : (c.depto_habitual || '');
       const contactTel = c.telefono !== undefined ? c.telefono : (c.telefono_anexo || '');
+      const contactActivo = c.activo !== undefined ? (c.activo ? 1 : 0) : 1;
       await new Promise((resolve, reject) => {
         targetAsistenciasDb.run(`
-          INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, notas, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO contactos_asistencia (uuid, nombre, direccion, correo, telefono, notas, activo, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(uuid) DO UPDATE SET
             nombre = excluded.nombre,
             direccion = COALESCE(excluded.direccion, contactos_asistencia.direccion),
             correo = COALESCE(excluded.correo, contactos_asistencia.correo),
             telefono = COALESCE(excluded.telefono, contactos_asistencia.telefono),
             notas = COALESCE(excluded.notas, contactos_asistencia.notas),
+            activo = excluded.activo,
             updated_at = excluded.updated_at
-          WHERE excluded.updated_at > contactos_asistencia.updated_at
-        `, [contactUuid, c.nombre, contactDir, c.correo, contactTel, c.notas, c.created_at, c.updated_at], (err) => {
+          WHERE datetime(substr(COALESCE(NULLIF(replace(excluded.updated_at, 'T', ' '), ''), '1970-01-01 00:00:00'), 1, 19)) > 
+                datetime(substr(COALESCE(NULLIF(replace(contactos_asistencia.updated_at, 'T', ' '), ''), '1970-01-01 00:00:00'), 1, 19))
+        `, [contactUuid, c.nombre, contactDir, c.correo, contactTel, c.notas, contactActivo, c.created_at, c.updated_at], (err) => {
           if (err) reject(err);
           else resolve();
         });
       });
     }
 
-    // 3. Sincronizar Bitácora con Enlace Inequívoco por contacto_uuid y resolución LWW
+    // 3. Sincronizar Bitácora con Enlace Inequívoco por uuid y resolución LWW lexicográfica
     for (const b of remoteBitacoras) {
+      // Regla estricta 1: Descartar cualquier folio legacy o sin operador (ej: AST-260826-001, AST26-001)
+      const isValidFormat = b.ticket_codigo && /^AST\d{2}[A-Z]{2,}-\d+$/i.test(b.ticket_codigo.trim());
+      if (!isValidFormat) {
+        continue;
+      }
+
+      // Regla estricta 2: Requiere UUID válido obligatorio. Si viene sin UUID, es un registro desactualizado y se descarta.
+      if (!b.uuid || typeof b.uuid !== 'string' || b.uuid.trim().length !== 36) {
+        continue;
+      }
+
+      const bitacoraUuid = b.uuid.trim();
       let resolvedContactId = null;
       let resolvedContactUuid = b.contacto_uuid || null;
 
@@ -273,12 +302,12 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
       await new Promise((resolve, reject) => {
         targetAsistenciasDb.run(`
           INSERT INTO bitacora_asistencias (
-            ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_direccion,
+            uuid, ticket_codigo, contacto_id, contacto_uuid, fecha_hora, canal, solicitante_nombre, solicitante_direccion,
             solicitante_correo, solicitante_telefono, categoria, folio_lobby,
             motivo_consulta, solucion_orientacion, estado, representado, representado_id_lobby, creado_por, updated_by, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(ticket_codigo) DO UPDATE SET
-            contacto_id = excluded.contacto_id,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(uuid) DO UPDATE SET
+            ticket_codigo = excluded.ticket_codigo,
             contacto_uuid = excluded.contacto_uuid,
             solicitante_nombre = excluded.solicitante_nombre,
             solicitante_direccion = excluded.solicitante_direccion,
@@ -290,13 +319,13 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
             motivo_consulta = excluded.motivo_consulta,
             solucion_orientacion = excluded.solucion_orientacion,
             estado = excluded.estado,
-            representado = excluded.representado,
-            representado_id_lobby = excluded.representado_id_lobby,
+            representado = COALESCE(excluded.representado, bitacora_asistencias.representado),
+            representado_id_lobby = COALESCE(excluded.representado_id_lobby, bitacora_asistencias.representado_id_lobby),
             updated_by = excluded.updated_by,
             updated_at = excluded.updated_at
           WHERE excluded.updated_at > bitacora_asistencias.updated_at
         `, [
-          b.ticket_codigo, resolvedContactId, resolvedContactUuid, b.fecha_hora, b.canal || 'telefono', b.solicitante_nombre, bitacoraDir,
+          bitacoraUuid, b.ticket_codigo, resolvedContactId, resolvedContactUuid, b.fecha_hora, b.canal || 'telefono', b.solicitante_nombre, bitacoraDir,
           b.solicitante_correo, bitacoraTel, b.categoria, b.folio_lobby,
           b.motivo_consulta, b.solucion_orientacion, b.estado, bitacoraRep, bitacoraRepId,
           b.creado_por || b.created_by, b.updated_by, b.created_at, b.updated_at
@@ -306,6 +335,16 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
         });
       });
     }
+
+    // 4. Reconciliación O(1) de claves foráneas históricas sin degradar rendimiento
+    await execRun(targetAsistenciasDb, `
+      UPDATE bitacora_asistencias
+      SET contacto_id = (
+        SELECT id FROM contactos_asistencia WHERE uuid = bitacora_asistencias.contacto_uuid
+      )
+      WHERE contacto_uuid IS NOT NULL AND contacto_id IS NULL
+    `);
+
     console.log(`✓ Delta merge de asistencias.db completado: ${remoteContacts.length} contactos y ${remoteBitacoras.length} asistencias procesadas con UUID.`);
   } finally {
     sourceDb.close();

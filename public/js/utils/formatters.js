@@ -29,6 +29,7 @@ export function formatDateTime(dateInput) {
     const d = new Date(String(dateInput).replace(' ', 'T') + (String(dateInput).includes('Z') ? '' : 'Z'));
     if (isNaN(d.getTime())) return String(dateInput);
     return d.toLocaleString('es-CL', {
+      timeZone: 'America/Santiago',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

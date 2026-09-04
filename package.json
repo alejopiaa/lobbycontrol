@@ -1,6 +1,6 @@
 {
   "name": "lobbycontrol",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Sistema local para la gestión y control de audiencias de la Ley de Lobby",
   "main": "main.js",
   "scripts": {

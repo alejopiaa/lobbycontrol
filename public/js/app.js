@@ -6462,76 +6462,82 @@ function renderAsistenciaEvolucionChart(stats) {
   let series = [];
 
   const view = currentAsistenciaEvolucionView || 'mensual';
+  const today = new Date();
+
+  // Pre-calcular mapa de conteos por fecha exacta YYYY-MM-DD
+  const countsByDate = {};
+  fechas.forEach(fStr => {
+    if (!fStr) return;
+    const datePart = fStr.split(' ')[0].split('T')[0];
+    if (datePart && datePart.length === 10) {
+      countsByDate[datePart] = (countsByDate[datePart] || 0) + 1;
+    }
+  });
 
   if (view === 'semanal') {
-    const weeksMap = {};
-    const now = new Date();
-    for (let i = 7; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
-      const year = d.getFullYear();
-      const firstDayOfYear = new Date(year, 0, 1);
-      const pastDaysOfYear = (d - firstDayOfYear) / 86400000;
-      const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-      const key = `Sem ${weekNum}`;
-      weeksMap[key] = 0;
-    }
-    fechas.forEach(fStr => {
-      const d = new Date(fStr);
-      if (!isNaN(d.getTime())) {
-        const year = d.getFullYear();
-        const firstDayOfYear = new Date(year, 0, 1);
-        const pastDaysOfYear = (d - firstDayOfYear) / 86400000;
-        const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-        const key = `Sem ${weekNum}`;
-        if (weeksMap[key] !== undefined) {
-          weeksMap[key]++;
-        }
+    // 1. VISTA SEMANAL: Lunes a Viernes de la semana actual comparado con la semana anterior
+    const day = today.getDay(); // 0: Dom, 1: Lun, ..., 6: Sáb
+    const diffToMon = (day === 0 ? -6 : 1) - day;
+    const curMon = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diffToMon);
+
+    categories = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+    const curWeekData = [];
+    const prevWeekData = [];
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+    for (let i = 0; i < 5; i++) {
+      const dCur = new Date(curMon.getFullYear(), curMon.getMonth(), curMon.getDate() + i);
+      const dPrev = new Date(curMon.getFullYear(), curMon.getMonth(), curMon.getDate() - 7 + i);
+
+      const keyCur = `${dCur.getFullYear()}-${String(dCur.getMonth() + 1).padStart(2, '0')}-${String(dCur.getDate()).padStart(2, '0')}`;
+      const keyPrev = `${dPrev.getFullYear()}-${String(dPrev.getMonth() + 1).padStart(2, '0')}-${String(dPrev.getDate()).padStart(2, '0')}`;
+
+      if (dCur > endOfToday) {
+        curWeekData.push(null);
+      } else {
+        curWeekData.push(countsByDate[keyCur] || 0);
       }
-    });
-    categories = Object.keys(weeksMap);
-    series = [{
-      name: 'Atenciones (Semanales)',
-      data: Object.values(weeksMap)
-    }];
+      prevWeekData.push(countsByDate[keyPrev] || 0);
+    }
+
+    series = [
+      {
+        name: 'Semana Actual',
+        data: curWeekData
+      },
+      {
+        name: 'Semana Anterior',
+        data: prevWeekData
+      }
+    ];
   } else if (view === 'anual') {
-    const yearsMap = {};
-    fechas.forEach(fStr => {
-      const year = fStr.substring(0, 4);
-      if (year) {
-        yearsMap[year] = (yearsMap[year] || 0) + 1;
-      }
-    });
-    categories = Object.keys(yearsMap).sort();
-    const counts = categories.map(y => yearsMap[y]);
-    if (categories.length === 1) {
-      categories = [String(parseInt(categories[0]) - 1), categories[0]];
-      series = [{
-        name: 'Atenciones Anuales',
-        data: [0, counts[0]]
-      }];
-    } else {
-      series = [{
-        name: 'Atenciones Anuales',
-        data: counts
-      }];
-    }
-  } else {
-    // mensual estándar de 12 meses idéntico al dashboard
+    // 3. VISTA ANUAL: 12 meses (Ene-Dic) Año Actual vs Año Anterior (Evolución Interanual)
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const currentYear = new Date().getFullYear();
+    const currentYear = today.getFullYear();
     const previousYear = currentYear - 1;
-    const currentYearMonthly = Array(12).fill(0);
+    const currentYearMonthly = Array(12).fill(null);
+
+    for (let m = 0; m < 12; m++) {
+      if (m <= today.getMonth()) {
+        currentYearMonthly[m] = 0;
+      }
+    }
     const previousYearMonthly = Array(12).fill(0);
 
-    fechas.forEach(fStr => {
-      const d = new Date(fStr);
-      if (!isNaN(d.getTime())) {
-        const y = d.getFullYear();
-        const m = d.getMonth();
-        if (y === currentYear && m >= 0 && m < 12) {
-          currentYearMonthly[m]++;
-        } else if (y === previousYear && m >= 0 && m < 12) {
-          previousYearMonthly[m]++;
+    Object.keys(countsByDate).forEach(dateStr => {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const count = countsByDate[dateStr];
+        if (m >= 0 && m < 12) {
+          if (y === currentYear) {
+            if (currentYearMonthly[m] !== null) {
+              currentYearMonthly[m] += count;
+            }
+          } else if (y === previousYear) {
+            previousYearMonthly[m] += count;
+          }
         }
       }
     });
@@ -6545,6 +6551,64 @@ function renderAsistenciaEvolucionChart(stats) {
       {
         name: `${previousYear} (Año Anterior)`,
         data: previousYearMonthly
+      }
+    ];
+  } else {
+    // 2. VISTA MENSUAL ACUMULADA: Días del 1 al 30/31 (Suma progresiva en el mismo eje)
+    const curYear = today.getFullYear();
+    const curMonth = today.getMonth(); // 0-11
+    
+    const prevDate = new Date(curYear, curMonth - 1, 1);
+    const prevYear = prevDate.getFullYear();
+    const prevMonth = prevDate.getMonth();
+
+    const daysInCur = new Date(curYear, curMonth + 1, 0).getDate();
+    const daysInPrev = new Date(prevYear, prevMonth + 1, 0).getDate();
+    const maxDays = Math.max(daysInCur, daysInPrev);
+
+    categories = Array.from({ length: maxDays }, (_, i) => String(i + 1));
+
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const curMonthData = [];
+    const prevMonthData = [];
+    let runningCur = 0;
+    let runningPrev = 0;
+
+    for (let d = 1; d <= maxDays; d++) {
+      // Día d en mes actual acumulado
+      if (d <= daysInCur) {
+        const keyCur = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const count = countsByDate[keyCur] || 0;
+        runningCur += count;
+
+        if (d > today.getDate() && curYear === today.getFullYear() && curMonth === today.getMonth()) {
+          curMonthData.push(null);
+        } else {
+          curMonthData.push(runningCur);
+        }
+      } else {
+        curMonthData.push(null);
+      }
+
+      // Día d en mes anterior acumulado
+      if (d <= daysInPrev) {
+        const keyPrev = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const count = countsByDate[keyPrev] || 0;
+        runningPrev += count;
+        prevMonthData.push(runningPrev);
+      } else {
+        prevMonthData.push(null);
+      }
+    }
+
+    series = [
+      {
+        name: `Mes Actual (${monthNames[curMonth]})`,
+        data: curMonthData
+      },
+      {
+        name: `Mes Anterior (${monthNames[prevMonth]})`,
+        data: prevMonthData
       }
     ];
   }
@@ -6561,15 +6625,15 @@ function renderAsistenciaEvolucionChart(stats) {
     colors: [brandColor, slateColor],
     stroke: {
       curve: 'smooth',
-      width: series.length > 1 ? [2, 1.5] : [2],
-      dashArray: series.length > 1 ? [0, 4] : [0]
+      width: [2.5, 1.8],
+      dashArray: [0, 4]
     },
     fill: {
       type: 'gradient',
       gradient: {
         shadeIntensity: 1,
-        opacityFrom: series.length > 1 ? [0.25, 0] : [0.25],
-        opacityTo: series.length > 1 ? [0.05, 0] : [0.05],
+        opacityFrom: [0.28, 0.05],
+        opacityTo: [0.03, 0],
         stops: [0, 90, 100]
       }
     },
@@ -6599,13 +6663,19 @@ function renderAsistenciaEvolucionChart(stats) {
       enabled: false
     },
     legend: {
-      show: series.length > 1,
+      show: true,
       position: 'bottom',
       fontSize: '11px',
       markers: { width: 8, height: 8, radius: 8 }
     },
     tooltip: {
-      theme: isDark ? 'dark' : 'light'
+      theme: isDark ? 'dark' : 'light',
+      y: {
+        formatter: (val) => {
+          if (val === null || val === undefined) return 'Sin datos';
+          return view === 'mensual' ? `${val} consultas acumuladas` : `${val} consultas`;
+        }
+      }
     }
   };
 
@@ -6758,14 +6828,19 @@ async function loadAsistenciasData() {
           'otro': 'General'
         };
 
-        const fechaFmt = r.fecha_hora ? r.fecha_hora.replace('T', ' ').substring(0, 16) : '--';
+        const fechaFmt = formatDateTime(r.fecha_hora);
 
         return `
           <tr class="hover:bg-border-ui dark:hover:bg-border-ui/50 transition-colors">
             <!-- 1. TICKET / FECHA -->
-            <td class="px-4 py-3 align-middle text-left w-32">
-              <span class="font-mono font-bold text-brand-600 dark:text-brand-400 block">${r.ticket_codigo}</span>
-              <span class="text-[10px] text-text-tertiary">${fechaFmt}</span>
+            <td class="px-4 py-3 align-middle text-left w-32 whitespace-nowrap">
+              <button type="button" onclick="copiarFolio('${escapeHtml(r.ticket_codigo)}', event, 'Ticket')" 
+                      class="group font-mono font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 inline-flex items-center gap-1 cursor-pointer active:scale-95 text-left whitespace-nowrap" 
+                      title="Clic para copiar ticket ${escapeHtml(r.ticket_codigo)}">
+                <span>${r.ticket_codigo}</span>
+                <i data-lucide="copy" class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></i>
+              </button>
+              <span class="text-[10px] text-text-tertiary block font-medium mt-0.5 whitespace-nowrap">${fechaFmt}</span>
             </td>
 
             <!-- 2. CANAL -->
@@ -6914,7 +6989,10 @@ async function loadContactosData() {
           <td class="px-4 py-3 text-right">
             <div class="flex items-center justify-end gap-1">
               <button onclick="openModalEditarContacto(${c.id})" class="p-1.5 rounded-lg bg-border-ui/50 hover:bg-border-ui/50 text-text-secondary hover:text-text-primary border border-border-ui transition-all cursor-pointer" title="Editar contacto">
-                <i data-lucide="edit-3" class="h-3.5 w-3.5"></i>
+                <i data-lucide="edit-3" class="h-3.5 w-3.5 pointer-events-none"></i>
+              </button>
+              <button data-id="${c.id}" data-nombre="${typeof escapeHtmlAttr === 'function' ? escapeHtmlAttr(c.nombre) : escapeHtml(c.nombre)}" onclick="eliminarContacto(this)" class="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all cursor-pointer" title="Eliminar contacto">
+                <i data-lucide="trash-2" class="h-3.5 w-3.5 pointer-events-none"></i>
               </button>
             </div>
           </td>
@@ -6956,6 +7034,43 @@ async function openModalDetalleAsistencia(id) {
 window.openModalDetalleAsistencia = openModalDetalleAsistencia;
 
 
+// 5. Eliminar Contacto del Directorio
+let isDeletingContacto = false;
+function eliminarContacto(btnOrChild) {
+  const btn = btnOrChild.closest('button') || btnOrChild;
+  const id = parseInt(btn.getAttribute('data-id'), 10);
+  const nombre = btn.getAttribute('data-nombre') || 'este contacto';
+
+  if (!id) return;
+
+  openConfirmModal(
+    'Eliminar Contacto',
+    `¿Estás seguro de eliminar a <strong>${escapeHtml(nombre)}</strong> del directorio? Sus atenciones registradas se conservarán intactas en la bitácora con todos sus datos históricos.`,
+    async () => {
+      if (isDeletingContacto) return;
+      isDeletingContacto = true;
+      try {
+        const res = await window.api.invokeRoute({
+          url: `/api/asistencias/contactos/${id}`,
+          method: 'DELETE'
+        });
+
+        if (res && res.status === 200) {
+          showToast(res.data?.message || 'Contacto eliminado con éxito.', 'success');
+          loadContactosData();
+        } else {
+          showToast('Error al eliminar contacto: ' + (res?.data?.error || 'Error desconocido'), 'error');
+        }
+      } catch (e) {
+        showToast('Error de red al eliminar: ' + (typeof translateError === 'function' ? translateError(e.message) : e.message), 'error');
+      } finally {
+        isDeletingContacto = false;
+      }
+    }
+  );
+}
+window.eliminarContacto = eliminarContacto;
+
 // 6. Modal Nuevo / Editar Contacto
 function openModalNuevoContacto() {
   openModalEditarContacto(null);
@@ -6975,6 +7090,20 @@ async function openModalEditarContacto(id) {
       console.error('Error al cargar detalle de contacto:', err);
       showToast('No se pudo cargar la información del contacto.', 'error');
     }
+  }
+
+  // Cargar catálogo de direcciones municipales oficiales para el datalist
+  let direccionesOptionsHtml = '';
+  try {
+    const dirRes = await window.api.invokeRoute({ url: '/api/direcciones', method: 'GET' });
+    if (dirRes && dirRes.status === 200 && Array.isArray(dirRes.data)) {
+      direccionesOptionsHtml = dirRes.data
+        .filter(d => d.activo !== 0)
+        .map(d => `<option value="${escapeHtmlAttr(d.acronimo)}">${escapeHtml(d.nombre)}</option>`)
+        .join('');
+    }
+  } catch (dErr) {
+    console.warn('No se pudieron cargar las direcciones oficiales para el datalist:', dErr);
   }
 
   const modal = document.getElementById('modal-container');
@@ -6997,25 +7126,28 @@ async function openModalEditarContacto(id) {
         <div class="p-4 space-y-3 text-xs">
           <div>
             <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre Completo *</label>
-            <input type="text" id="modal-contacto-nombre" value="${contact.nombre}" placeholder="Ej. Lorena Soto" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+            <input type="text" id="modal-contacto-nombre" value="${escapeHtmlAttr(contact.nombre)}" placeholder="Ej. Lorena Soto" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Dirección Municipal</label>
-            <input type="text" id="modal-contacto-direccion" value="${contact.direccion || contact.depto_habitual || ''}" placeholder="Ej. Dirección de Obras Municipales" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+            <input type="text" id="modal-contacto-direccion" list="datalist-direcciones-modal" value="${escapeHtmlAttr(contact.direccion || contact.depto_habitual || '')}" placeholder="Ej. DOM, DAF, SECPLA..." class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500" autocomplete="off">
+            <datalist id="datalist-direcciones-modal">
+              ${direccionesOptionsHtml}
+            </datalist>
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Correo (@maipu.cl)</label>
-              <input type="text" id="modal-contacto-correo" value="${contact.correo || ''}" placeholder="lsoto@maipu.cl" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+              <input type="text" id="modal-contacto-correo" value="${escapeHtmlAttr(contact.correo || '')}" placeholder="lsoto@maipu.cl" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
             </div>
             <div>
               <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Teléfono</label>
-              <input type="text" id="modal-contacto-telefono" value="${contact.telefono || contact.telefono_anexo || ''}" placeholder="4321" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
+              <input type="text" id="modal-contacto-telefono" value="${escapeHtmlAttr(contact.telefono || contact.telefono_anexo || '')}" placeholder="4321" class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500">
             </div>
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Notas Internas</label>
-            <textarea id="modal-contacto-notas" rows="2" placeholder="Observaciones o notas de contacto..." class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 resize-none">${contact.notas || ''}</textarea>
+            <textarea id="modal-contacto-notas" rows="2" placeholder="Observaciones o notas de contacto..." class="w-full bg-bg-main border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 resize-none">${escapeHtml(contact.notas || '')}</textarea>
           </div>
         </div>
 
@@ -7151,6 +7283,35 @@ async function openModalMergeContactos() {
     `;
 
     modal.classList.remove('hidden');
+
+    const targetSelect = document.getElementById('merge-target-id');
+    const updateMergeSourceCheckboxes = () => {
+      const currentTarget = parseInt(targetSelect?.value, 10);
+      document.querySelectorAll('input[name="merge-source"]').forEach(cb => {
+        const isCurrentTarget = parseInt(cb.value, 10) === currentTarget;
+        const label = cb.closest('label');
+        if (isCurrentTarget) {
+          cb.checked = false;
+          cb.disabled = true;
+          if (label) {
+            label.classList.add('opacity-40', 'pointer-events-none');
+            label.classList.remove('cursor-pointer');
+          }
+        } else {
+          cb.disabled = false;
+          if (label) {
+            label.classList.remove('opacity-40', 'pointer-events-none');
+            label.classList.add('cursor-pointer');
+          }
+        }
+      });
+    };
+
+    if (targetSelect) {
+      targetSelect.addEventListener('change', updateMergeSourceCheckboxes);
+      updateMergeSourceCheckboxes();
+    }
+
     if (window.lucide) window.lucide.createIcons();
   } catch (err) {
     showToast('Error al abrir unificador: ' + err.message, 'error');
@@ -7896,6 +8057,14 @@ window.isDireccionesReordering = false;
 function toggleReordenarDirecciones() {
   window.isDireccionesReordering = !window.isDireccionesReordering;
   const btn = document.getElementById('btn-toggle-reordenar-direcciones');
+  const btnSortAz = document.getElementById('btn-ordenar-alfabetico-direcciones');
+  if (btnSortAz) {
+    if (window.isDireccionesReordering) {
+      btnSortAz.classList.remove('hidden');
+    } else {
+      btnSortAz.classList.add('hidden');
+    }
+  }
   if (btn) {
     if (window.isDireccionesReordering) {
       btn.className = "px-3 py-1.5 rounded-xl text-xs font-bold border border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs";
@@ -7909,6 +8078,21 @@ function toggleReordenarDirecciones() {
   loadDireccionesData();
 }
 window.toggleReordenarDirecciones = toggleReordenarDirecciones;
+
+async function ordenarDireccionesAlfabetico() {
+  try {
+    const res = await window.api.invokeRoute({ url: '/api/direcciones', method: 'GET' });
+    if (res && res.status === 200 && Array.isArray(res.data)) {
+      const sorted = [...res.data].sort((a, b) => (a.acronimo || '').localeCompare(b.acronimo || '', 'es', { sensitivity: 'base' }));
+      const orderedIds = sorted.map(d => d.id);
+      await reorderDirecciones(orderedIds);
+      showToast('Direcciones ordenadas alfabéticamente por acrónimo (A-Z).', 'success');
+    }
+  } catch (err) {
+    showToast('Error al ordenar alfabéticamente: ' + err.message, 'error');
+  }
+}
+window.ordenarDireccionesAlfabetico = ordenarDireccionesAlfabetico;
 
 async function reorderDirecciones(orderedIds) {
   try {
@@ -8197,7 +8381,7 @@ async function openModalEditarDireccion(id) {
             </div>
           </div>
           <div>
-            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre Oficial de la Dirección *</label>
+            <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre de la Dirección *</label>
             <input type="text" id="modal-dir-nombre" value="${dir.nombre}" placeholder="Ej. Dirección de Obras Municipales" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
           </div>
         </div>
@@ -8230,7 +8414,7 @@ async function guardarDireccion(id) {
     return;
   }
   if (!nombre) {
-    showToast('El nombre oficial de la dirección es obligatorio.', 'error');
+    showToast('El nombre de la dirección es obligatorio.', 'error');
     return;
   }
 
@@ -8282,13 +8466,4 @@ function eliminarDireccion(id, acronimo, nombre) {
   );
 }
 window.eliminarDireccion = eliminarDireccion;
-
-
-// ─── ACCIONES DE ASISTENCIA TÉCNICA ───────────────────────────────────────
-window.toggleAsistenciaComparar = function() {
-  if (typeof renderAsistenciaEvolucionChart === 'function') {
-    window.asistenciaCompararPeriodo = !window.asistenciaCompararPeriodo;
-    renderAsistenciaEvolucionChart();
-  }
-};
 

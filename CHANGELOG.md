@@ -4,6 +4,15 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-09-04
+
+### Fixed
+- **Integridad y Limpieza de Asistencias**: Reconstrucción limpia de la base de datos de asistencias con UUIDs inmutables obligatorios y folios correlativos normalizados.
+- **Particionado de Folios por Operador**: Generación correlativa estricta y aislada por operador (`AST26AB-...`), previniendo colisiones en entornos de atención concurrente.
+- **Normalización Temporal UTC**: Almacenamiento canónico en UTC (ISO 8601) con conversión y renderizado transparente a hora local de Chile (`America/Santiago`) en vistas y reportes.
+- **Blindaje en Sincronización SharePoint**: Validación bilateral estricta por expresión regular de los códigos de tickets y descarte automático de registros remotos inválidos o sin UUID.
+- **Resolución de Conflictos en Delta Merge**: Algoritmo determinista de fusión registro por registro basado en marcas temporales `updated_at`.
+
 ## [3.0.1] - 2026-09-02
 
 ### Fixed

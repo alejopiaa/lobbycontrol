@@ -648,7 +648,16 @@ function renderSolicitudes(container) {
     paginatedItems.forEach((item) => {
       rowsHtml += `
         <tr class="hover:bg-border-ui border-b border-border-ui transition-colors h-[72px]">
-          <td class="pl-6 pr-2 text-xs font-semibold text-text-primary text-left">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
+          <td class="pl-6 pr-2 text-xs font-semibold text-text-primary text-left">
+            ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+              <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                      class="group font-mono text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors active:scale-95 text-left" 
+                      title="Clic para copiar folio ${escapeHtmlAttr(item.folio_lobby)}">
+                <span>${escapeHtml(item.folio_lobby)}</span>
+                <i data-lucide="copy" class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-brand-500"></i>
+              </button>
+            ` : `<span class="text-text-tertiary italic">Sin Folio</span>`}
+          </td>
           <td class="px-2 text-xs text-left">
             <div class="font-semibold text-text-secondary" title="Fecha Ingreso">${formatDate(item.fecha_ingreso)}</div>
             <div class="text-[10px] text-text-tertiary mt-0.5" title="Plazo Legal Límite">
@@ -656,7 +665,12 @@ function renderSolicitudes(container) {
             </div>
           </td>
           <td class="px-2 text-xs text-text-secondary font-medium text-left">${formatDate(item.fecha_respuesta) || "---"}</td>
-          <td class="px-2 text-xs text-text-secondary text-left">${formatDate(item.fecha_agendada) || "---"}</td>
+          <td class="px-2 text-xs text-left">
+            ${item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---' ? `
+              <div class="font-semibold text-text-secondary">${formatDate(item.fecha_agendada)}</div>
+              <div class="text-[10px] text-brand-600 dark:text-brand-400 font-medium mt-0.5">${item.fecha_agendada.includes(' ') ? item.fecha_agendada.split(' ')[1].slice(0, 5) + ' hrs' : ''}</div>
+            ` : `<span class="text-text-secondary font-medium">---</span>`}
+          </td>
           <td class="px-2 text-xs text-text-secondary text-left">
             <div class="font-medium text-text-secondary w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
             <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.cargo_limpio || getCargoClean(item.cargo))}">${escapeHtml(item.cargo_limpio || getCargoClean(item.cargo))}</div>
@@ -1139,7 +1153,16 @@ function renderPublicadas(container) {
 
         rowsHtml += `
           <tr class="hover:bg-border-ui border-b border-border-ui transition-colors h-[72px]">
-            <td class="pl-6 pr-2 text-xs font-semibold text-text-primary text-left">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
+            <td class="pl-6 pr-2 text-xs font-semibold text-text-primary text-left">
+              ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+                <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                        class="group font-mono text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors active:scale-95 text-left" 
+                        title="Clic para copiar folio ${escapeHtmlAttr(item.folio_lobby)}">
+                  <span>${escapeHtml(item.folio_lobby)}</span>
+                  <i data-lucide="copy" class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-brand-500"></i>
+                </button>
+              ` : `<span class="text-text-tertiary italic">Sin Folio</span>`}
+            </td>
             <td class="px-2 text-xs text-text-secondary text-left">
               <div class="font-medium text-text-secondary w-full truncate">${displayDateTime}</div>
               <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate">${escapeHtml(item.forma || "Presencial")}</div>
@@ -1189,9 +1212,18 @@ function renderPublicadas(container) {
 
         rowsHtml += `
           <tr class="hover:bg-border-ui border-b border-border-ui transition-colors h-[72px]">
-            <td class="pl-6 pr-2 py-4 align-middle text-xs font-semibold text-text-primary">${escapeHtml(item.folio_lobby || "Sin Folio")}</td>
+            <td class="pl-6 pr-2 py-4 align-middle text-xs font-semibold text-text-primary">
+              ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+                <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                        class="group font-mono text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors active:scale-95 text-left" 
+                        title="Clic para copiar folio ${escapeHtmlAttr(item.folio_lobby)}">
+                  <span>${escapeHtml(item.folio_lobby)}</span>
+                  <i data-lucide="copy" class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-brand-500"></i>
+                </button>
+              ` : `<span class="text-text-tertiary italic">Sin Folio</span>`}
+            </td>
             <td class="px-2 py-4 align-middle text-xs text-text-secondary">
-              <div class="font-medium text-text-secondary w-full truncate">${formatDate(item.fecha_agendada)}</div>
+              <div class="font-medium text-text-secondary w-full truncate">${formatDateTime(item.fecha_agendada)}</div>
               <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate">${escapeHtml(item.forma || "Presencial")}</div>
             </td>
             <td class="px-2 py-4 align-middle text-xs text-text-secondary">
@@ -1922,7 +1954,16 @@ function showSolicitudDetailsModal(idOrItem, isPending = false) {
               <div>
                 <h3 class="text-xs font-bold uppercase tracking-wider text-text-tertiary">Detalle de Audiencia Pendiente</h3>
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-semibold text-text-secondary text-text-secondary">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+                  <span class="text-xs font-semibold text-text-secondary">Folio: 
+                    ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+                      <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                              class="font-mono text-brand-400 hover:text-brand-300 font-bold inline-flex items-center gap-1 cursor-pointer hover:underline active:scale-95" 
+                              title="Clic para copiar folio">
+                        <span>${escapeHtml(item.folio_lobby)}</span>
+                        <i data-lucide="copy" class="h-3 w-3"></i>
+                      </button>
+                    ` : `<span class="font-mono text-brand-400 font-bold">Sin Folio</span>`}
+                  </span>
                   <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeData?.class || 'badge-status-otros'}">${escapeHtml(estado)}</span>
                 </div>
               </div>
@@ -2042,7 +2083,16 @@ function showSolicitudDetailsModal(idOrItem, isPending = false) {
               <div>
                 <h3 class="text-xs font-bold uppercase tracking-wider text-text-tertiary">Detalle de Solicitud</h3>
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-semibold text-text-secondary text-text-secondary">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+                  <span class="text-xs font-semibold text-text-secondary">Folio: 
+                    ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+                      <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                              class="font-mono text-brand-400 hover:text-brand-300 font-bold inline-flex items-center gap-1 cursor-pointer hover:underline active:scale-95" 
+                              title="Clic para copiar folio">
+                        <span>${escapeHtml(item.folio_lobby)}</span>
+                        <i data-lucide="copy" class="h-3 w-3"></i>
+                      </button>
+                    ` : `<span class="font-mono text-brand-400 font-bold">Sin Folio</span>`}
+                  </span>
                   <span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeData?.class || 'badge-status-otros'}">${escapeHtml(estado)}</span>
                 </div>
               </div>
@@ -2177,7 +2227,16 @@ function showAudienciaPublicadaDetailsModal(idOrItem) {
             </div>
             <div>
               <h3 class="text-xs font-bold uppercase tracking-wider text-text-tertiary">Detalle de Audiencia Publicada</h3>
-              <span class="text-xs font-semibold text-text-secondary text-text-secondary">Folio: <span class="font-mono text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+              <span class="text-xs font-semibold text-text-secondary">Folio: 
+                ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+                  <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                          class="font-mono text-brand-400 hover:text-brand-300 font-bold inline-flex items-center gap-1 cursor-pointer hover:underline active:scale-95" 
+                          title="Clic para copiar folio">
+                    <span>${escapeHtml(item.folio_lobby)}</span>
+                    <i data-lucide="copy" class="h-3 w-3"></i>
+                  </button>
+                ` : `<span class="font-mono text-brand-400 font-bold">Sin Folio</span>`}
+              </span>
             </div>
           </div>
           <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-tertiary hover:text-text-primary transition-colors cursor-pointer">
@@ -3418,12 +3477,6 @@ function renderAsistenciaBitacoraViewHtml() {
                   Anual
                 </button>
               </div>
-
-              <!-- Toggle Comparar -->
-              <button type="button" id="btn-evol-comparar" onclick="toggleAsistenciaComparar()" class="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/30 hover:bg-brand-500/20 transition-all flex items-center gap-1 cursor-pointer" title="Activar/Desactivar comparativa con el periodo anterior">
-                <i data-lucide="split" class="h-3 w-3"></i>
-                <span id="label-evol-comparar">Comparar: ON</span>
-              </button>
             </div>
           </div>
           <div id="chart-asistencia-evolucion" class="w-full min-h-[220px] flex items-center justify-center text-xs text-text-tertiary">
@@ -3648,11 +3701,15 @@ function renderAsistenciaDireccionesViewHtml() {
             <span>Catálogo de Direcciones Municipales</span>
           </h3>
           <p class="text-[10px] text-text-tertiary mt-0.5">
-            Configura las direcciones y departamentos municipales oficiales para el autocompletado en tickets y estadísticas.
+            Configura las direcciones y departamentos municipales para el autocompletado en tickets y estadísticas.
           </p>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
+          <button id="btn-ordenar-alfabetico-direcciones" onclick="ordenarDireccionesAlfabetico()" class="hidden px-3 py-1.5 rounded-xl text-xs font-semibold border border-brand-500/40 bg-brand-500/10 hover:bg-brand-500/20 text-brand-600 dark:text-brand-400 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs" title="Ordenar automáticamente todas las direcciones por acrónimo (A-Z)">
+            <i data-lucide="arrow-down-a-z" class="h-3.5 w-3.5"></i>
+            <span>Ordenar A-Z (Acrónimo)</span>
+          </button>
           <button id="btn-toggle-reordenar-direcciones" onclick="toggleReordenarDirecciones()" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-border-ui bg-bg-card hover:bg-border-ui text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-all cursor-pointer">
             <i data-lucide="arrow-up-down" class="h-3.5 w-3.5"></i>
             <span>Reordenar</span>
@@ -3672,7 +3729,7 @@ function renderAsistenciaDireccionesViewHtml() {
               <tr class="border-b border-border-ui bg-bg-main text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
                 <th class="px-4 py-3 w-20 text-center"># / Orden</th>
                 <th class="px-4 py-3 w-32">Acrónimo</th>
-                <th class="px-4 py-3">Nombre Oficial de la Dirección</th>
+                <th class="px-4 py-3">Nombre de la Dirección</th>
                 <th class="px-4 py-3 text-right w-28">Acciones</th>
               </tr>
             </thead>
@@ -5751,7 +5808,16 @@ function showAgendaDetailsModal(eventId) {
             </div>
             <div>
               <h3 class="text-xs font-bold uppercase tracking-wider text-text-tertiary">Detalle de Audiencia</h3>
-              <span class="text-xs font-semibold text-text-secondary text-text-secondary">Folio: <span class="font-mono text-brand-500 dark:text-brand-400 font-bold">${item.folio_lobby || "Sin Folio"}</span></span>
+              <span class="text-xs font-semibold text-text-secondary">Folio: 
+                ${item.folio_lobby && item.folio_lobby !== 'Sin Folio' ? `
+                  <button type="button" onclick="copiarFolio('${escapeHtmlAttr(item.folio_lobby)}', event)" 
+                          class="font-mono text-brand-500 dark:text-brand-400 hover:text-brand-600 dark:hover:text-brand-300 font-bold inline-flex items-center gap-1 cursor-pointer hover:underline active:scale-95" 
+                          title="Clic para copiar folio">
+                    <span>${escapeHtml(item.folio_lobby)}</span>
+                    <i data-lucide="copy" class="h-3 w-3"></i>
+                  </button>
+                ` : `<span class="font-mono text-brand-500 dark:text-brand-400 font-bold">Sin Folio</span>`}
+              </span>
             </div>
           </div>
           <button onclick="closeModal()" class="h-7 w-7 rounded-lg flex items-center justify-center border border-border-ui hover:bg-border-ui dark:hover:bg-border-ui/50 text-text-tertiary hover:text-text-primary transition-colors cursor-pointer">

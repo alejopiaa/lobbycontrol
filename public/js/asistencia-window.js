@@ -522,7 +522,7 @@ function renderDireccionesDropdown(list) {
   if (!menu) return;
 
   if (!list || list.length === 0) {
-    menu.innerHTML = '<div class="p-3 text-[11px] text-text-tertiary text-center">Sin coincidencias en catálogo oficial</div>';
+    menu.innerHTML = '<div class="p-3 text-[11px] text-text-tertiary text-center">Sin coincidencias en el catálogo</div>';
     return;
   }
 
@@ -1237,7 +1237,7 @@ async function guardarAsistencia() {
   );
 
   if (!direccionEncontrada) {
-    showToast('La dirección ingresada no existe en el catálogo oficial. Selecciona una válida.', 'warning');
+    showToast('La dirección ingresada no existe en el catálogo. Selecciona una válida.', 'warning');
     highlightField(inputDireccion);
     return;
   }
@@ -1397,7 +1397,7 @@ async function prepararCorreoOutlook() {
         <tr>
           <td style="background-color: #0f172a; color: #ffffff; padding: 14px 18px; border: 1px solid #0f172a;">
             <div style="font-size: 15px; font-weight: bold; color: #ffffff;">MUNICIPALIDAD DE MAIPÚ — PLATAFORMA LOBBYCONTROL</div>
-            <div style="font-size: 12px; color: #94a3b8; margin-top: 3px;">Comprobante Oficial de Asistencia Técnica (Ley N° 20.730 de Lobby)</div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 3px;">Comprobante de Asistencia Técnica (Ley N° 20.730 de Lobby)</div>
           </td>
         </tr>
         <tr>

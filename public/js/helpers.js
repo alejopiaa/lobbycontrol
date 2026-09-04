@@ -28,11 +28,25 @@ function formatDate(dateString) {
   }
 }
 
-// Helper para formatear fechas y horas (siempre incluye hora para audiencias agendadas)
 function formatDateTime(dateString) {
   if (!dateString || dateString === '-' || dateString === '---' || dateString === 'null') return '---';
   try {
-    const parts = String(dateString).trim().split(' ');
+    const str = String(dateString).trim();
+    if (str.includes('T') || str.endsWith('Z')) {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString('es-CL', {
+          timeZone: 'America/Santiago',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace(',', '');
+      }
+    }
+    const parts = str.split(' ');
     const dateParts = parts[0].split('-');
     if (dateParts.length === 3) {
       const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
@@ -47,6 +61,32 @@ function formatDateTime(dateString) {
     return dateString;
   }
 }
+
+// Helper universal para copiado rápido de folios y tickets al portapapeles
+function copiarFolio(folio, event, label = 'Folio') {
+  if (event) {
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
+  if (!folio || folio === 'Sin Folio' || folio === 's/f' || folio === '-') return;
+  const cleanFolio = String(folio).trim();
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    if (typeof showToast === 'function') {
+      showToast('Portapapeles no disponible en este entorno', 'error', { persistent: false });
+    }
+    return;
+  }
+  navigator.clipboard.writeText(cleanFolio).then(() => {
+    if (typeof showToast === 'function') {
+      showToast(`${label} ${cleanFolio} copiado al portapapeles`, 'success', { persistent: false });
+    }
+  }).catch(() => {
+    if (typeof showToast === 'function') {
+      showToast(`No se pudo copiar el ${label.toLowerCase()}`, 'error', { persistent: false });
+    }
+  });
+}
+window.copiarFolio = copiarFolio;
 
 // Helper para obtener el badge de estado del plazo (DDL) y el estado unificados en un objeto semántico de datos
 function getDeadlineStatusBadge(fechaIngreso, fechaRespuesta, estado, item) {

@@ -61,13 +61,19 @@ import { DashboardView } from './views/dashboard/dashboard.view.js';
 import { SolicitudesView } from './views/solicitudes/solicitudes.view.js';
 import { PublicadasView } from './views/publicadas/publicadas.view.js';
 import { AdministracionView } from './views/administracion/administracion.view.js';
+import { ViajesView } from './views/viajes/viajes.view.js';
+import { AudienciasView } from './views/audiencias/audiencias.view.js';
+import { DonativosView } from './views/donativos/donativos.view.js';
 
 // Registrar rutas en el enrutador SPA
 appRouter.register('login', LoginView);
 appRouter.register('dashboard', DashboardView);
+appRouter.register('audiencias', AudienciasView);
 appRouter.register('solicitudes', SolicitudesView);
 appRouter.register('publicadas', PublicadasView);
 appRouter.register('administracion', AdministracionView);
+appRouter.register('viajes', ViajesView);
+appRouter.register('donativos', DonativosView);
 
 // 2. Inicialización al cargar el DOM
 document.addEventListener('DOMContentLoaded', async () => {

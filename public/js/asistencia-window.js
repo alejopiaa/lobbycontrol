@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initRepresentadoCombobox();
   initPhoneRestriction();
   initAutocomplete();
+  initFolioAutocomplete();
   initActions();
   initKeyboardShortcuts();
 
@@ -169,7 +170,7 @@ function applyReviewMode(ticket) {
   const badge = document.getElementById('badge-ticket-draft');
   if (badge && ticket) {
     badge.textContent = ticket.ticket_codigo;
-    badge.className = 'px-1.5 py-0.5 rounded font-mono text-[9px] font-bold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800';
+    badge.className = 'px-1.5 py-0.5 rounded font-mono text-[9px] font-bold bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border border-brand-300 dark:border-brand-800';
   }
 
   if (window.lucide) window.lucide.createIcons();
@@ -213,7 +214,7 @@ function applyNewMode() {
   const btnGuardar = document.getElementById('btn-guardar');
   if (btnGuardar) {
     btnGuardar.setAttribute('data-mode', 'save');
-    btnGuardar.className = 'h-9 px-4.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95';
+    btnGuardar.className = 'h-9 px-4.5 rounded-lg text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95';
     document.getElementById('btn-guardar-text').textContent = 'Guardar (Ctrl+Enter)';
     const iconEl = document.getElementById('btn-guardar-icon');
     if (iconEl) {
@@ -291,7 +292,7 @@ function showConfirmDialog({ title, message, acceptText = 'Aceptar', cancelText 
     if (isDanger) {
       btnAccept.className = 'h-8 px-3.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-xs transition-colors cursor-pointer';
     } else {
-      btnAccept.className = 'h-8 px-3.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors cursor-pointer';
+      btnAccept.className = 'h-8 px-3.5 rounded-lg text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-xs transition-colors cursor-pointer';
     }
 
     modal.classList.remove('hidden');
@@ -392,7 +393,7 @@ function updatePinButtonUI(active) {
   const btn = document.getElementById('btn-always-on-top');
   if (!btn) return;
   if (active) {
-    btn.className = 'h-7 px-2 rounded-lg text-[10px] font-semibold flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 cursor-pointer';
+    btn.className = 'h-7 px-2 rounded-lg text-[10px] font-semibold flex items-center gap-1 bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 cursor-pointer';
     btn.innerHTML = '<i data-lucide="pin" class="h-3 w-3"></i><span>Fijado</span>';
   } else {
     btn.className = 'h-7 px-2 rounded-lg text-[10px] font-semibold flex items-center gap-1 bg-bg-card text-text-secondary border border-border-ui hover:bg-border-ui cursor-pointer';
@@ -444,7 +445,7 @@ function renderCategoriasDropdown() {
   container.innerHTML = categoriasList.map(cat => `
     <button type="button" class="option-categoria w-full px-3.5 py-2 text-left text-xs font-medium hover:bg-border-ui flex items-center gap-2 cursor-pointer ${selectedCategoria === cat.nombre ? 'font-bold text-brand-600 dark:text-brand-400' : 'text-text-primary'}" data-value="${cat.nombre}">
       <i data-lucide="tag" class="h-3.5 w-3.5 text-text-tertiary shrink-0"></i>
-      <span class="truncate">${cat.nombre}</span>
+      <span class="leading-snug text-left whitespace-normal break-words">${cat.nombre}</span>
     </button>
   `).join('');
 
@@ -455,9 +456,12 @@ function renderCategoriasDropdown() {
       selectedCategoria = btn.getAttribute('data-value');
       const label = document.getElementById('selected-categoria-label');
       if (label) {
+        label.title = selectedCategoria;
         label.innerHTML = `<i data-lucide="tag" class="h-3.5 w-3.5 text-brand-500 shrink-0"></i><span class="truncate">${selectedCategoria}</span>`;
         if (window.lucide) window.lucide.createIcons();
       }
+      const catBtn = document.getElementById('btn-dropdown-categoria');
+      if (catBtn) catBtn.title = selectedCategoria;
       document.getElementById('menu-dropdown-categoria')?.classList.add('hidden');
       saveDraft();
     });
@@ -486,8 +490,11 @@ function initDeptoCombobox() {
   const menu = document.getElementById('menu-dropdown-direccion');
   if (!input || !menu) return;
 
-  const showMenu = () => {
+  const showMenu = async () => {
     if (isFormLocked) return;
+    if (!direccionesList || direccionesList.length === 0) {
+      await loadDirecciones();
+    }
     const val = input.value.trim().toLowerCase();
     const filtered = val ? direccionesList.filter(d => (d.acronimo && d.acronimo.toLowerCase().includes(val)) || (d.nombre && d.nombre.toLowerCase().includes(val))) : direccionesList;
     renderDireccionesDropdown(filtered);
@@ -498,10 +505,13 @@ function initDeptoCombobox() {
   input.addEventListener('input', showMenu);
 
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', (e) => {
+    toggleBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (isFormLocked) return;
       if (menu.classList.contains('hidden')) {
+        if (!direccionesList || direccionesList.length === 0) {
+          await loadDirecciones();
+        }
         renderDireccionesDropdown(direccionesList);
         menu.classList.remove('hidden');
       } else {
@@ -568,8 +578,11 @@ function initRepresentadoCombobox() {
 
   const normalize = (str) => (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-  const showMenu = () => {
+  const showMenu = async () => {
     if (isFormLocked) return;
+    if (!autoridadesList || autoridadesList.length === 0) {
+      await loadAutoridades();
+    }
     const val = normalize(input.value.trim());
     const filtered = val 
       ? autoridadesList.filter(a => a.cargo && normalize(a.cargo).includes(val))
@@ -612,10 +625,13 @@ function initRepresentadoCombobox() {
   }
 
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', (e) => {
+    toggleBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (isFormLocked) return;
       if (menu.classList.contains('hidden')) {
+        if (!autoridadesList || autoridadesList.length === 0) {
+          await loadAutoridades();
+        }
         renderRepresentadoDropdown(autoridadesList);
         menu.classList.remove('hidden');
       } else {
@@ -974,6 +990,101 @@ function seleccionarContactoExistente(c) {
   document.getElementById('indicator-contacto-vinculado')?.classList.remove('hidden');
   saveDraft();
 }
+
+// ============================================================================
+// 8.1. AUTOCOMPLETADO PREDICTIVO DE FOLIO LOBBY
+// ============================================================================
+let folioDebounceTimeout = null;
+
+function initFolioAutocomplete() {
+  const input = document.getElementById('input-folio');
+  const suggestionsBox = document.getElementById('folio-suggestions');
+  if (!input || !suggestionsBox) return;
+
+  input.addEventListener('input', () => {
+    if (isFormLocked) return;
+    const val = input.value.trim();
+
+    if (val.length < 2) {
+      suggestionsBox.classList.add('hidden');
+      suggestionsBox.innerHTML = '';
+      return;
+    }
+
+    clearTimeout(folioDebounceTimeout);
+    folioDebounceTimeout = setTimeout(async () => {
+      try {
+        const res = await window.api.invokeRoute({
+          url: `/api/asistencias/folios/sugerencias?q=${encodeURIComponent(val)}`,
+          method: 'GET'
+        });
+
+        if (res && res.status === 200 && Array.isArray(res.data) && res.data.length > 0) {
+          renderFolioSuggestions(res.data);
+        } else {
+          suggestionsBox.classList.add('hidden');
+          suggestionsBox.innerHTML = '';
+        }
+      } catch (err) {
+        console.warn('Error en sugerencias de folio:', err);
+      }
+    }, 150);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
+      suggestionsBox.classList.add('hidden');
+    }
+  });
+}
+
+function renderFolioSuggestions(items) {
+  const box = document.getElementById('folio-suggestions');
+  if (!box) return;
+
+  const esc = window.escapeHtml || (s => s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '');
+
+  box.innerHTML = items.map(item => `
+    <button type="button" class="option-folio w-full p-2.5 text-left hover:bg-border-ui flex flex-col gap-0.5 cursor-pointer text-text-primary transition-colors border-0 bg-transparent" 
+      data-folio="${esc(item.folio_lobby)}"
+      data-pasivo="${esc(item.sujeto_pasivo || '')}"
+      data-cargo="${esc(item.cargo || '')}"
+      data-representado="${esc(item.representado || '')}">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-mono font-bold text-xs text-brand-600 dark:text-brand-400">${esc(item.folio_lobby)}</span>
+        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">${esc(item.origen || 'Lobby')}</span>
+      </div>
+      ${item.sujeto_pasivo ? `<div class="text-[11px] text-text-secondary truncate"><strong class="text-text-tertiary font-semibold">Sujeto:</strong> ${esc(item.sujeto_pasivo)}</div>` : ''}
+      ${item.cargo ? `<div class="text-[10px] text-text-tertiary truncate">${esc(item.cargo)}</div>` : ''}
+      ${item.materia ? `<div class="text-[10px] text-text-tertiary truncate">${esc(item.materia)}</div>` : ''}
+    </button>
+  `).join('');
+
+  box.classList.remove('hidden');
+
+  box.querySelectorAll('.option-folio').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const folio = btn.getAttribute('data-folio');
+      const pasivo = btn.getAttribute('data-pasivo');
+      const cargo = btn.getAttribute('data-cargo');
+      const representado = btn.getAttribute('data-representado');
+
+      const input = document.getElementById('input-folio');
+      if (input) input.value = folio;
+
+      // Autocompletar representado si no está lleno
+      const inputRep = document.getElementById('input-representado');
+      if (inputRep && !inputRep.value.trim()) {
+        inputRep.value = cargo || representado || pasivo;
+        document.getElementById('btn-clear-representado')?.classList.remove('hidden');
+      }
+
+      box.classList.add('hidden');
+      saveDraft();
+    });
+  });
+}
+
 // ============================================================================
 // 9. ACCIONES (GUARDAR, EDITAR, CANCELAR, DESCARTAR, NUEVA, CORREO, PDF)
 // ============================================================================
@@ -1144,7 +1255,7 @@ function unlockFormForEditing() {
   const btnGuardar = document.getElementById('btn-guardar');
   if (btnGuardar) {
     btnGuardar.setAttribute('data-mode', 'save');
-    btnGuardar.className = 'h-9 px-4.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95';
+    btnGuardar.className = 'h-9 px-4.5 rounded-lg text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap active:scale-95';
     document.getElementById('btn-guardar-text').textContent = 'Guardar Cambios';
     const iconEl = document.getElementById('btn-guardar-icon');
     if (iconEl) {
@@ -1384,63 +1495,152 @@ async function prepararCorreoOutlook() {
     }
   }
 
-  const subject = `[LobbyControl] Comprobante de Asistencia Técnica N° ${ticket}`;
+  const esc = window.escapeHtml || (s => s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '');
+  const solucionHtml = (solucion || 'Atención brindada conforme a normativa.').split('\n').map(line => esc(line)).join('<br>');
+  const subject = `[LobbyControl] Asistencia Técnica N° ${ticket}`;
+
+  let atendidoPor = lastSavedTicket.creado_por_nombre || lastSavedTicket.atendido_por;
+  if (!atendidoPor && typeof currentUser !== 'undefined' && currentUser) {
+    atendidoPor = currentUser.nombre || currentUser.correo;
+  }
+  if (!atendidoPor && lastSavedTicket.creado_por) {
+    atendidoPor = lastSavedTicket.creado_por;
+  }
+  if (!atendidoPor) {
+    atendidoPor = localStorage.getItem('lobby_user_name') || '';
+  }
+
   const bodyHtml = `
     <!DOCTYPE html>
     <html lang="es">
     <head>
       <meta charset="UTF-8">
       <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="color-scheme" content="light dark">
+      <meta name="supported-color-schemes" content="light dark">
+      <style>
+        :root { color-scheme: light dark; supported-color-schemes: light dark; }
+        body, table, td, p, a, div { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        @media (prefers-color-scheme: dark) {
+          .email-bg { background-color: #18181b !important; }
+          .email-card { background-color: #27272a !important; border-color: #3f3f46 !important; }
+          .email-title { color: #f4f4f5 !important; }
+          .email-text { color: #e4e4e7 !important; }
+          .email-muted { color: #a1a1aa !important; }
+          .email-box { background-color: #1f1f23 !important; border-color: #3f3f46 !important; color: #e4e4e7 !important; }
+        }
+      </style>
     </head>
-    <body style="margin: 0; padding: 15px 0; font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #1e293b; background-color: #ffffff;">
-      <table width="600" cellpadding="0" cellspacing="0" border="0" align="left" style="width: 600px; max-width: 600px; border-collapse: collapse; font-family: Calibri, Arial, sans-serif;">
+    <body class="email-bg" style="margin: 0; padding: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; color: #1e293b; background-color: #f1f5f9;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto; max-width: 620px; width: 100%;">
         <tr>
-          <td style="background-color: #0f172a; color: #ffffff; padding: 14px 18px; border: 1px solid #0f172a;">
-            <div style="font-size: 15px; font-weight: bold; color: #ffffff;">MUNICIPALIDAD DE MAIPÚ — PLATAFORMA LOBBYCONTROL</div>
-            <div style="font-size: 12px; color: #94a3b8; margin-top: 3px;">Comprobante de Asistencia Técnica (Ley N° 20.730 de Lobby)</div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding: 18px; border: 1px solid #cbd5e1; border-top: none; background-color: #ffffff;">
-            <p style="margin: 0 0 12px 0; font-size: 13px; color: #1e293b;">
-              Estimado(a) <strong>${nombre}</strong>${direccion ? ' (' + direccion + ')' : ''}:
-            </p>
-            <p style="margin: 0 0 14px 0; font-size: 13px; color: #1e293b;">
-              A continuación se detalla el registro y la orientación técnica brindada a su consulta:
-            </p>
-            
-            <table width="100%" cellpadding="6" cellspacing="0" border="1" style="width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; font-size: 12px; margin-bottom: 16px;">
-              <tr style="background-color: #f8fafc;">
-                <td width="140" style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">Ticket N°:</td>
-                <td style="padding: 8px 10px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold; color: #0284c7; font-size: 13px;">${ticket}</td>
-              </tr>
-              ${representado ? `
-              <tr style="background-color: #f8fafc;">
-                <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">En representación de:</td>
-                <td style="padding: 8px 10px; border: 1px solid #cbd5e1; color: #1e293b; font-weight: 600;">${representado}</td>
-              </tr>` : ''}
-              ${folio ? `
+          <td align="center" style="padding: 0 12px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" style="max-width: 600px; width: 100%; background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+              
+              <!-- BANDA SUPERIOR INSTITUCIONAL -->
               <tr>
-                <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">Folio Lobby:</td>
-                <td style="padding: 8px 10px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold; color: #334155;">${folio}</td>
-              </tr>` : ''}
-              <tr style="background-color: #f8fafc;">
-                <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">Fecha de Atención:</td>
-                <td style="padding: 8px 10px; border: 1px solid #cbd5e1; color: #334155;">${fechaAtencionStr}</td>
+                <td style="background-color: #0284c7; height: 5px; line-height: 5px; font-size: 1px;">&nbsp;</td>
               </tr>
+
+              <!-- CABECERA INSTITUCIONAL LIMPIA -->
               <tr>
-                <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #475569;">Motivo de Consulta:</td>
-                <td style="padding: 8px 10px; border: 1px solid #cbd5e1; color: #1e293b; line-height: 1.4;">${motivo}</td>
+                <td style="padding: 22px 26px 18px 26px; border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td valign="middle">
+                        <div class="email-muted" style="font-size: 11px; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px;">
+                          MUNICIPALIDAD DE MAIPÚ • SECRETARÍA MUNICIPAL
+                        </div>
+                        <div class="email-title" style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+                          Asistencia Técnica
+                        </div>
+                        <div class="email-muted" style="font-size: 12px; color: #64748b;">
+                          Plataforma LobbyControl — Ley N° 20.730 de Lobby
+                        </div>
+                      </td>
+                      <td align="right" valign="middle">
+                        <span style="display: inline-block; background-color: #f0f9ff; border: 1px solid #bae6fd; color: #0284c7; font-family: Consolas, Monaco, 'Courier New', monospace; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 6px; white-space: nowrap;">
+                          ${esc(ticket)}
+                        </span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
               </tr>
-              <tr style="background-color: #f0fdf4;">
-                <td style="padding: 8px 10px; font-weight: bold; border: 1px solid #86efac; background-color: #f0fdf4; color: #166534;">Orientación / Solución:</td>
-                <td style="padding: 8px 10px; border: 1px solid #86efac; color: #14532d; line-height: 1.4;">${(solucion || 'Atención brindada conforme a normativa.').replace(/\n/g, '<br>')}</td>
+
+              <!-- CONTENIDO DEL MENSAJE -->
+              <tr>
+                <td style="padding: 24px 26px;">
+                  <!-- SALUDO -->
+                  <p class="email-text" style="margin: 0 0 12px 0; font-size: 14px; line-height: 1.5; color: #1e293b;">
+                    Estimado(a) <strong>${esc(nombre)}</strong>${direccion ? ` <span class="email-muted" style="color: #64748b; font-size: 13px;">(${esc(direccion)})</span>` : ''}:
+                  </p>
+                  <p class="email-text" style="margin: 0 0 18px 0; font-size: 13px; line-height: 1.5; color: #475569;">
+                    A continuación se detalla la orientación brindada a su consulta:
+                  </p>
+
+                  <!-- FICHA DE DATOS CLAVE -->
+                  <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-box" style="width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 18px;">
+                    <tr>
+                      <td style="padding: 12px 16px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                          ${representado ? `
+                            <tr>
+                              <td valign="top" style="padding: 4px 0; width: 140px; font-size: 12px; font-weight: 600; color: #64748b;">En representación de:</td>
+                              <td valign="top" class="email-text" style="padding: 4px 0; font-size: 12.5px; font-weight: 600; color: #1e293b;">${esc(representado)}</td>
+                            </tr>` : ''}
+                          ${folio ? `
+                            <tr>
+                              <td valign="top" style="padding: 4px 0; width: 140px; font-size: 12px; font-weight: 600; color: #64748b;">Folio Lobby:</td>
+                              <td valign="top" style="padding: 4px 0; font-size: 12.5px; font-family: Consolas, Monaco, monospace; font-weight: 700; color: #0284c7;">${esc(folio)}</td>
+                            </tr>` : ''}
+                          <tr>
+                            <td valign="top" style="padding: 4px 0; width: 140px; font-size: 12px; font-weight: 600; color: #64748b;">Fecha y Hora:</td>
+                            <td valign="top" class="email-text" style="padding: 4px 0; font-size: 12.5px; color: #334155;">${esc(fechaAtencionStr)}</td>
+                          </tr>
+                          ${atendidoPor ? `
+                          <tr>
+                            <td valign="top" style="padding: 4px 0; width: 140px; font-size: 12px; font-weight: 600; color: #64748b;">Atendido por:</td>
+                            <td valign="top" class="email-text" style="padding: 4px 0; font-size: 12.5px; font-weight: 600; color: #1e293b;">${esc(atendidoPor)}</td>
+                          </tr>` : ''}
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- MOTIVO DE CONSULTA -->
+                  <div style="margin-bottom: 18px;">
+                    <div class="email-muted" style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                      Motivo de Consulta
+                    </div>
+                    <div class="email-text email-box" style="font-size: 13px; line-height: 1.55; color: #1e293b; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
+                      ${esc(motivo)}
+                    </div>
+                  </div>
+
+                  <!-- ORIENTACIÓN / SOLUCIÓN TÉCNICA -->
+                  <div style="margin-bottom: 20px;">
+                    <div class="email-muted" style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                      Orientación Técnica
+                    </div>
+                    <div class="email-text email-box" style="font-size: 13px; line-height: 1.6; color: #1e293b; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px;">
+                      ${solucionHtml}
+                    </div>
+                  </div>
+
+                  <!-- AVISO DE NO RESPONDER -->
+                  <div class="email-muted" style="text-align: center; font-size: 12px; color: #64748b; margin: 18px 0 14px 0; font-style: italic;">
+                    Por favor, no responder a este correo.
+                  </div>
+
+                  <!-- PIE INSTITUCIONAL SOBRIO -->
+                  <div class="email-muted" style="text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.4; padding-top: 14px; border-top: 1px solid #f1f5f9;">
+                    LobbyControl • Secretaría Municipal • Municipalidad de Maipú
+                  </div>
+                </td>
               </tr>
             </table>
-
-            <div style="font-size: 11px; color: #64748b; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-              Comprobante emitido automáticamente por la plataforma <strong>LobbyControl</strong> de la Secretaría Municipal.
-            </div>
           </td>
         </tr>
       </table>

@@ -400,19 +400,10 @@ html.dark {
   /* Header Premium */
   header.header-premium {
     position: relative;
-    height: 100px;
+    height: 64px;
     background-color: var(--bg-header);
     border-bottom: 1px solid var(--border-ui);
-    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
-  }
-  header.header-premium img.header-logo {
-    height: 76px;
-    max-height: 76px;
-    width: auto;
-    transition: filter 0.2s ease;
-  }
-  html.dark header.header-premium img.header-logo {
-    filter: brightness(0) invert(1) opacity(0.8);
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
   }
   header.header-premium::before {
     content: '';

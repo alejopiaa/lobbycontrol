@@ -96,7 +96,7 @@ async function downloadAuthenticatedFile(url, destPath, cookieHeader) {
 }
 
 /**
- * Realiza una fusión a nivel de fila (Row-Level Delta Merge) para asistencias.db.
+ * Realiza una fusión a nivel de fila (Row-Level Delta Merge) para app.db (asistencias).
  * Garantiza cero pérdida de datos al sincronizar asistencias y contactos desde SharePoint
  * con remapeo dinámico de contacto_id por clave natural (nombre único).
  */
@@ -345,7 +345,111 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
       WHERE contacto_uuid IS NOT NULL AND contacto_id IS NULL
     `);
 
-    console.log(`✓ Delta merge de asistencias.db completado: ${remoteContacts.length} contactos y ${remoteBitacoras.length} asistencias procesadas con UUID.`);
+    // 5. Sincronizar Auditoría Semanal (sin pérdida de controles ni duplicados)
+    let remoteAuditorias = [];
+    try {
+      remoteAuditorias = await queryAll(sourceDb, "SELECT * FROM auditoria_semanal");
+    } catch (audErr) {}
+
+    for (const a of remoteAuditorias) {
+      if (!a.fecha) continue;
+      const existingAudit = await queryGet(targetAsistenciasDb, "SELECT id, estado FROM auditoria_semanal WHERE fecha = ?", [a.fecha]);
+      if (!existingAudit) {
+        await new Promise((resolve, reject) => {
+          targetAsistenciasDb.run(`
+            INSERT INTO auditoria_semanal (
+              fecha, total, ingresada, aceptada, rechazada, suspendida, cancelada, encomendada, publicada, usuario, estado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            a.fecha, a.total || 0, a.ingresada || 0, a.aceptada || 0, a.rechazada || 0,
+            a.suspendida || 0, a.cancelada || 0, a.encomendada || 0, a.publicada || 0,
+            a.usuario, a.estado || 'Cerrado'
+          ], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      } else if (existingAudit.estado !== 'Cerrado' && a.estado === 'Cerrado') {
+        await new Promise((resolve, reject) => {
+          targetAsistenciasDb.run(`
+            UPDATE auditoria_semanal SET
+              total = ?, ingresada = ?, aceptada = ?, rechazada = ?, suspendida = ?,
+              cancelada = ?, encomendada = ?, publicada = ?, usuario = ?, estado = ?
+            WHERE id = ?
+          `, [
+            a.total || 0, a.ingresada || 0, a.aceptada || 0, a.rechazada || 0,
+            a.suspendida || 0, a.cancelada || 0, a.encomendada || 0, a.publicada || 0,
+            a.usuario, a.estado, existingAudit.id
+          ], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    }
+
+    // 6. Sincronizar Historial de Sincronizaciones Compartido (bitácora consolidada)
+    let remoteHistorial = [];
+    try {
+      remoteHistorial = await queryAll(sourceDb, "SELECT * FROM historial_sincronizaciones");
+    } catch (hErr) {}
+
+    for (const h of remoteHistorial) {
+      if (!h.fecha) continue;
+      const existingSync = await queryGet(targetAsistenciasDb, "SELECT id FROM historial_sincronizaciones WHERE fecha = ? AND usuario = ?", [h.fecha, h.usuario]);
+      if (!existingSync) {
+        await new Promise((resolve, reject) => {
+          targetAsistenciasDb.run(`
+            INSERT INTO historial_sincronizaciones (fecha, registros_procesados, usuario, estado, detalles)
+            VALUES (?, ?, ?, ?, ?)
+          `, [h.fecha, h.registros_procesados || 0, h.usuario, h.estado, h.detalles], (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    }
+
+    // 7. Sincronizar Configuración Global Compartida
+    let remoteConfig = [];
+    try {
+      remoteConfig = await queryAll(sourceDb, "SELECT * FROM configuracion");
+    } catch (cErr) {}
+
+    for (const cfg of remoteConfig) {
+      if (!cfg.clave) continue;
+
+      if (cfg.clave === 'last_import_timestamp' || cfg.clave === 'db_last_update') {
+        const localRow = await queryGet(targetAsistenciasDb, "SELECT valor FROM configuracion WHERE clave = ?", [cfg.clave]);
+        if (localRow && localRow.valor) {
+          const parseTs = (str) => {
+            if (!str) return 0;
+            const m = str.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);
+            if (m) {
+              return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10), parseInt(m[4], 10), parseInt(m[5], 10)).getTime();
+            }
+            const d = Date.parse(str);
+            return isNaN(d) ? 0 : d;
+          };
+          if (parseTs(localRow.valor) >= parseTs(cfg.valor)) {
+            continue; // Local es igual o más reciente, no sobrescribir
+          }
+        }
+      }
+
+      await new Promise((resolve, reject) => {
+        targetAsistenciasDb.run(`
+          INSERT INTO configuracion (clave, valor)
+          VALUES (?, ?)
+          ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor
+        `, [cfg.clave, cfg.valor], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    console.log(`✓ Delta merge de app.db completado: ${remoteContacts.length} contactos, ${remoteBitacoras.length} asistencias, ${remoteAuditorias.length} auditorías y ${remoteHistorial.length} logs procesados.`);
   } finally {
     sourceDb.close();
   }
@@ -354,29 +458,31 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
 /**
  * Resuelve metadatos y nombres de archivos de forma genérica para cualquier base de datos.
  * Casos específicos conocidos:
- *  - 'lobby' -> 'lobby_control.db', 'version_lobby.json'
- *  - 'usuarios' -> 'usuarios.db', 'version_users.json'
- *  - 'local' / 'asistencias' -> 'asistencias.db', 'version_asistencias.json'
+ *  - 'data' / 'lobby' -> 'data.db', 'version_data.json'
+ *  - 'usuarios' / 'users' -> 'usuarios.db', 'version_users.json'
+ *  - 'app' / 'asistencias' / 'local' -> 'app.db', 'version_app.json'
  * Para cualquier base de datos futura (ej: 'inventario'):
  *  - '${type}.db', 'version_${type}.json'
  */
 function resolveDbMetadata(type) {
-  const normType = String(type || 'lobby').trim().toLowerCase();
+  const normType = String(type || 'data').trim().toLowerCase();
   let remoteDbName = `${normType}.db`;
   let remoteVersionName = `version_${normType}.json`;
+  let fallbackDbName = null;
+  let fallbackVersionName = null;
 
-  if (normType === 'lobby') {
-    remoteDbName = 'lobby_control.db';
-    remoteVersionName = 'version_lobby.json';
-  } else if (normType === 'usuarios') {
+  if (normType === 'data' || normType === 'lobby') {
+    remoteDbName = 'data.db';
+    remoteVersionName = 'version_data.json';
+  } else if (normType === 'usuarios' || normType === 'users') {
     remoteDbName = 'usuarios.db';
     remoteVersionName = 'version_users.json';
-  } else if (normType === 'local' || normType === 'asistencias') {
-    remoteDbName = 'asistencias.db';
-    remoteVersionName = 'version_asistencias.json';
+  } else if (normType === 'app' || normType === 'asistencias' || normType === 'local') {
+    remoteDbName = 'app.db';
+    remoteVersionName = 'version_app.json';
   }
 
-  return { remoteDbName, remoteVersionName, normType };
+  return { remoteDbName, remoteVersionName, fallbackDbName, fallbackVersionName, normType };
 }
 
 /**
@@ -388,9 +494,9 @@ async function saveSyncTimestamp(db, type, timestampStr) {
   const { normType } = resolveDbMetadata(type);
   const database = require('./database');
 
-  if (normType === 'lobby') {
+  if (normType === 'data' || normType === 'lobby') {
     return new Promise((resolve, reject) => {
-      db.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
+      database.appDb.run("INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)", [timestampStr], (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -422,14 +528,16 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
     return false;
   }
 
-  const { remoteDbName, remoteVersionName, normType } = resolveDbMetadata(type);
-  const isAsistencias = normType === 'asistencias' || normType === 'local';
+  const { remoteDbName, remoteVersionName, fallbackDbName, fallbackVersionName, normType } = resolveDbMetadata(type);
+  const isAsistencias = normType === 'asistencias' || normType === 'local' || normType === 'app';
 
-  // Construir las URLs de la API REST de SharePoint
+  // Construir las URLs de la API REST de SharePoint con fallback inteligente
   const cleanSiteUrl = siteUrl.replace(/\/$/, '');
   const cleanFolderPath = folderPath.replace(/\/$/, '');
-  const versionUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${remoteVersionName}')/$value`;
-  const dbUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${remoteDbName}')/$value`;
+  
+  let effectiveDbName = remoteDbName;
+  let effectiveVersionName = remoteVersionName;
+  let versionUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${effectiveVersionName}')/$value`;
 
   const dbDir = db.getUserDataDir();
   const localVersionPath = path.join(dbDir, remoteVersionName);
@@ -439,17 +547,33 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
   const tempVersionPath = path.join(dbDir, `${remoteVersionName}.tmp`);
 
   try {
-    console.log(`Comprobando versión de ${remoteDbName} remota en SharePoint...`);
+    console.log(`Comprobando versión de ${effectiveDbName} remota en SharePoint...`);
     // 1. Descargar versión remota
     try {
       await downloadAuthenticatedFile(versionUrl, tempVersionPath, cookieHeader);
     } catch (verErr) {
-      if (verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) {
+      if ((verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) && fallbackVersionName) {
+        console.log(`ℹ️ Archivo ${remoteVersionName} aún no existe en SharePoint. Verificando fallback ${fallbackVersionName}...`);
+        effectiveVersionName = fallbackVersionName;
+        effectiveDbName = fallbackDbName;
+        versionUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${effectiveVersionName}')/$value`;
+        try {
+          await downloadAuthenticatedFile(versionUrl, tempVersionPath, cookieHeader);
+        } catch (fbErr) {
+          if (fbErr.status === 404 || (fbErr.message && fbErr.message.includes('404'))) {
+            console.log(`ℹ️ Archivo de versión ${remoteVersionName} ni ${fallbackVersionName} existen en SharePoint (404). Se asume primera sincronización.`);
+            return false;
+          }
+          throw fbErr;
+        }
+      } else if (verErr.status === 404 || (verErr.message && verErr.message.includes('404'))) {
         console.log(`ℹ️ Archivo de versión ${remoteVersionName} no existe en SharePoint (404). Se asume primera sincronización.`);
         return false;
+      } else {
+        throw verErr;
       }
-      throw verErr;
     }
+    const dbUrl = `${cleanSiteUrl}/_api/web/GetFileByServerRelativeUrl('${cleanFolderPath}/${effectiveDbName}')/$value`;
     const remoteVersion = JSON.parse(fs.readFileSync(tempVersionPath, 'utf8'));
 
     // 2. Calcular firma de la base de datos local actual si existe
@@ -562,9 +686,9 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         throw new Error(`La firma de ${remoteDbName} descargada no coincide con el servidor.`);
       }
 
-      // Si es asistencias.db, ejecutar Delta Merge para no perder registros locales
+      // Si es app.db, ejecutar Delta Merge para no perder registros locales
       if (isAsistencias) {
-        console.log(`Ejecutando Row-Level Delta Merge en asistencias.db...`);
+        console.log(`Ejecutando Row-Level Delta Merge en ${remoteDbName}...`);
         await mergeAsistenciasDatabase(db, tempDbPath);
         fs.copyFileSync(tempVersionPath, localVersionPath);
         try { fs.unlinkSync(tempDbPath); } catch (e) {}
@@ -576,7 +700,7 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         return true;
       }
       
-      // 6. Intercambio seguro en caliente para lobby_control.db y usuarios.db
+      // 6. Intercambio seguro en caliente para data.db y usuarios.db
       console.log(`Reemplazando base de datos local ${remoteDbName} SQLite...`);
       await db.closeConnection();
       
@@ -870,7 +994,7 @@ let isAsistenciasSyncing = false;
 let hasPendingAsistenciasSync = false;
 
 /**
- * Ejecuta un ciclo seguro Pull-Merge-Push para asistencias.db:
+ * Ejecuta un ciclo seguro Pull-Merge-Push para app.db (asistencias):
  * 1. Descarga deltas remotos de SharePoint y fusiona con SQLite local.
  * 2. Sube la base local consolidada resultante a SharePoint.
  * Cuenta con un candado en memoria para evitar colisiones entre llamadas simultáneas.

@@ -4,6 +4,40 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-09-10
+
+### Added
+- **Módulos de Viajes y Donativos**: Nuevas secciones dedicadas para consultar los registros institucionales de viajes y donativos normativos, con actualización eficiente que detecta cambios automáticamente sin reescribir datos innecesarios.
+
+### Changed
+- **Consola Lateral de Asistencia Técnica**: Integración del panel de atención como barra lateral desplegable en la ventana principal, permitiendo gestionar tickets sin necesidad de abrir ventanas externas.
+- **Unificación de Estado en Cápsula Flotante**: El indicador inferior ahora muestra con exactitud la fecha y hora de la última actualización efectiva de datos, ya sea por sincronización con la nube o por importación local.
+- **Rendimiento General**: Optimización en la validación de bases de datos para un menor consumo de memoria y ejecución más rápida de tareas en segundo plano.
+
+### Fixed
+- **Búsqueda Predictiva en Asistencia Técnica**: Precarga exacta de antecedentes y autoridades vinculadas al ingresar números de folio.
+- **Disponibilidad de Catálogos**: Carga inmediata de las listas de direcciones y autoridades desde el inicio de la aplicación.
+- **Mensajes de Importación**: Notificaciones más claras y comprensibles si una planilla no cumple con el formato esperado.
+
+### Security
+- **Protección de Formularios y Conexión en Nube**: Refuerzo en las validaciones de entrada en la interfaz y conexiones seguras obligatorias con el almacenamiento remoto.
+
+## [3.1.0] - 2026-09-07
+
+### Added
+- **Sincronización en la Nube con SharePoint**: Despliegue de arquitectura de sincronización en nube que asegura coexistencia y compatibilidad con versiones anteriores.
+
+### Changed
+- **Separación de Bases de Datos**: Reestructuración interna que divide los datos oficiales de la Ley de Lobby (`data.db`) de la información operativa del sistema (`app.db`), optimizando el rendimiento y la estabilidad.
+- **Depuración de Categorías de Asistencia**: Reorganización correlativa y limpieza del catálogo oficial de materias de atención.
+- **Identificación en el Inspector de Datos**: Etiquetas visuales claras para diferenciar tablas de datos normativos de tablas operativas.
+
+### Removed
+- **Rutinas de Migración Obsoletas**: Eliminación de procesos de migración y tablas residuales de versiones anteriores que ya no son necesarias.
+
+### Fixed
+- **Bloqueo de Archivos en Windows (NTFS)**: Corrección del error de bloqueo (`EBUSY`) que interrumpía la compresión y respaldo de bases de datos al sincronizar.
+
 ## [3.0.2] - 2026-09-04
 
 ### Fixed
@@ -229,7 +263,10 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Estructura de Datos y Validaciones**: Modelos de almacenamiento, importador de datos y normalización de registros.
 - **Dashboard de Métricas**: Indicadores de cumplimiento y visualización de estados.
 
-[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/alejopiaa/lobbycontrol/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.2...v3.1.0
+[3.0.2]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.10.0...v3.0.0
 [2.10.0]: https://github.com/alejopiaa/lobbycontrol/compare/v2.9.1...v2.10.0

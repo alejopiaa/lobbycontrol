@@ -818,9 +818,12 @@ function translateError(msg) {
   }
 
   // 6. Importación de Excel y Hojas
+  if (originalMsg && (originalMsg.includes('Estructura de archivo Excel no válida') || originalMsg.includes('Falta la pestaña obligatoria') || originalMsg.includes('Faltan encabezados') || originalMsg.includes('Encabezados no permitidos'))) {
+    return originalMsg;
+  }
   if (cleanMsg.includes('import') || cleanMsg.includes('excel') || cleanMsg.includes('sheet') || cleanMsg.includes('hoja')) {
     if (cleanMsg.includes('formato') || cleanMsg.includes('sh') || cleanMsg.includes('ph') || cleanMsg.includes('sph')) {
-      return 'El archivo no cumple con el formato requerido de la Ley de Lobby (faltan hojas obligatorias). [ERR-IMPORT-402]';
+      return originalMsg || 'El archivo no cumple con el formato requerido de la Ley de Lobby (faltan hojas obligatorias). [ERR-IMPORT-402]';
     }
     if (cleanMsg.includes('vacío') || cleanMsg.includes('empty') || cleanMsg.includes('sin registros') || cleanMsg.includes('sin filas')) {
       return 'El archivo Excel seleccionado está vacío o no contiene registros válidos. [ERR-IMPORT-403]';

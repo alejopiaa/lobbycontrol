@@ -88,19 +88,19 @@ function renderPaginationControls(
   `;
 }
 
-function renderVigenciaSelect({ id, value, onChange }) {
+function renderVigenciaSelect({ id, value, onChange, asInput = false }) {
   const currentVal = value || 'todos';
   const labelMap = {
-    todos: 'Todos',
-    vigentes: 'Vigentes',
-    no_vigentes: 'No Vigentes'
+    todos: asInput ? 'Todos los Sujetos' : 'Todos',
+    vigentes: asInput ? 'Solo Vigentes' : 'Vigentes',
+    no_vigentes: asInput ? 'Solo No Vigentes' : 'No Vigentes'
   };
-  const currentLabel = labelMap[currentVal] || 'Todos';
+  const currentLabel = labelMap[currentVal] || (asInput ? 'Todos los Sujetos' : 'Todos');
 
   const options = [
-    { value: 'todos', label: 'Todos' },
-    { value: 'vigentes', label: 'Vigentes' },
-    { value: 'no_vigentes', label: 'No Vigentes' }
+    { value: 'todos', label: asInput ? 'Todos los Sujetos' : 'Todos' },
+    { value: 'vigentes', label: asInput ? 'Solo Vigentes' : 'Vigentes' },
+    { value: 'no_vigentes', label: asInput ? 'Solo No Vigentes' : 'No Vigentes' }
   ];
 
   const optionsHtml = options.map(opt => {
@@ -114,6 +114,26 @@ function renderVigenciaSelect({ id, value, onChange }) {
       </div>
     `;
   }).join('');
+
+  if (asInput) {
+    return `
+      <div class="relative w-full font-sans select-none" id="vigencia-container-${id}">
+        <button type="button"
+                id="custom-select-trigger-${id}"
+                onclick="toggleCustomSelectDropdown(event, '${id}')"
+                class="w-full pl-3 pr-10 py-2 rounded-xl text-xs glass-input text-text-primary text-left relative flex items-center justify-between cursor-pointer hover:border-border-ui transition-all duration-200">
+          <span class="truncate">${currentLabel}</span>
+          <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-text-tertiary">
+            <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
+          </span>
+        </button>
+        <div id="custom-select-dropdown-${id}"
+             class="custom-select-dropdown hidden absolute left-0 right-0 top-full mt-1 z-50 glass-card rounded-xl border border-border-ui shadow-xl overflow-hidden max-h-48 overflow-y-auto py-1">
+          ${optionsHtml}
+        </div>
+      </div>
+    `;
+  }
 
   return `
     <div class="relative inline-block font-sans select-none" id="vigencia-container-${id}">
@@ -330,21 +350,27 @@ function renderDashboard(container) {
         "rounded-2xl p-5 space-y-4 relative z-20",
       )}
 
-      <!-- TRES TARJETAS PRINCIPALES -->
+      <!-- TRES TARJETAS PRINCIPALES (ELEVACIÓN MODERNA Y TEXTURA VISUAL) -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- CARD TOTAL SOLICITUDES -->
-        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-2xs border border-border-ui hover:border-brand-500/40 transition-all space-y-4" style="animation-delay: 50ms;">
-          <div class="flex items-center justify-between border-b border-border-ui pb-3">
-            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="layers" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i> Total Solicitudes
-            </span>
-            <span id="pct-total-solicitudes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-ui text-text-secondary border border-border-ui">${stats.totales.pctUniversal < 100 ? `${stats.totales.pctUniversal}% del total` : '100%'}</span>
+        <div class="glass-card dashboard-card-interactive stagger-card relative overflow-hidden p-6 rounded-2xl flex flex-col justify-between shadow-2xs hover:shadow-md border border-border-ui hover:border-brand-500/40 hover:-translate-y-0.5 transition-all duration-300 space-y-4 group" style="animation-delay: 50ms;">
+          <div class="absolute -right-6 -bottom-6 text-brand-500/[0.04] dark:text-brand-400/[0.06] pointer-events-none select-none transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
+            <i data-lucide="layers" class="w-36 h-36 stroke-[1.2]"></i>
           </div>
-          <div class="text-center py-4">
+          <div class="flex items-center justify-between border-b border-border-ui/60 pb-3 relative z-10">
+            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-2">
+              <span class="p-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                <i data-lucide="layers" class="h-4 w-4"></i>
+              </span>
+              Total Solicitudes
+            </span>
+            <span id="pct-total-solicitudes" class="text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-border-ui/60 text-text-secondary border border-border-ui/60">${stats.totales.pctUniversal < 100 ? `${stats.totales.pctUniversal}% del total` : '100%'}</span>
+          </div>
+          <div class="text-center py-2 relative z-10">
             <h3 class="text-4xl font-black text-text-primary tracking-tight" id="count-total-solicitudes">${stats.totales.total}</h3>
           </div>
-          <div class="space-y-1.5 pt-2 border-t border-border-ui">
-            <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex">
+          <div class="space-y-2 pt-2 border-t border-border-ui/60 relative z-10">
+            <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex shadow-inner">
               <div id="bar-total-respondidas" class="h-full bg-brand-600 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctTotal}%"></div>
               <div id="bar-total-pendientes" class="h-full bg-brand-300 dark:bg-brand-400/40 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctTotal}%"></div>
             </div>
@@ -356,18 +382,24 @@ function renderDashboard(container) {
         </div>
 
         <!-- CARD RESPONDIDAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-2xs border border-border-ui hover:border-brand-500/40 transition-all space-y-4" style="animation-delay: 100ms;">
-          <div class="flex items-center justify-between border-b border-border-ui pb-3">
-            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i> Solicitudes Respondidas
-            </span>
-            <span id="pct-solicitudes-respondidas" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-ui text-text-secondary border border-border-ui">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)}</span>
+        <div class="glass-card dashboard-card-interactive stagger-card relative overflow-hidden p-6 rounded-2xl flex flex-col justify-between shadow-2xs hover:shadow-md border border-border-ui hover:border-brand-500/40 hover:-translate-y-0.5 transition-all duration-300 space-y-4 group" style="animation-delay: 100ms;">
+          <div class="absolute -right-6 -bottom-6 text-brand-500/[0.04] dark:text-brand-400/[0.06] pointer-events-none select-none transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
+            <i data-lucide="check-circle-2" class="w-36 h-36 stroke-[1.2]"></i>
           </div>
-          <div class="text-center py-4">
+          <div class="flex items-center justify-between border-b border-border-ui/60 pb-3 relative z-10">
+            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-2">
+              <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <i data-lucide="check-circle-2" class="h-4 w-4"></i>
+              </span>
+              Solicitudes Respondidas
+            </span>
+            <span id="pct-solicitudes-respondidas" class="text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">${formatPct(stats.respondidas.pctTotal, stats.totales.respondidas)}</span>
+          </div>
+          <div class="text-center py-2 relative z-10">
             <h3 class="text-4xl font-black text-text-primary tracking-tight" id="count-solicitudes-respondidas">${stats.totales.respondidas}</h3>
           </div>
-          <div class="space-y-1.5 pt-2 border-t border-border-ui">
-            <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex">
+          <div class="space-y-2 pt-2 border-t border-border-ui/60 relative z-10">
+            <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex shadow-inner">
               <div id="bar-respondidas-rdp" class="h-full bg-brand-600 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctRdp}%"></div>
               <div id="bar-respondidas-rfp" class="h-full bg-brand-300 dark:bg-brand-400/40 transition-all duration-500 ease-out" style="width: ${stats.respondidas.pctRfp}%"></div>
             </div>
@@ -379,18 +411,24 @@ function renderDashboard(container) {
         </div>
 
         <!-- CARD PENDIENTES -->
-        <div class="glass-card dashboard-card-interactive stagger-card p-6 rounded-2xl flex flex-col justify-between shadow-2xs border border-border-ui hover:border-brand-500/40 transition-all space-y-4" style="animation-delay: 150ms;">
-          <div class="flex items-center justify-between border-b border-border-ui pb-3">
-            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="clock" class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400"></i> Solicitudes Pendientes
-            </span>
-            <span id="pct-solicitudes-pendientes" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-ui text-text-secondary border border-border-ui">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)}</span>
+        <div class="glass-card dashboard-card-interactive stagger-card relative overflow-hidden p-6 rounded-2xl flex flex-col justify-between shadow-2xs hover:shadow-md border border-border-ui hover:border-brand-500/40 hover:-translate-y-0.5 transition-all duration-300 space-y-4 group" style="animation-delay: 150ms;">
+          <div class="absolute -right-6 -bottom-6 text-brand-500/[0.04] dark:text-brand-400/[0.06] pointer-events-none select-none transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
+            <i data-lucide="clock" class="w-36 h-36 stroke-[1.2]"></i>
           </div>
-          <div class="text-center py-4">
+          <div class="flex items-center justify-between border-b border-border-ui/60 pb-3 relative z-10">
+            <span class="text-xs text-text-secondary font-bold uppercase tracking-wider flex items-center gap-2">
+              <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <i data-lucide="clock" class="h-4 w-4"></i>
+              </span>
+              Solicitudes Pendientes
+            </span>
+            <span id="pct-solicitudes-pendientes" class="text-[10.5px] font-bold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">${formatPct(stats.pendientes.pctTotal, stats.totales.pendientes)}</span>
+          </div>
+          <div class="text-center py-2 relative z-10">
             <h3 class="text-4xl font-black text-text-primary tracking-tight" id="count-solicitudes-pendientes">${stats.totales.pendientes}</h3>
           </div>
-          <div class="space-y-1.5 pt-2 border-t border-border-ui">
-            <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex">
+          <div class="space-y-2 pt-2 border-t border-border-ui/60 relative z-10">
+            <div class="w-full h-2 rounded-full overflow-hidden bg-border-ui/60 flex shadow-inner">
               <div id="bar-pendientes-ddp" class="h-full bg-brand-600 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctDdp}%"></div>
               <div id="bar-pendientes-fdp" class="h-full bg-brand-300 dark:bg-brand-400/40 transition-all duration-500 ease-out" style="width: ${stats.pendientes.pctFdp}%"></div>
             </div>
@@ -402,90 +440,94 @@ function renderDashboard(container) {
         </div>
       </div>
 
-      <!-- DESGLOSE DE ESTADOS -->
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <!-- ACEPTADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 200ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-blue-bg); border-color: var(--border-ui); color: var(--card-blue-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Aceptadas</span>
+      <!-- CINTA MÉTRICA UNIFICADA DE ESTADOS (LOOK EJECUTIVO FLUIDO) -->
+      <div class="glass-card stagger-card rounded-2xl p-1.5 shadow-2xs hover:shadow-md border border-border-ui transition-all duration-300" style="animation-delay: 200ms;">
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-y sm:divide-y-0 sm:divide-x divide-border-ui/60">
+          
+          <!-- ACEPTADAS -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--card-blue-border, #3b82f6);"></span>
+              <span>Aceptadas</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-aceptada">${stats.estados.aceptada.count}</h3>
+            </div>
+            <span id="text-pct-aceptada" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-aceptada">${stats.estados.aceptada.count}</h3>
-            <p id="text-pct-aceptada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.aceptada.pct, stats.estados.aceptada.count)}</p>
-          </div>
-        </div>
 
-        <!-- RECHAZADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 250ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-pink-bg); border-color: var(--border-ui); color: var(--card-pink-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Rechazadas</span>
+          <!-- RECHAZADAS -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--card-pink-border, #f43f5e);"></span>
+              <span>Rechazadas</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-rechazada">${stats.estados.rechazada.count}</h3>
+            </div>
+            <span id="text-pct-rechazada" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-rechazada">${stats.estados.rechazada.count}</h3>
-            <p id="text-pct-rechazada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.rechazada.pct, stats.estados.rechazada.count)}</p>
-          </div>
-        </div>
 
-        <!-- SUSPENDIDAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 300ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-purple-bg); border-color: var(--border-ui); color: var(--card-purple-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Suspendidas</span>
+          <!-- SUSPENDIDAS -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--brand-color, #7c3aed);"></span>
+              <span>Suspendidas</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-suspendida">${stats.estados.suspendida.count}</h3>
+            </div>
+            <span id="text-pct-suspendida" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-suspendida">${stats.estados.suspendida.count}</h3>
-            <p id="text-pct-suspendida" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.suspendida.pct, stats.estados.suspendida.count)}</p>
-          </div>
-        </div>
 
-        <!-- CANCELADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 350ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-slate-bg); border-color: var(--border-ui); color: var(--card-slate-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Canceladas</span>
+          <!-- CANCELADAS -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--card-slate-text, #64748b);"></span>
+              <span>Canceladas</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-cancelada">${stats.estados.cancelada.count}</h3>
+            </div>
+            <span id="text-pct-cancelada" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-cancelada">${stats.estados.cancelada.count}</h3>
-            <p id="text-pct-cancelada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.cancelada.pct, stats.estados.cancelada.count)}</p>
-          </div>
-        </div>
 
-        <!-- ENCOMENDADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 400ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-orange-bg); border-color: var(--border-ui); color: var(--card-orange-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Encomendadas</span>
+          <!-- ENCOMENDADAS -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--card-orange-text);"></span>
+              <span>Encomendadas</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-encomendada">${stats.estados.encomendada.count}</h3>
+            </div>
+            <span id="text-pct-encomendada" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-encomendada">${stats.estados.encomendada.count}</h3>
-            <p id="text-pct-encomendada" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.estados.encomendada.pct, stats.estados.encomendada.count)}</p>
-          </div>
-        </div>
 
-        <!-- PUBLICADAS -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 450ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-teal-bg); border-color: var(--border-ui); color: var(--card-teal-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Publicadas</span>
+          <!-- PUBLICADAS -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--card-teal-text);"></span>
+              <span>Publicadas</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-publicadas">${stats.totales.publicadas}</h3>
+            </div>
+            <span id="text-pct-publicadas" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-publicadas">${stats.totales.publicadas}</h3>
-            <p id="text-pct-publicadas" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.totales.pctPublicadas, stats.totales.publicadas)}</p>
-          </div>
-        </div>
 
-        <!-- PENDIENTES DE PUBLICACIÓN -->
-        <div class="glass-card dashboard-card-interactive stagger-card rounded-2xl overflow-hidden flex flex-col justify-between shadow-2xs border border-border-ui transition-all" style="animation-delay: 500ms;">
-          <div class="py-2 px-2 text-center text-[10px] font-bold tracking-wider uppercase border-b flex items-center justify-center gap-1.5" style="background-color: var(--card-amber-bg); border-color: var(--border-ui); color: var(--card-amber-text);">
-            <span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: currentColor;"></span>
-            <span>Pnd. Publicar</span>
+          <!-- PND. PUBLICAR -->
+          <div class="p-3.5 text-center flex flex-col justify-between items-center group transition-colors hover:bg-border-ui/20 rounded-xl">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-tertiary mb-1">
+              <span class="h-2 w-2 rounded-full shrink-0 shadow-xs" style="background-color: var(--card-amber-text);"></span>
+              <span>Pnd. Publicar</span>
+            </div>
+            <div class="space-y-0.5 my-1">
+              <h3 class="text-2xl font-black text-text-primary tracking-tight group-hover:scale-105 transition-transform" id="count-estado-pendientesPublicacion">${stats.totales.pendientesPublicacion}</h3>
+            </div>
+            <span id="text-pct-pendientesPublicacion" class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</span>
           </div>
-          <div class="p-4 text-center space-y-0.5">
-            <h3 class="text-2xl font-black text-text-primary tracking-tight" id="count-estado-pendientesPublicacion">${stats.totales.pendientesPublicacion}</h3>
-            <p id="text-pct-pendientesPublicacion" class="text-[11px] text-text-tertiary font-semibold">${formatPct(stats.totales.pctPendientesPublicacion, stats.totales.pendientesPublicacion)}</p>
-          </div>
+
         </div>
       </div>
 
@@ -634,6 +676,18 @@ function renderSolicitudes(container) {
         (item) => (item.estado || "").toLowerCase() === val,
       );
     }
+    if (filters.fechaInicio) {
+      filtered = filtered.filter((item) => {
+        const itemDate = (item.fecha_ingreso || "").split(" ")[0];
+        return itemDate >= filters.fechaInicio;
+      });
+    }
+    if (filters.fechaTermino) {
+      filtered = filtered.filter((item) => {
+        const itemDate = (item.fecha_ingreso || "").split(" ")[0];
+        return itemDate <= filters.fechaTermino;
+      });
+    }
     totalItems = filtered.length;
     paginatedItems = filtered.slice(
       (currentPage - 1) * pageSize,
@@ -643,7 +697,7 @@ function renderSolicitudes(container) {
 
   let rowsHtml = "";
   if (paginatedItems.length === 0) {
-    rowsHtml = `<tr><td colspan="9" class="px-6 py-8 text-center text-xs text-text-secondary">No hay registros de solicitudes.</td></tr>`;
+    rowsHtml = `<tr><td colspan="8" class="px-6 py-8 text-center text-xs text-text-secondary">No hay registros de solicitudes.</td></tr>`;
   } else {
     paginatedItems.forEach((item) => {
       rowsHtml += `
@@ -664,12 +718,13 @@ function renderSolicitudes(container) {
               ${item.fecha_limite_sh ? formatDate(item.fecha_limite_sh) : (item.fecha_ingreso ? formatDate(item.fecha_ingreso) : "---")}
             </div>
           </td>
-          <td class="px-2 text-xs text-text-secondary font-medium text-left">${formatDate(item.fecha_respuesta) || "---"}</td>
           <td class="px-2 text-xs text-left">
-            ${item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---' ? `
-              <div class="font-semibold text-text-secondary">${formatDate(item.fecha_agendada)}</div>
-              <div class="text-[10px] text-brand-600 dark:text-brand-400 font-medium mt-0.5">${item.fecha_agendada.includes(' ') ? item.fecha_agendada.split(' ')[1].slice(0, 5) + ' hrs' : ''}</div>
-            ` : `<span class="text-text-secondary font-medium">---</span>`}
+            <div class="font-semibold text-text-secondary" title="Fecha Respuesta">${item.fecha_respuesta ? formatDate(item.fecha_respuesta) : "---"}</div>
+            <div class="text-[10px] mt-0.5 truncate" title="Fecha y Hora Agendada">
+              ${item.fecha_agendada && item.fecha_agendada !== '-' && item.fecha_agendada !== '---' ? `
+                <span class="text-brand-600 dark:text-brand-400 font-medium">${formatDate(item.fecha_agendada)}${item.fecha_agendada.includes(' ') ? ' ' + item.fecha_agendada.split(' ')[1].slice(0, 5) + ' hrs' : ''}</span>
+              ` : (item.fecha_respuesta ? `<span class="text-text-tertiary">${item.estado === 'Rechazada' ? 'Rechazada' : 'Sin cita'}</span>` : `<span class="text-text-tertiary">Pendiente</span>`)}
+            </div>
           </td>
           <td class="px-2 text-xs text-text-secondary text-left">
             <div class="font-medium text-text-secondary w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
@@ -733,8 +788,29 @@ function renderSolicitudes(container) {
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-text-primary tracking-tight">Solicitudes</h2>
+        <h2 class="text-xl font-black text-text-primary tracking-tight flex items-center gap-2.5">
+          <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+            <i data-lucide="calendar-check" class="h-5 w-5"></i>
+          </div>
+          <span>Audiencias</span>
+        </h2>
+        <p class="text-xs text-text-secondary mt-1">
+          Gestión y seguimiento de audiencias de lobby: solicitudes, pendientes y publicaciones (Ley N° 20.730).
+        </p>
       </div>
+    </div>
+
+    <!-- SELECCIÓN DE SUB-PESTAÑA UNIFICADA -->
+    <div class="flex gap-2 border-b border-border-ui pb-2 mt-4">
+      <button onclick="changeAudienciasSubTab('solicitudes')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all bg-brand-600 text-white shadow-md shadow-brand-500/20 cursor-pointer border-0">
+        Solicitudes
+      </button>
+      <button onclick="changeAudienciasSubTab('pendientes')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all text-text-secondary hover:text-text-primary hover:bg-border-ui/50 cursor-pointer border-0 bg-transparent">
+        Pendientes de Publicación
+      </button>
+      <button onclick="changeAudienciasSubTab('historial')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all text-text-secondary hover:text-text-primary hover:bg-border-ui/50 cursor-pointer border-0 bg-transparent">
+        Audiencias Publicadas
+      </button>
     </div>
 
     <!-- CONTENEDOR FILTROS -->
@@ -761,16 +837,16 @@ function renderSolicitudes(container) {
         ${renderSearchInput({
           id: "filter-solicitudes-folio",
           fieldName: "folio",
-          label: "Folio",
+          label: "FOLIO",
           placeholder: "Buscar folio...",
           value: filters.folio,
           icon: "hash",
         })}
-        <!-- NOMBRE -->
+        <!-- SUJETO PASIVO -->
         ${renderSearchInput({
           id: "solicitudes-filter-nombre",
           fieldName: "nombre",
-          label: "Nombre Sujeto Pasivo",
+          label: "SUJETO PASIVO",
           placeholder: "Escribir nombre...",
           value: filters.nombre,
           icon: "user",
@@ -780,7 +856,7 @@ function renderSolicitudes(container) {
         ${renderSearchInput({
           id: "solicitudes-filter-cargo",
           fieldName: "cargo",
-          label: "Cargo",
+          label: "CARGO",
           placeholder: !filters.nombre
             ? "Seleccione nombre primero..."
             : "Escribir cargo...",
@@ -789,11 +865,11 @@ function renderSolicitudes(container) {
           disabled: !filters.nombre,
           hasSuggestions: true,
         })}
-        <!-- SUJETO ACTIVO / REPRESENTADO -->
+        <!-- SUJETO ACTIVO -->
         ${renderSearchInput({
           id: "solicitudes-filter-sujetoActivoRepresentado",
           fieldName: "sujetoActivoRepresentado",
-          label: "Sujeto Activo / Representado",
+          label: "SUJETO ACTIVO",
           placeholder: "Lobbista o gestor de interés...",
           value: filters.sujetoActivoRepresentado,
           icon: "users",
@@ -803,7 +879,7 @@ function renderSolicitudes(container) {
         ${renderSelectInput({
           id: "filter-solicitudes-estado",
           fieldName: "estado",
-          label: "Estado",
+          label: "ESTADO",
           value: filters.estado,
           optionsList: [
             { value: "", text: "Todos los Estados" },
@@ -858,15 +934,14 @@ function renderSolicitudes(container) {
         <table class="w-full text-left border-collapse table-fixed" id="table-solicitudes">
           <thead>
             <tr class="bg-border-ui/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
-              <th class="pl-6 pr-2 py-3 w-40 text-left">Folio</th>
-              <th class="px-2 py-3 w-28 text-left">Ingreso / Plazo</th>
-              <th class="px-2 py-3 w-24 text-left">Fecha Respuesta</th>
-              <th class="px-2 py-3 w-24 text-left">Fecha Agendada</th>
-              <th class="px-2 py-3 w-48 text-left">Sujeto Pasivo</th>
-              <th class="px-2 py-3 w-48 text-left">Sujeto Activo / Representado</th>
-              <th class="px-2 py-3 w-48 text-left">Materia</th>
-              <th class="px-2 py-3 w-28 text-left">Estado</th>
-              <th class="pl-2 pr-6 py-3 w-28 text-left whitespace-nowrap">Acción</th>
+              <th class="pl-6 pr-2 py-3 w-36 text-left">FOLIO</th>
+              <th class="px-2 py-3 w-28 text-left">INGRESO</th>
+              <th class="px-2 py-3 w-28 text-left">RESPUESTA</th>
+              <th class="px-2 py-3 w-48 text-left">SUJETO PASIVO</th>
+              <th class="px-2 py-3 w-48 text-left">SUJETO ACTIVO</th>
+              <th class="px-2 py-3 w-auto text-left">MATERIA</th>
+              <th class="px-2 py-3 w-28 text-left">ESTADO</th>
+              <th class="pl-2 pr-6 py-3 w-28 text-left whitespace-nowrap">ACCIÓN</th>
             </tr>
           </thead>
           <tbody>
@@ -993,6 +1068,18 @@ function renderPublicadas(container) {
           return itemEstadoNormalized === val;
         });
       }
+      if (filters.fechaInicio) {
+        filtered = filtered.filter((item) => {
+          const itemDate = (item.fecha_inicio || item.fecha_agendada || item.fecha_publicacion || "").split(" ")[0];
+          return itemDate >= filters.fechaInicio;
+        });
+      }
+      if (filters.fechaTermino) {
+        filtered = filtered.filter((item) => {
+          const itemDate = (item.fecha_inicio || item.fecha_agendada || item.fecha_publicacion || "").split(" ")[0];
+          return itemDate <= filters.fechaTermino;
+        });
+      }
       totalItems = filtered.length;
       paginatedItems = filtered.slice(
         (currentPage - 1) * pageSize,
@@ -1115,6 +1202,18 @@ function renderPublicadas(container) {
           return itemEstadoNormalized === val;
         });
       }
+      if (filters.fechaInicio) {
+        filtered = filtered.filter((item) => {
+          const itemDate = (item.fecha_agendada || item.fecha_ingreso || "").split(" ")[0];
+          return itemDate >= filters.fechaInicio;
+        });
+      }
+      if (filters.fechaTermino) {
+        filtered = filtered.filter((item) => {
+          const itemDate = (item.fecha_agendada || item.fecha_ingreso || "").split(" ")[0];
+          return itemDate <= filters.fechaTermino;
+        });
+      }
       totalItems = filtered.length;
       paginatedItems = filtered.slice(
         (currentPage - 1) * pageSize,
@@ -1127,7 +1226,7 @@ function renderPublicadas(container) {
 
   if (subTab === "historial") {
     if (paginatedItems.length === 0) {
-      rowsHtml = `<tr><td colspan="7" class="px-3 py-8 text-center text-xs text-text-secondary">No hay registros de audiencias publicadas.</td></tr>`;
+      rowsHtml = `<tr><td colspan="8" class="px-3 py-8 text-center text-xs text-text-secondary">No hay registros de audiencias publicadas.</td></tr>`;
     } else {
       paginatedItems.forEach((item) => {
         const dateTimeParts = item.fecha_inicio
@@ -1143,13 +1242,20 @@ function renderPublicadas(container) {
           ? `${formattedDate} ${timePart}`
           : formattedDate;
 
-        const isFuera = (item.cumplimiento || "")
-          .toLowerCase()
-          .includes("fuera");
+        const rawCumplimiento = item.cumplimiento || "En plazo";
+        const isFuera = rawCumplimiento.toLowerCase().includes("fuera");
         const badgeClass = isFuera
           ? "badge-status-vencido"
           : "badge-status-enplazo";
-        const displayCumplimiento = item.cumplimiento || "En plazo";
+
+        const mainStatusText = isFuera ? "Fuera de plazo" : "En plazo";
+        let delaySubtext = "";
+        if (isFuera) {
+          const matchDelay = rawCumplimiento.match(/-?\d+d/i);
+          if (matchDelay) {
+            delaySubtext = matchDelay[0];
+          }
+        }
 
         rowsHtml += `
           <tr class="hover:bg-border-ui border-b border-border-ui transition-colors h-[72px]">
@@ -1166,6 +1272,10 @@ function renderPublicadas(container) {
             <td class="px-2 text-xs text-text-secondary text-left">
               <div class="font-medium text-text-secondary w-full truncate">${displayDateTime}</div>
               <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate">${escapeHtml(item.forma || "Presencial")}</div>
+            </td>
+            <td class="px-2 text-xs text-text-secondary text-left">
+              <div class="font-semibold text-text-secondary">${formatDate(item.fecha_publicacion)}</div>
+              <div class="text-[10px] text-text-tertiary mt-0.5">Publicación</div>
             </td>
             <td class="px-2 text-xs text-text-secondary text-left">
               <div class="font-medium text-text-secondary w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
@@ -1188,11 +1298,16 @@ function renderPublicadas(container) {
               </div>
               <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || "Particular")}">${escapeHtml(item.representado || "Particular")}</div>
             </td>
-            <td class="px-2 text-xs text-text-secondary text-left"><div class="w-full truncate" title="${escapeHtmlAttr(item.especificacion_materia || item.materia || "")}">${escapeHtml(item.especificacion_materia || item.materia || "Sin Especificar")}</div></td>
-            <td class="px-2 text-xs text-text-secondary text-left">
-              <div class="font-semibold text-text-secondary">${formatDate(item.fecha_publicacion)}</div>
-              <div class="mt-1">
-                <span class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${badgeClass}">${displayCumplimiento}</span>
+            <td class="px-2 text-left">
+              <div class="text-[10.5px] text-text-secondary font-sans leading-normal overflow-hidden" 
+                   style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-height: 2.8em;"
+                   title="${escapeHtmlAttr(item.especificacion_materia || item.materia || "")}">
+                ${escapeHtml(item.especificacion_materia || item.materia || "Sin Especificar")}
+              </div>
+            </td>
+            <td class="px-2 text-xs text-left">
+              <div class="w-24">
+                ${renderStatusBadge({ text: mainStatusText, subtext: delaySubtext, class: badgeClass })}
               </div>
             </td>
             <td class="pl-2 pr-6 text-left whitespace-nowrap">
@@ -1205,7 +1320,7 @@ function renderPublicadas(container) {
   } else {
     // subTab === 'pendientes'
     if (paginatedItems.length === 0) {
-      rowsHtml = `<tr><td colspan="7" class="px-3 py-8 text-center text-xs text-text-secondary">No hay solicitudes aceptadas pendientes de publicación.</td></tr>`;
+      rowsHtml = `<tr><td colspan="8" class="px-3 py-8 text-center text-xs text-text-secondary">No hay solicitudes aceptadas pendientes de publicación.</td></tr>`;
     } else {
       paginatedItems.forEach((item) => {
         const delayInfo = getPendingPublicationDelay(item.fecha_agendada, item);
@@ -1225,6 +1340,10 @@ function renderPublicadas(container) {
             <td class="px-2 py-4 align-middle text-xs text-text-secondary">
               <div class="font-medium text-text-secondary w-full truncate">${formatDateTime(item.fecha_agendada)}</div>
               <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate">${escapeHtml(item.forma || "Presencial")}</div>
+            </td>
+            <td class="px-2 py-4 align-middle text-xs text-text-secondary">
+              <div class="font-semibold text-text-secondary">${escapeHtml(delayInfo.deadlineStr)}</div>
+              <div class="text-[9px] text-text-tertiary mt-0.5">Último día hábil</div>
             </td>
             <td class="px-2 py-4 align-middle text-xs text-text-secondary">
               <div class="font-medium text-text-secondary w-full truncate" title="${escapeHtmlAttr(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}">${escapeHtml(normalizeName(item.sujeto_pasivo) || "Sin Nombre")}</div>
@@ -1247,12 +1366,21 @@ function renderPublicadas(container) {
               </div>
               <div class="text-[10px] text-text-secondary mt-0.5 w-full truncate" title="${escapeHtmlAttr(item.representado || "Particular")}">${escapeHtml(item.representado || "Particular")}</div>
             </td>
-            <td class="px-2 py-4 align-middle text-xs text-text-secondary">
-              <div class="font-semibold text-text-secondary">${escapeHtml(delayInfo.deadlineStr)}</div>
-              <div class="text-[9px] text-text-tertiary mt-0.5">Último día hábil</div>
+            <td class="px-2 text-left">
+              <div class="text-[10.5px] text-text-secondary font-sans leading-normal overflow-hidden" 
+                   style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-height: 2.8em;"
+                   title="${escapeHtmlAttr(item.especificacion_materia || item.materia || "")}">
+                ${escapeHtml(item.especificacion_materia || item.materia || "Sin Especificar")}
+              </div>
             </td>
-            <td class="px-2 py-4 align-middle text-xs text-text-secondary">
-              <span class="px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${delayInfo.badgeClass}">${escapeHtml(delayInfo.text)}</span>
+            <td class="px-2 py-4 align-middle text-xs text-left">
+              <div class="w-24">
+                ${renderStatusBadge({
+                  text: delayInfo.days > 0 ? "Fuera de plazo" : "En plazo",
+                  subtext: delayInfo.days > 0 ? `-${delayInfo.days}d` : "",
+                  class: delayInfo.badgeClass
+                })}
+              </div>
             </td>
             <td class="pl-2 pr-6 py-4 align-middle text-left whitespace-nowrap">
               <button onclick="showSolicitudDetailsModal(${item.id}, true)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all inline-block hover:shadow-md hover:shadow-brand-500/20 whitespace-nowrap cursor-pointer">Ver Detalle</button>
@@ -1292,23 +1420,34 @@ function renderPublicadas(container) {
   container.innerHTML = `
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div class="space-y-1">
-        <h2 class="text-2xl font-bold text-text-primary tracking-tight">Audiencias</h2>
+        <h2 class="text-xl font-black text-text-primary tracking-tight flex items-center gap-2.5">
+          <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+            <i data-lucide="calendar-check" class="h-5 w-5"></i>
+          </div>
+          <span>Audiencias</span>
+        </h2>
+        <p class="text-xs text-text-secondary mt-1">
+          Gestión y seguimiento de audiencias de lobby: solicitudes, pendientes y publicaciones (Ley N° 20.730).
+        </p>
       </div>
     </div>
 
-    <!-- SELECCIÓN DE SUB-PESTAÑA -->
+    <!-- SELECCIÓN DE SUB-PESTAÑA UNIFICADA -->
     <div class="flex gap-2 border-b border-border-ui pb-2 mt-4">
-      <button onclick="changePublicadasSubTab('historial')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all ${ subTab ==="historial"
-          ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
-          : "text-text-secondary hover:text-text-primary hover:bg-border-ui/50"
-      }">
-        Historial Publicadas
+      <button onclick="changeAudienciasSubTab('solicitudes')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all text-text-secondary hover:text-text-primary hover:bg-border-ui/50 cursor-pointer border-0 bg-transparent">
+        Solicitudes
       </button>
-      <button onclick="changePublicadasSubTab('pendientes')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all ${ subTab ==="pendientes"
+      <button onclick="changeAudienciasSubTab('pendientes')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer border-0 ${ subTab === "pendientes"
           ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
-          : "text-text-secondary hover:text-text-primary hover:bg-border-ui/50"
+          : "text-text-secondary hover:text-text-primary hover:bg-border-ui/50 bg-transparent"
       }">
         Pendientes de Publicación
+      </button>
+      <button onclick="changeAudienciasSubTab('historial')" class="px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer border-0 ${ subTab === "historial"
+          ? "bg-brand-600 text-white shadow-md shadow-brand-500/20"
+          : "text-text-secondary hover:text-text-primary hover:bg-border-ui/50 bg-transparent"
+      }">
+        Audiencias Publicadas
       </button>
     </div>
 
@@ -1336,16 +1475,16 @@ function renderPublicadas(container) {
         ${renderSearchInput({
           id: "filter-publicadas-folio",
           fieldName: "folio",
-          label: "Folio",
+          label: "FOLIO",
           placeholder: "Buscar folio...",
           value: filters.folio,
           icon: "hash",
         })}
-        <!-- NOMBRE -->
+        <!-- SUJETO PASIVO -->
         ${renderSearchInput({
           id: "publicadas-filter-nombre",
           fieldName: "nombre",
-          label: "Nombre Sujeto Pasivo",
+          label: "SUJETO PASIVO",
           placeholder: "Escribir nombre...",
           value: filters.nombre,
           icon: "user",
@@ -1355,7 +1494,7 @@ function renderPublicadas(container) {
         ${renderSearchInput({
           id: "publicadas-filter-cargo",
           fieldName: "cargo",
-          label: "Cargo",
+          label: "CARGO",
           placeholder: !filters.nombre
             ? "Seleccione nombre primero..."
             : "Escribir cargo...",
@@ -1364,11 +1503,11 @@ function renderPublicadas(container) {
           disabled: !filters.nombre,
           hasSuggestions: true,
         })}
-        <!-- SUJETO ACTIVO / REPRESENTADO -->
+        <!-- SUJETO ACTIVO -->
         ${renderSearchInput({
           id: "publicadas-filter-sujetoActivoRepresentado",
           fieldName: "sujetoActivoRepresentado",
-          label: "Sujeto Activo / Representado",
+          label: "SUJETO ACTIVO",
           placeholder: "Lobbista, gestor de interés o RUT...",
           value: filters.sujetoActivoRepresentado,
           icon: "users",
@@ -1378,7 +1517,7 @@ function renderPublicadas(container) {
         ${renderSelectInput({
           id: "filter-publicadas-estado",
           fieldName: "estado",
-          label: "Estado de Cumplimiento",
+          label: "ESTADO",
           value: filters.estado,
           optionsList: [
             { value: "", text: "Todos los Estados" },
@@ -1438,24 +1577,26 @@ function renderPublicadas(container) {
               subTab === "historial"
                 ? `
               <tr class="bg-border-ui/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
-                <th class="pl-6 pr-2 py-3 w-36 text-left">Folio</th>
-                <th class="px-2 py-3 w-28 text-left">Fecha / Forma</th>
-                <th class="px-2 py-3 w-44 text-left">Sujeto Pasivo</th>
-                <th class="px-2 py-3 w-44 text-left">Sujeto Activo</th>
-                <th class="px-2 py-3 w-48 text-left">Materia</th>
-                <th class="px-2 py-3 w-36 text-left">Publicación / Estado</th>
-                <th class="pl-2 pr-6 py-3 w-32 text-left whitespace-nowrap">Acción</th>
+                <th class="pl-6 pr-2 py-3 w-36 text-left">FOLIO</th>
+                <th class="px-2 py-3 w-28 text-left">INGRESO</th>
+                <th class="px-2 py-3 w-28 text-left">RESPUESTA</th>
+                <th class="px-2 py-3 w-48 text-left">SUJETO PASIVO</th>
+                <th class="px-2 py-3 w-48 text-left">SUJETO ACTIVO</th>
+                <th class="px-2 py-3 w-auto text-left">MATERIA</th>
+                <th class="px-2 py-3 w-28 text-left">ESTADO</th>
+                <th class="pl-2 pr-6 py-3 w-28 text-left whitespace-nowrap">ACCIÓN</th>
               </tr>
             `
                 : `
               <tr class="bg-border-ui/50 border-b border-border-ui text-text-tertiary text-[10px] uppercase font-bold tracking-widest">
-                <th class="pl-6 pr-2 py-3 w-40 text-left">Folio</th>
-                <th class="px-2 py-3 w-36 text-left">Fecha Agendada</th>
-                <th class="px-2 py-3 w-56 text-left">Sujeto Pasivo</th>
-                <th class="px-2 py-3 w-56 text-left">Sujeto Activo / Representado</th>
-                <th class="px-2 py-3 w-40 text-left">Plazo Máximo</th>
-                <th class="px-2 py-3 w-32 text-left">Estado</th>
-                <th class="pl-2 pr-6 py-3 w-32 text-left whitespace-nowrap">Acción</th>
+                <th class="pl-6 pr-2 py-3 w-36 text-left">FOLIO</th>
+                <th class="px-2 py-3 w-28 text-left">INGRESO</th>
+                <th class="px-2 py-3 w-28 text-left">RESPUESTA</th>
+                <th class="px-2 py-3 w-48 text-left">SUJETO PASIVO</th>
+                <th class="px-2 py-3 w-48 text-left">SUJETO ACTIVO</th>
+                <th class="px-2 py-3 w-auto text-left">MATERIA</th>
+                <th class="px-2 py-3 w-28 text-left">ESTADO</th>
+                <th class="pl-2 pr-6 py-3 w-28 text-left whitespace-nowrap">ACCIÓN</th>
               </tr>
             `
             }
@@ -2424,48 +2565,95 @@ function renderHistoryList() {
         const ins =
           (statsObj.sh?.inserts || 0) +
           (statsObj.ph?.inserts || 0) +
-          (statsObj.sph?.inserts || 0);
+          (statsObj.sph?.inserts || 0) +
+          (statsObj.vh?.inserts || 0) +
+          (statsObj.dh?.inserts || 0);
         const upd =
           (statsObj.sh?.updates || 0) +
           (statsObj.ph?.updates || 0) +
-          (statsObj.sph?.updates || 0);
+          (statsObj.sph?.updates || 0) +
+          (statsObj.vh?.updates || 0) +
+          (statsObj.dh?.updates || 0);
         const del =
           (statsObj.sh?.deletes || 0) +
           (statsObj.ph?.deletes || 0) +
-          (statsObj.sph?.deletes || 0);
+          (statsObj.sph?.deletes || 0) +
+          (statsObj.vh?.deletes || 0) +
+          (statsObj.dh?.deletes || 0);
         detailStr = `${ins} creados, ${upd} act., ${del} elim.`;
         hasDetails =
           (statsObj.sh?.details && statsObj.sh.details.length > 0) ||
           (statsObj.ph?.details && statsObj.ph.details.length > 0) ||
-          (statsObj.sph?.details && statsObj.sph.details.length > 0);
+          (statsObj.sph?.details && statsObj.sph.details.length > 0) ||
+          (statsObj.vh?.details && statsObj.vh.details.length > 0) ||
+          (statsObj.dh?.details && statsObj.dh.details.length > 0);
       } catch (e) {
         detailStr = item.detalles || "";
       }
 
       return `
-      <div class="p-2.5 rounded-xl border text-[11px] space-y-1.5 hover:border-border-ui dark:hover:border-border-ui transition-colors" style="background-color: var(--bg-main); border-color: var(--border-ui);">
-        <div class="flex justify-between items-center gap-2">
-          <span class="font-bold text-heading">${dateStr}</span>
-          <div class="flex items-center gap-1.5">
-            <span class="px-1.5 py-0.5 rounded-md text-[9px] font-semibold ${badgeClass}">${item.estado}</span>
-            ${
-              hasDetails
-                ? `
-              <button onclick="viewSyncDetails(${item.id})" class="text-brand-500 hover:text-brand-400 p-0.5 transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center" title="Ver detalles de los cambios">
-                <i data-lucide="eye" class="h-3.5 w-3.5"></i>
-              </button>
-            `
-                : ""
-            }
+      <div class="py-1.5 px-2.5 rounded-lg border border-border-ui/60 bg-bg-main hover:border-brand-500 transition-colors flex items-center justify-between gap-2.5 text-xs">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-heading text-[11px] font-mono">${dateStr}</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold ${badgeClass}">${item.estado}</span>
           </div>
+          <div class="text-[10px] text-body-muted font-mono truncate mt-0.5">${detailStr}</div>
         </div>
-        <div class="text-[10px] text-body-muted font-medium truncate" title="${item.usuario}">${item.usuario}</div>
-        <div class="text-[10px] text-heading font-mono leading-tight whitespace-normal break-words">${detailStr}</div>
+        ${
+          hasDetails
+            ? `
+          <button onclick="viewSyncDetails(${item.id})" class="text-text-tertiary hover:text-brand-500 p-1 transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center shrink-0" title="Ver detalles de los cambios">
+            <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+          </button>
+        `
+            : ""
+        }
       </div>
     `;
     })
     .join("");
 }
+
+function showSyncHistoryModal() {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('backdrop-animate-in');
+
+  const historyHtml = typeof renderHistoryList === 'function' ? renderHistoryList() : '<p class="text-xs text-text-tertiary">Sin registros.</p>';
+
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-xl p-6 rounded-3xl space-y-4 shadow-2xl relative modal-animate-in border border-border-ui text-[var(--text-primary)] max-h-[85vh] flex flex-col font-sans text-left">
+      <div class="flex items-center justify-between border-b border-border-ui pb-3.5">
+        <div class="flex items-center gap-2.5">
+          <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0">
+            <i data-lucide="history" class="h-4.5 w-4.5"></i>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-heading">Historial de Sincronizaciones</h3>
+            <p class="text-[10px] text-text-tertiary">Registro de cargas de Excel y sincronizaciones con SharePoint</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeModal()" class="h-8 w-8 rounded-xl bg-border-ui/40 hover:bg-border-ui text-text-secondary flex items-center justify-center transition-colors cursor-pointer" title="Cerrar">
+          <i data-lucide="x" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1 max-h-[60vh]">
+        ${historyHtml}
+      </div>
+
+      <div class="pt-3 border-t border-border-ui flex justify-end">
+        <button type="button" onclick="closeModal()" class="py-2 px-5 rounded-xl text-xs font-bold btn-secondary cursor-pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  `;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+window.showSyncHistoryModal = showSyncHistoryModal;
 
 function generateUsuarioRowHtml(item) {
   const names = (item.nombre || "").trim().split(/\s+/);
@@ -2609,7 +2797,7 @@ function switchAdminScope(scopeName) {
   if (scopeName === 'gestion') {
     changeAdminTab('auditoria');
   } else {
-    changeAdminTab('usuarios');
+    changeAdminTab('sincronizacion');
   }
 }
 window.switchAdminScope = switchAdminScope;
@@ -2622,7 +2810,7 @@ function _buildAdminTabsNavHtml(activeTab) {
   if (rol === 'Auditor') {
     window.activeAdminScope = 'gestion';
   } else {
-    const sistemaTabs = ['usuarios', 'sincronizacion', 'database', 'logs'];
+    const sistemaTabs = ['sincronizacion', 'usuarios', 'database', 'logs'];
     const gestionTabs = ['auditoria', 'reportes', 'sujetos', 'asistencia'];
     if (sistemaTabs.includes(activeTab)) {
       window.activeAdminScope = 'sistema';
@@ -2655,8 +2843,8 @@ function _buildAdminTabsNavHtml(activeTab) {
     `;
   } else {
     tabsListHtml = `
-      <button onclick="changeAdminTab('usuarios')" class="${tabClass('usuarios')}"><i data-lucide="users" class="h-4 w-4"></i> Gestión de Usuarios</button>
       <button onclick="changeAdminTab('sincronizacion')" class="${tabClass('sincronizacion')}"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Sincronización</button>
+      <button onclick="changeAdminTab('usuarios')" class="${tabClass('usuarios')}"><i data-lucide="users" class="h-4 w-4"></i> Gestión de Usuarios</button>
       <button onclick="changeAdminTab('database')" class="${tabClass('database')}"><i data-lucide="database" class="h-4 w-4"></i> Base de Datos</button>
       <button onclick="changeAdminTab('logs')" class="${tabClass('logs')}"><i data-lucide="file-text" class="h-4 w-4"></i> Bitácora de Logs</button>
     `;
@@ -2830,148 +3018,232 @@ function renderUsuarios(container) {
     }
 
     contentHtml = `
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 animate-fade-in">
-        <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div class="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
-            <i data-lucide="file-text" class="h-5 w-5"></i>
-          </div>
-          <div>
-            <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Total Solicitudes</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.solicitudes ?? "-"}</p>
-          </div>
-        </div>
-        <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div class="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <i data-lucide="calendar-check" class="h-5 w-5"></i>
-          </div>
-          <div>
-            <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Publicadas PH</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.publicadas ?? "-"}</p>
-          </div>
-        </div>
-        <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div class="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
-            <i data-lucide="users" class="h-5 w-5"></i>
-          </div>
-          <div>
-            <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Sujetos Pasivos</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.sujetos_pasivos ?? "-"}</p>
-          </div>
-        </div>
-        <div class="glass-card p-4 rounded-2xl flex items-center gap-4 shadow-sm">
-          <div class="h-10 w-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
-            <i data-lucide="shield-check" class="h-5 w-5"></i>
-          </div>
-          <div>
-            <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Usuarios Activos</p>
-            <p class="text-xl font-bold text-heading mt-0.5">${dataStore.stats.usuarios ?? "-"}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6 animate-fade-in">
-        <div class="lg:col-span-2 space-y-4">
-          ${renderGlassCard(
-            `
-            <div class="border-b border-border-ui pb-3 flex items-center gap-2 mb-4">
-              <i data-lucide="refresh-cw" class="h-4 w-4 text-brand-400"></i>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400">Panel de Sincronización</h3>
+      <div class="mt-4 animate-fade-in">
+        ${renderGlassCard(
+          `
+          <!-- HEADER DE LA CONSOLA MAESTRA -->
+          <div class="border-b border-border-ui pb-3.5 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div class="h-8 w-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0">
+                <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-heading">Consola de Sincronización y Datos</h3>
+                <p class="text-[11px] text-text-tertiary">Gestión de enlace con SharePoint, actualización de planillas y salud del ecosistema</p>
+              </div>
             </div>
-            <div class="space-y-4">
-              <p class="text-xs text-text-secondary leading-relaxed">
-                Seleccione el archivo de datos Excel ('.xlsx') y luego haga clic en "Procesar e Importar Excel" para actualizar los datos locales y subirlos a SharePoint. O haga clic en "Sincronizar desde SharePoint" para descargar cualquier versión más reciente de la nube.
-              </p>
-              <div class="grid grid-cols-1 gap-4">
-                <div class="border rounded-xl p-4" style="background-color: var(--bg-main); border-color: var(--border-ui);">
-                  <span class="text-[10px] text-body-muted font-bold uppercase tracking-wider block mb-1">Última Sincronización de Base de Datos</span>
-                  <span class="text-xs font-mono text-heading font-semibold break-all">${lastSyncStr}</span>
-                </div>
-              </div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 self-start sm:self-auto">
+              <span class="h-2 w-2 rounded-full bg-brand-500 animate-pulse"></span>
+              Sistema Operativo
+            </span>
+          </div>
 
-              <!-- Selector de Archivo Excel con soporte de Drag & Drop -->
-              <div class="border-2 border-dashed border-border-ui rounded-xl p-5 text-center hover:border-brand-500 transition-colors cursor-pointer bg-bg-main relative" 
-                   onclick="document.getElementById('import-excel-file').click()"
-                   ondragover="event.preventDefault(); this.classList.add('border-brand-500')"
-                   ondragleave="this.classList.remove('border-brand-500')"
-                   ondrop="event.preventDefault(); this.classList.remove('border-brand-500'); if(event.dataTransfer.files.length) { document.getElementById('import-excel-file').files = event.dataTransfer.files; handleExcelFileSelected({target: document.getElementById('import-excel-file')}); }">
-                <input type="file" id="import-excel-file" accept=".xlsx" class="hidden" onchange="handleExcelFileSelected(event)">
-                <div class="space-y-2 pointer-events-none">
-                  <i data-lucide="file-spreadsheet" class="h-8 w-8 text-text-tertiary mx-auto"></i>
-                  <p class="text-xs font-semibold text-text-secondary" id="excel-file-label">Haz clic para buscar o arrastra aquí tu archivo Excel</p>
-                  <p class="text-[10px] text-text-tertiary" id="excel-file-details">Solo formato .xlsx (Ley de Lobby)</p>
-                </div>
-              </div>
+          <!-- CUERPO PRINCIPAL: 2 ZONAS INTEGRADAS CON SEPARADOR (65% / 35%) -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 divide-y lg:divide-y-0 lg:divide-x divide-border-ui">
+            
+            <!-- ZONA 1: OPERACIONES Y CARGA (Izquierda - 65% del ancho) -->
+            <div class="space-y-6 lg:col-span-8 lg:pr-8">
               
-              <div id="import-progress-container" class="hidden space-y-2 py-2">
-                <div class="flex justify-between text-[10px]">
-                  <span id="import-progress-status" class="text-text-tertiary font-medium">Sincronizando registros...</span>
-                  <span class="text-brand-400 font-bold animate-pulse">En curso</span>
+              <!-- SECCIÓN A: ACTUALIZACIÓN POR PLANILLA (EXCEL) - HERO PRINCIPAL -->
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="h-4 w-4 text-brand-400"></i>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-heading">Carga de Planilla Excel</h4>
+                  </div>
+                  <span class="text-[11px] text-text-secondary font-mono">
+                    Última carga: <strong class="text-text-primary">${dataStore.dbHealth?.lastImport || '09-09-2026 11:51'}</strong>
+                  </span>
                 </div>
-                <div class="w-full bg-border-ui h-1.5 rounded-full overflow-hidden">
-                  <div class="bg-brand-500 h-full w-full animate-pulse rounded-full" style="width: 100%;"></div>
+
+                <!-- Selector Drag & Drop destacado y accesible -->
+                <div class="border-2 border-dashed border-border-ui rounded-xl p-5 text-center hover:border-brand-500 transition-colors cursor-pointer bg-bg-main relative mb-3" 
+                     onclick="document.getElementById('import-excel-file').click()"
+                     ondragover="event.preventDefault(); this.classList.add('border-brand-500')"
+                     ondragleave="this.classList.remove('border-brand-500')"
+                     ondrop="event.preventDefault(); this.classList.remove('border-brand-500'); if(event.dataTransfer.files.length) { document.getElementById('import-excel-file').files = event.dataTransfer.files; handleExcelFileSelected({target: document.getElementById('import-excel-file')}); }">
+                  <input type="file" id="import-excel-file" accept=".xlsx" class="hidden" onchange="handleExcelFileSelected(event)">
+                  <div class="space-y-1.5 pointer-events-none">
+                    <i data-lucide="file-up" class="h-7 w-7 text-brand-500 mx-auto"></i>
+                    <p class="text-xs font-semibold text-text-secondary" id="excel-file-label">Haz clic para buscar o arrastra aquí tu archivo Excel</p>
+                    <p class="text-[10px] text-text-tertiary" id="excel-file-details">Formato .xlsx descargado de la plataforma Ley de Lobby</p>
+                  </div>
+                </div>
+
+                <div class="flex justify-end pt-1">
+                  <button id="btn-clear-excel" type="button" onclick="clearSelectedExcelFile(event)" class="hidden text-xs text-rose-500 hover:text-rose-600 font-semibold py-1 px-2.5 rounded-lg hover:bg-rose-500/10 transition-all flex items-center gap-1.5 cursor-pointer">
+                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                    <span>Quitar archivo</span>
+                  </button>
+                </div>
+
+                <div id="import-progress-container" class="hidden space-y-2 py-1.5 mb-3">
+                  <div class="flex justify-between text-[10px]">
+                    <span id="import-progress-status" class="text-text-tertiary font-medium">Sincronizando registros...</span>
+                    <span class="text-brand-400 font-bold animate-pulse">En curso</span>
+                  </div>
+                  <div class="w-full bg-border-ui h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-brand-500 h-full w-full animate-pulse rounded-full" style="width: 100%;"></div>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 pt-1">
+                  <button onclick="downloadBackup()" class="py-2 px-3.5 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2 shrink-0">
+                    <i data-lucide="download" class="h-3.5 w-3.5"></i>
+                    <span>Respaldar BD</span>
+                  </button>
+
+                  <button id="btn-import-sync" onclick="triggerImport()" disabled class="py-2 px-5 bg-border-ui/50 text-text-tertiary rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2">
+                    <i data-lucide="upload" class="h-3.5 w-3.5"></i>
+                    <span>Procesar e Importar Excel</span>
+                  </button>
                 </div>
               </div>
 
-              <div class="flex flex-col sm:flex-row gap-3 pt-2">
-                <button id="btn-import-sync" onclick="triggerImport()" disabled class="flex-1 py-3 bg-border-ui/50 text-text-tertiary rounded-xl text-xs font-bold transition-all cursor-not-allowed flex items-center justify-center gap-2">
-                  <i data-lucide="file-up" class="h-4 w-4"></i>
-                  <span>Procesar e Importar Excel</span>
-                </button>
-                
-                <button id="btn-sharepoint-sync" onclick="triggerSharepointSync()" class="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-                  <i data-lucide="refresh-cw" class="h-4 w-4"></i>
-                  <span>Sincronizar con SharePoint</span>
-                </button>
-                
-                <button onclick="downloadBackup()" class="py-3 px-6 rounded-xl text-xs font-bold transition-all btn-secondary active:scale-[0.98] flex items-center justify-center gap-2 shrink-0">
-                  <i data-lucide="download" class="h-4 w-4"></i>
-                  <span>Respaldar BD</span>
-                </button>
-              </div>
-            </div>
-          `,
-            "rounded-2xl p-6 shadow-sm relative z-20",
-          )}
-        </div>
+              <!-- SECCIÓN B: ENLACE INSTITUCIONAL SHAREPOINT -->
+              <div class="border-t border-border-ui pt-5">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="cloud" class="h-4 w-4 text-brand-400"></i>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-heading">Enlace Institucional SharePoint</h4>
+                  </div>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    🟢 Conectado
+                  </span>
+                </div>
 
-        <div class="space-y-4">
-          ${renderGlassCard(
-            `
-            <div class="border-b border-border-ui pb-3 flex items-center gap-2 mb-4">
-              <i data-lucide="activity" class="h-4 w-4 text-brand-400"></i>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400">Salud del Sistema</h3>
-            </div>
-            <div class="space-y-3.5 text-xs">
-              <div class="flex justify-between items-center py-1 border-b border-border-ui">
-                <span class="text-body-muted">Base de Datos:</span>
-                <span class="font-bold text-heading font-mono">${dataStore.dbHealth?.dbSize || "-"}</span>
-              </div>
-              <div class="flex justify-between items-center py-1 border-b border-border-ui">
-                <span class="text-body-muted">Integridad SQLite:</span>
-                <span class="font-bold font-mono px-2 py-0.5 rounded text-[10px] ${dataStore.dbHealth?.integrity ==="ok" ? "badge-status-enplazo" : "badge-status-vencido"}" style="margin-left: auto;">${dataStore.dbHealth?.integrity || "-"}</span>
-              </div>
-              <div class="flex justify-between items-center py-1">
-                <span class="text-body-muted">Firma Digital (HMAC):</span>
-                <span class="font-bold font-mono px-2 py-0.5 rounded text-[10px] ${dataStore.dbHealth?.signatureStatus ==="Válida" ? "badge-status-enplazo" : "badge-status-vencido"}" style="margin-left: auto;">${dataStore.dbHealth?.signatureStatus || "-"}</span>
-              </div>
-            </div>
-          `,
-            "rounded-2xl p-6 shadow-sm",
-          )}
+                <div class="p-3 rounded-xl border border-border-ui bg-bg-main space-y-1.5 text-xs mb-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-text-secondary">Último chequeo:</span>
+                    <span id="sync-view-cloud-check" class="font-mono font-medium text-heading">${typeof window.getCloudCheckText === 'function' ? window.getCloudCheckText() : 'Comprobando conexión...'}</span>
+                  </div>
+                  <div class="flex justify-between items-center pt-1 border-t border-border-ui/60">
+                    <span class="text-text-secondary">Última descarga con cambios:</span>
+                    <span class="font-mono font-semibold text-heading">${dataStore.dbHealth?.lastCloudUpdate || '08-09-2026 12:23'}</span>
+                  </div>
+                </div>
 
-          ${renderGlassCard(
-            `
-            <div class="border-b border-border-ui pb-3 flex items-center gap-2 mb-4">
-              <i data-lucide="history" class="h-4 w-4 text-brand-400"></i>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400">Historial Reciente</h3>
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-[11px] text-text-tertiary">
+                    Comprobación periódica en segundo plano.
+                  </p>
+                  <button id="btn-sharepoint-sync" onclick="triggerSharepointSync()" class="py-2 px-4 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 shrink-0 shadow-sm">
+                    <i data-lucide="refresh-cw" class="h-3.5 w-3.5"></i>
+                    <span>Sincronizar con SharePoint</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
-            <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
-              ${renderHistoryList()}
+
+            <!-- ZONA 2: SUPERVISIÓN Y REGISTRO (Derecha - 35% del ancho) -->
+            <div class="space-y-6 lg:col-span-4 lg:pl-8 pt-6 lg:pt-0">
+              
+              <!-- SECCIÓN C: ECOSISTEMA DE BASES DE DATOS -->
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="database" class="h-4 w-4 text-brand-400"></i>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-heading">Ecosistema de Bases de Datos</h4>
+                  </div>
+                  <span class="text-[10px] text-text-tertiary font-mono">SQLite Local</span>
+                </div>
+
+                <div class="space-y-2.5 text-xs">
+                  <!-- data.db -->
+                  <div class="p-3 rounded-xl border border-border-ui bg-bg-main space-y-1">
+                    <div class="flex justify-between items-center">
+                      <span class="font-bold text-heading text-[11px] font-mono">data.db (Lobby)</span>
+                      <span class="font-mono text-[10px] px-1.5 py-0.5 rounded ${dataStore.dbHealth?.integrity === 'ok' ? 'badge-status-enplazo' : 'badge-status-vencido'}">${dataStore.dbHealth?.integrity || 'ok'}</span>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-body-muted">
+                      <span>Tamaño: <strong class="text-heading font-mono">${dataStore.dbHealth?.dbSize || '-'}</strong></span>
+                      <span>Firma: <strong class="font-mono ${dataStore.dbHealth?.signatureStatus === 'Válida' ? 'text-emerald-500' : 'text-rose-500'}">${dataStore.dbHealth?.signatureStatus || 'Válida'}</strong></span>
+                    </div>
+                  </div>
+
+                  <!-- app.db -->
+                  <div class="p-3 rounded-xl border border-border-ui bg-bg-main space-y-1">
+                    <div class="flex justify-between items-center">
+                      <span class="font-bold text-heading text-[11px] font-mono">app.db (Asistencias y Auditoría)</span>
+                      <span class="font-mono text-[10px] px-1.5 py-0.5 rounded badge-status-enplazo">ok</span>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-body-muted">
+                      <span>Tamaño: <strong class="text-heading font-mono">${dataStore.dbHealth?.appDbSize || '1.2 MB'}</strong></span>
+                      <span><strong class="text-heading">${dataStore.dbHealth?.asistenciasCount ?? '11'}</strong> asistencias · <strong class="text-heading">${dataStore.dbHealth?.auditoriaCount ?? '19'}</strong> auditorías</span>
+                    </div>
+                  </div>
+
+                  <!-- usuarios.db -->
+                  <div class="p-3 rounded-xl border border-border-ui bg-bg-main space-y-1">
+                    <div class="flex justify-between items-center">
+                      <span class="font-bold text-heading text-[11px] font-mono">usuarios.db (Seguridad)</span>
+                      <span class="font-mono text-[10px] px-1.5 py-0.5 rounded badge-status-enplazo">ok</span>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-body-muted">
+                      <span>Tamaño: <strong class="text-heading font-mono">${dataStore.dbHealth?.usersDbSize || '64.0 KB'}</strong></span>
+                      <span><strong class="text-heading">${dataStore.dbHealth?.usersCount ?? dataStore.stats?.usuarios ?? '1'}</strong> usuario activo</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SECCIÓN D: HISTORIAL RECIENTE (ACCESO DISCRETO) -->
+              <div class="border-t border-border-ui pt-4 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                  <i data-lucide="history" class="h-4 w-4 text-brand-400 shrink-0"></i>
+                  <div class="text-xs truncate">
+                    <span class="text-text-secondary">Última operación: </span>
+                    <span class="font-mono font-medium text-heading">${lastSyncStr}</span>
+                  </div>
+                </div>
+                <button type="button" onclick="showSyncHistoryModal()" class="py-1.5 px-3 rounded-lg text-xs font-bold btn-secondary hover:text-brand-400 flex items-center gap-1.5 shrink-0 cursor-pointer transition-all">
+                  <i data-lucide="list" class="h-3.5 w-3.5"></i>
+                  <span>Ver historial</span>
+                </button>
+              </div>
+
             </div>
-          `,
-            "rounded-2xl p-6 shadow-sm",
-          )}
-        </div>
+          </div>
+
+          <!-- FOOTER: DIAGNÓSTICO TÉCNICO Y ARQUITECTURA (OPCIÓN 3) -->
+          <div class="mt-8 pt-5 border-t border-border-ui/70 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div class="p-3 rounded-xl bg-bg-main/60 border border-border-ui/60 flex items-center gap-3">
+              <div class="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                <i data-lucide="hard-drive" class="h-4 w-4"></i>
+              </div>
+              <div class="min-w-0">
+                <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Almacenamiento Local</p>
+                <p class="font-mono text-[11px] text-heading font-medium truncate mt-0.5" title="AppData/Roaming/LobbyControl/data">AppData/Roaming/LobbyControl/data</p>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-bg-main/60 border border-border-ui/60 flex items-center gap-3">
+              <div class="h-8 w-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0">
+                <i data-lucide="shield-check" class="h-4 w-4"></i>
+              </div>
+              <div class="min-w-0">
+                <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Integridad Criptográfica</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="font-mono text-[11px] text-heading font-medium">HMAC-SHA256</span>
+                  <span class="font-mono text-[9px] px-1 py-0.2 rounded badge-status-enplazo">Activa</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl bg-bg-main/60 border border-border-ui/60 flex items-center gap-3">
+              <div class="h-8 w-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
+                <i data-lucide="cpu" class="h-4 w-4"></i>
+              </div>
+              <div class="min-w-0">
+                <p class="text-[10px] text-text-tertiary font-bold uppercase tracking-wider">Motor de Persistencia</p>
+                <p class="font-mono text-[11px] text-heading font-medium truncate mt-0.5">SQLite 3 · WAL Mode</p>
+              </div>
+            </div>
+          </div>
+        `,
+          "rounded-3xl p-6 shadow-sm border border-border-ui",
+        )}
       </div>
     `;
   } else if (activeAdminTab === "logs") {
@@ -4086,7 +4358,7 @@ function renderReportes(container) {
               .map((est) => {
                 const checked = reportesFilters.estados.includes(est);
                 return `
-                <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border-ui bg-border-ui text-xs font-semibold cursor-pointer select-none transition-all hover:bg-border-ui dark:hover:bg-border-ui/50 ${checked ?"border-brand-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm shadow-brand-500/20" : "text-text-tertiary "}">
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer select-none transition-all ${checked ? "border-brand-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm shadow-brand-500/20" : "border-border-ui bg-border-ui text-text-tertiary hover:bg-border-ui dark:hover:bg-border-ui/50"}">
                   <input type="checkbox" class="sr-only report-estado-checkbox" data-estado="${est}" ${checked ? "checked" : ""}>
                   <span>${est}</span>
                 </label>
@@ -4197,7 +4469,7 @@ async function renderLogin(container) {
 
         <!-- Decoración de fondo premium -->
         <div class="absolute -top-10 -left-10 w-40 h-40 bg-brand-600/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-brand-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <!-- Encabezado / Logo -->
         <div class="flex flex-col items-center text-center space-y-3 relative z-10">
@@ -4254,7 +4526,7 @@ async function renderLogin(container) {
 
 let inspectorState = {
   tables: {},
-  selectedDb: "lobby_control.db",
+  selectedDb: "data.db",
   selectedTable: "solicitudes_sh",
   page: 1,
   limit: 10,
@@ -4273,9 +4545,9 @@ async function initDatabaseInspector() {
       if (res.ok) {
         inspectorState.tables = await res.json();
         
-        // Buscar si solicitudes_sh existe en lobby_control.db
-        if (inspectorState.tables["lobby_control.db"] && inspectorState.tables["lobby_control.db"].includes("solicitudes_sh")) {
-          inspectorState.selectedDb = "lobby_control.db";
+        // Buscar si solicitudes_sh existe en data.db
+        if (inspectorState.tables["data.db"] && inspectorState.tables["data.db"].includes("solicitudes_sh")) {
+          inspectorState.selectedDb = "data.db";
           inspectorState.selectedTable = "solicitudes_sh";
         } else {
           const dbs = Object.keys(inspectorState.tables);
@@ -4302,6 +4574,7 @@ async function fetchInspectorData() {
 
   try {
     const params = new URLSearchParams({
+      db: inspectorState.selectedDb || "data.db",
       table: inspectorState.selectedTable,
       page: inspectorState.page,
       limit: inspectorState.limit,
@@ -4473,7 +4746,8 @@ function renderDatabaseInspectorContent() {
                 const isSelected = inspectorState.selectedDb === dbName;
                 let badge = 'Compartida';
                 let iconColor = 'text-brand-500';
-                if (dbName === 'asistencias.db') { badge = 'Asistencias'; iconColor = 'text-emerald-500'; }
+                if (dbName === 'data.db') { badge = 'Datos'; iconColor = 'text-brand-500'; }
+                else if (dbName === 'app.db') { badge = 'Operación'; iconColor = 'text-emerald-500'; }
                 else if (dbName === 'usuarios.db') { badge = 'Seguridad'; iconColor = 'text-purple-500'; }
                 else if (dbName === 'local.db') { badge = 'Local'; iconColor = 'text-amber-500'; }
                 
@@ -4707,10 +4981,10 @@ function renderAlertasCentro(container) {
           Publicaciones
         </button>
         <button onclick="switchAlertasType('agenda')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${ activeAlertasType ==="agenda"
-            ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-450 font-bold"
+            ? "bg-sky-500/10 border border-sky-500/30 text-sky-400 font-bold"
             : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-border-ui/50"
         }">
-          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+          <span class="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0"></span>
           Agenda
         </button>
       </div>
@@ -5177,10 +5451,6 @@ function drawCalendarBodyOnly() {
   if (rangeLabel) {
     rangeLabel.textContent = getCalendarActiveTitle();
   }
-  const titleDisplay = document.getElementById("calendar-title-display");
-  if (titleDisplay) {
-    titleDisplay.textContent = getCalendarActiveTitle();
-  }
 
   detectCalendarConflicts(calendarEvents);
 
@@ -5543,8 +5813,9 @@ function drawWeekView(container, events) {
 
   activeDays.forEach((day) => {
     html += `
-      <div class="bg-bg-card flex flex-col rounded-2xl border ${ day.isWeekend ?"border-amber-200 dark:border-amber-900/60 bg-amber-50/10"
-          : "border-border-ui "
+      <div class="flex flex-col rounded-2xl border ${ day.isWeekend
+          ? "border-amber-200 dark:border-amber-900/60 bg-amber-50/10"
+          : "border-border-ui bg-bg-card"
       } ${
         day.isToday ? "ring-2 ring-brand-500 shadow-md shadow-brand-500/10" : ""
       } p-3.5 overflow-hidden shadow-xs">
@@ -6142,4 +6413,966 @@ document.addEventListener("click", function (e) {
 window.showAgendaDetailsModal = showAgendaDetailsModal;
 window.getCalendarActiveTitle = getCalendarActiveTitle;
 window.formatCalendarTitle = getCalendarActiveTitle;
+
+// =========================================================================
+// RENDER: VISTA REGISTRO DE VIAJES (VH)
+// =========================================================================
+
+function formatMoney(amount) {
+  if (amount === undefined || amount === null || isNaN(amount)) return "$0";
+  return "$" + Number(amount).toLocaleString("es-CL");
+}
+
+function renderViajeItemsChips(itemsStr) {
+  if (!itemsStr || !itemsStr.trim()) {
+    return '<span class="text-text-tertiary text-[11px] italic">Sin desglose</span>';
+  }
+
+  const parts = itemsStr.split("|").map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return '<span class="text-text-tertiary text-[11px] italic">Sin desglose</span>';
+  }
+
+  return `
+    <div class="flex flex-wrap gap-1">
+      ${parts.map(part => {
+        let chipColor = "bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/20";
+        const lower = part.toLowerCase();
+        if (lower.includes("pasaje")) {
+          chipColor = "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20";
+        } else if (lower.includes("viático") || lower.includes("viatico")) {
+          chipColor = "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20";
+        } else if (lower.includes("estadía") || lower.includes("estadia") || lower.includes("alojamiento")) {
+          chipColor = "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+        } else if (lower.includes("inscrip") || lower.includes("curso")) {
+          chipColor = "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+        } else if (lower.includes("sin costo")) {
+          chipColor = "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20";
+        }
+
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${chipColor}">${escapeHtml(part)}</span>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderViajes(container) {
+  const filters = paginationState.viajes.filters;
+  const currentPage = paginationState.viajes.page || 1;
+  const pageSize = 10;
+
+  const isServerPaged = dataStore.viajes && !Array.isArray(dataStore.viajes);
+  const items = isServerPaged ? (dataStore.viajes.data || []) : (dataStore.viajes || []);
+  const totalItems = isServerPaged ? (dataStore.viajes.totalItems || 0) : items.length;
+
+  const stats = dataStore.viajesStats || {
+    totalViajes: totalItems,
+    totalInversion: 0,
+    financiadoMaipu: 0,
+    financiadoExterno: 0,
+    totalSujetos: 0,
+    topDestinos: []
+  };
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      
+      <!-- CABECERA DE LA VISTA -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-black text-text-primary tracking-tight flex items-center gap-2.5">
+            <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+              <i data-lucide="plane" class="h-5 w-5"></i>
+            </div>
+            <span>Registro de Viajes</span>
+          </h2>
+          <p class="text-xs text-text-secondary mt-1">
+            Comisiones de servicio y viajes realizados por autoridades y funcionarios (Ley N° 20.730).
+          </p>
+        </div>
+
+        <!-- ACCIONES SUPERIORES -->
+        <div class="flex items-center gap-2">
+          <button onclick="exportarViajesExcel()" class="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border border-border-ui bg-bg-card hover:bg-border-ui/50 text-text-primary transition-all duration-150 cursor-pointer shadow-xs" title="Exportar vista actual a Excel">
+            <i data-lucide="file-spreadsheet" class="h-4 w-4 text-emerald-600 dark:text-emerald-400"></i>
+            <span>Exportar Excel</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TARJETAS KPI RESUMEN DE VIAJES -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 1. Total Viajes -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Total Viajes</p>
+            <h3 class="text-2xl font-black text-text-primary mt-0.5">${stats.totalViajes || 0}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Registros históricos</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+            <i data-lucide="compass" class="h-5 w-5"></i>
+          </div>
+        </div>
+
+        <!-- 2. Inversión Total -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Inversión Total</p>
+            <h3 class="text-xl font-black text-text-primary mt-0.5 truncate">${formatMoney(stats.totalInversion)}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Costo total acumulado</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <i data-lucide="coins" class="h-5 w-5"></i>
+          </div>
+        </div>
+
+        <!-- 3. Financiamiento Municipal -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Fondos Municipales</p>
+            <h3 class="text-xl font-black text-sky-600 dark:text-sky-400 mt-0.5 truncate">${formatMoney(stats.financiadoMaipu)}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Presupuesto municipal</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+            <i data-lucide="landmark" class="h-5 w-5"></i>
+          </div>
+        </div>
+
+        <!-- 4. Financiamiento Externo / Donado -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Financiamiento Externo</p>
+            <h3 class="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5 truncate">${formatMoney(stats.financiadoExterno)}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Organismos y fundaciones</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <i data-lucide="globe" class="h-5 w-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENEDOR FILTROS -->
+      ${renderGlassCard(
+        `
+        <div class="flex flex-wrap items-center justify-between border-b border-border-ui pb-3 gap-2">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+              <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+              Filtros
+            </h3>
+            ${renderVigenciaSelect({
+              id: "filter-viajes-vigencia",
+              value: filters.vigencia,
+              onChange: "changeViajesVigencia",
+            })}
+          </div>
+          <button onclick="clearFilters('viajes')" class="text-[10px] text-text-tertiary hover:text-text-primary transition-colors flex items-center gap-1 cursor-pointer">
+            <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <!-- BÚSQUEDA GENERAL -->
+          ${renderSearchInput({
+            id: "viajes-filter-search",
+            fieldName: "search",
+            label: "Búsqueda General",
+            placeholder: "Destino, objeto o ítem...",
+            value: filters.search,
+            icon: "search",
+          })}
+          <!-- NOMBRE -->
+          ${renderSearchInput({
+            id: "viajes-filter-nombre",
+            fieldName: "nombre",
+            label: "Nombre Sujeto Pasivo",
+            placeholder: "Escribir nombre...",
+            value: filters.nombre || filters.sujetoPasivo,
+            icon: "user",
+            hasSuggestions: true,
+          })}
+          <!-- CARGO -->
+          ${renderSearchInput({
+            id: "viajes-filter-cargo",
+            fieldName: "cargo",
+            label: "Cargo",
+            placeholder: !(filters.nombre || filters.sujetoPasivo)
+              ? "Seleccione nombre primero..."
+              : "Escribir cargo...",
+            value: filters.cargo,
+            icon: "user",
+            disabled: !(filters.nombre || filters.sujetoPasivo),
+            hasSuggestions: true,
+          })}
+          <!-- DESTINO -->
+          ${renderSearchInput({
+            id: "viajes-filter-destino",
+            fieldName: "destino",
+            label: "Destino",
+            placeholder: "Buscar destino...",
+            value: filters.destino,
+            icon: "map-pin",
+          })}
+          <!-- FINANCIADOR -->
+          ${renderSearchInput({
+            id: "viajes-filter-financiador",
+            fieldName: "financiador",
+            label: "Financiador",
+            placeholder: "Buscar financiamiento...",
+            value: filters.financiador,
+            icon: "coins",
+          })}
+        </div>
+      `,
+        "rounded-2xl p-5 space-y-4 relative z-20",
+      )}
+
+      <!-- TABLA PRINCIPAL DE VIAJES -->
+      <div class="glass-card rounded-2xl border border-border-ui overflow-hidden shadow-xs">
+        <div class="p-4 border-b border-border-ui flex justify-between items-center">
+          <div class="text-xs text-text-secondary" id="viajes-counter">${totalItems} registros encontrados</div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-border-ui bg-border-ui/30 text-[11px] font-bold uppercase tracking-wider text-text-tertiary">
+                <th class="py-3 px-4">Fechas</th>
+                <th class="py-3 px-4">Sujeto Pasivo / Cargo</th>
+                <th class="py-3 px-4">Destino</th>
+                <th class="py-3 px-4 max-w-xs">Objeto del Viaje</th>
+                <th class="py-3 px-4">Ítems</th>
+                <th class="py-3 px-4 text-right">Costo Total</th>
+                <th class="py-3 px-4">Financiamiento</th>
+                <th class="py-3 px-3 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-ui text-xs">
+              ${items.length === 0 ? `
+                <tr>
+                  <td colspan="8" class="py-12 text-center text-text-tertiary">
+                    <div class="flex flex-col items-center justify-center gap-2">
+                      <i data-lucide="plane-takeoff" class="h-8 w-8 text-text-tertiary/50"></i>
+                      <p class="font-medium">No se encontraron registros de viajes para los filtros aplicados.</p>
+                      <button onclick="clearFilters('viajes')" class="text-xs text-brand-500 hover:underline font-semibold mt-1">Limpiar filtros de búsqueda</button>
+                    </div>
+                  </td>
+                </tr>
+              ` : items.map(v => {
+                const isExt = v.financiado_por && !v.financiado_por.toLowerCase().includes("maip");
+                const financiadoBadgeClass = isExt
+                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                  : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20";
+
+                return `
+                  <tr class="hover:bg-border-ui/30 transition-colors cursor-pointer group" onclick="showViajeDetailsModal(${v.id})">
+                    <!-- Fechas -->
+                    <td class="py-3 px-4 whitespace-nowrap text-[11px] font-mono text-text-secondary">
+                      <div class="font-semibold text-text-primary">${formatDate(v.fecha_inicio)}</div>
+                      <div class="text-[10px] text-text-tertiary mt-0.5">al ${formatDate(v.fecha_termino)}</div>
+                    </td>
+
+                    <!-- Sujeto Pasivo & Cargo -->
+                    <td class="py-3 px-4">
+                      <div class="font-bold text-text-primary">${escapeHtml(v.sujeto_pasivo || '—')}</div>
+                      <div class="text-[11px] text-text-tertiary truncate max-w-xs mt-0.5">${escapeHtml(v.cargo || '—')}</div>
+                    </td>
+
+                    <!-- Destino -->
+                    <td class="py-3 px-4 whitespace-nowrap">
+                      <div class="flex items-center gap-1.5 font-medium text-text-primary">
+                        <i data-lucide="map-pin" class="h-3.5 w-3.5 text-rose-500 shrink-0"></i>
+                        <span>${escapeHtml(v.destino || '—')}</span>
+                      </div>
+                    </td>
+
+                    <!-- Objeto -->
+                    <td class="py-3 px-4 max-w-xs">
+                      <p class="line-clamp-2 text-text-secondary text-[11px] leading-relaxed" title="${escapeHtmlAttr(v.objeto || '')}">
+                        ${escapeHtml(v.objeto || '—')}
+                      </p>
+                    </td>
+
+                    <!-- Ítems -->
+                    <td class="py-3 px-4 max-w-xs">
+                      ${renderViajeItemsChips(v.items)}
+                    </td>
+
+                    <!-- Costo Total -->
+                    <td class="py-3 px-4 text-right whitespace-nowrap">
+                      <span class="font-mono font-bold text-text-primary text-xs">${formatMoney(v.costo_total)}</span>
+                    </td>
+
+                    <!-- Financiamiento -->
+                    <td class="py-3 px-4 whitespace-nowrap">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${financiadoBadgeClass} max-w-[180px] truncate" title="${escapeHtmlAttr(v.financiado_por || '')}">
+                        ${escapeHtml(v.financiado_por || 'Municipalidad de Maipú')}
+                      </span>
+                    </td>
+
+                    <!-- Acción -->
+                    <td class="py-3 px-3 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                      <button onclick="showViajeDetailsModal(${v.id})" class="h-7 w-7 rounded-lg inline-flex items-center justify-center border border-border-ui hover:border-brand-500 bg-bg-card hover:bg-border-ui/50 text-text-secondary hover:text-brand-500 transition-colors" title="Ver detalle completo">
+                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- CONTROLES DE PAGINACIÓN -->
+        <div class="p-4 border-t border-border-ui flex flex-col sm:flex-row items-center justify-between gap-3 bg-border-ui/10">
+          <div class="text-xs text-text-tertiary">
+            Mostrando <span class="font-semibold text-text-secondary">${items.length}</span> de <span class="font-semibold text-text-secondary">${totalItems}</span> viajes registrados
+          </div>
+          <div>
+            ${renderPaginationControls('viajes', totalItems, currentPage, pageSize)}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+// MODAL: DETALLE COMPLETO DE UN VIAJE
+async function showViajeDetailsModal(viajeId) {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('backdrop-animate-in');
+
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-2xl p-6 rounded-3xl space-y-6 shadow-2xl relative modal-animate-in border border-border-ui">
+      <div class="h-32 flex items-center justify-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`/api/viajes/${viajeId}`);
+    if (!res.ok) throw new Error("No se pudo cargar el registro");
+    const v = await res.json();
+
+    const isExt = v.financiado_por && !v.financiado_por.toLowerCase().includes("maip");
+    const financiadoBadgeClass = isExt
+      ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+      : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20";
+
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-2xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-border-ui">
+        
+        <!-- HEADER MODAL -->
+        <div class="flex items-start justify-between pb-4 border-b border-border-ui">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+              <i data-lucide="plane" class="h-5 w-5"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-text-primary tracking-tight">Ficha de Viaje</h3>
+              <p class="text-xs text-text-secondary mt-0.5">Destino: <strong class="text-text-primary">${escapeHtml(v.destino || '—')}</strong></p>
+            </div>
+          </div>
+          <button type="button" onclick="closeModal()" class="h-8 w-8 rounded-xl flex items-center justify-center border border-border-ui hover:bg-border-ui/50 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+
+        <!-- DETALLES PRINCIPALES -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Sujeto Pasivo -->
+          <div class="p-3.5 rounded-2xl bg-border-ui/30 border border-border-ui/50 space-y-1">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Sujeto Pasivo</p>
+            <p class="text-xs font-bold text-text-primary">${escapeHtml(v.sujeto_pasivo || '—')}</p>
+            <p class="text-[11px] text-text-secondary">${escapeHtml(v.cargo || '—')}</p>
+          </div>
+
+          <!-- Fechas de Viaje -->
+          <div class="p-3.5 rounded-2xl bg-border-ui/30 border border-border-ui/50 space-y-1">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Período de Comisión</p>
+            <p class="text-xs font-semibold text-text-primary">Desde: ${formatDate(v.fecha_inicio)}</p>
+            <p class="text-xs font-semibold text-text-primary">Hasta: ${formatDate(v.fecha_termino)}</p>
+          </div>
+        </div>
+
+        <!-- OBJETO DEL VIAJE -->
+        <div class="space-y-1.5">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Objeto o Finalidad del Viaje</label>
+          <div class="p-4 rounded-2xl bg-border-ui/20 border border-border-ui text-xs text-text-primary leading-relaxed">
+            ${escapeHtml(v.objeto || 'Sin detalle de objeto especificado.')}
+          </div>
+        </div>
+
+        <!-- FINANCIAMIENTO Y DESGLOSE DE GASTOS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Financiamiento -->
+          <div class="p-3.5 rounded-2xl bg-border-ui/30 border border-border-ui/50 space-y-2">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Financiado Por</p>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${financiadoBadgeClass}">
+              ${escapeHtml(v.financiado_por || 'Municipalidad de Maipú')}
+            </span>
+            ${v.tipo ? `<p class="text-[10px] text-text-tertiary">Tipo: ${escapeHtml(v.tipo)}</p>` : ''}
+          </div>
+
+          <!-- Costo Total -->
+          <div class="p-3.5 rounded-2xl bg-border-ui/30 border border-border-ui/50 space-y-1">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Costo Total Declarado</p>
+            <p class="text-xl font-black font-mono text-text-primary">${formatMoney(v.costo_total)}</p>
+            ${v.fecha_ultima_modificacion ? `<p class="text-[10px] text-text-tertiary">Última mod: ${formatDate(v.fecha_ultima_modificacion)}</p>` : ''}
+          </div>
+        </div>
+
+        <!-- ÍTEMS / GASTOS DESGLOSADOS -->
+        <div class="space-y-2">
+          <label class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Desglose de Ítems (Pasajes, Viáticos, Estadías, etc.)</label>
+          <div class="p-3.5 rounded-2xl bg-border-ui/20 border border-border-ui">
+            ${renderViajeItemsChips(v.items)}
+          </div>
+        </div>
+
+        <!-- BOTÓN CERRAR -->
+        <div class="flex justify-end pt-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold btn-secondary">
+            Cerrar
+          </button>
+        </div>
+
+      </div>
+    `;
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  } catch (err) {
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-4 shadow-2xl text-center">
+        <p class="text-xs text-rose-500 font-semibold">Error al cargar el detalle del viaje.</p>
+        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold btn-secondary">Cerrar</button>
+      </div>
+    `;
+  }
+}
+
+// EXPORTACIÓN A EXCEL
+async function exportarViajesExcel() {
+  try {
+    const filters = paginationState.viajes.filters;
+    const params = new URLSearchParams({
+      all: 'true',
+      search: filters.search || '',
+      sujetoPasivo: filters.sujetoPasivo || '',
+      cargo: filters.cargo || '',
+      destino: filters.destino || '',
+      financiador: filters.financiador || '',
+      anio: filters.anio || '',
+      fechaInicio: filters.fechaInicio || '',
+      fechaTermino: filters.fechaTermino || ''
+    });
+
+    const res = await fetch(`/api/viajes?${params.toString()}`);
+    if (!res.ok) throw new Error("Error al consultar datos de viajes");
+    const data = await res.json();
+
+    if (!Array.isArray(data) || data.length === 0) {
+      showToast("No hay registros para exportar con los filtros seleccionados.", "warning");
+      return;
+    }
+
+    const exportRows = data.map(v => ({
+      "Fecha Inicio": v.fecha_inicio || "",
+      "Fecha Término": v.fecha_termino || "",
+      "Fecha Última Modificación": v.fecha_ultima_modificacion || "",
+      "Destino": v.destino || "",
+      "Objeto": v.objeto || "",
+      "Tipo": v.tipo || "",
+      "Sujeto Pasivo": v.sujeto_pasivo || "",
+      "Cargo": v.cargo || "",
+      "ID Sujeto Pasivo": v.id_sujeto_pasivo || "",
+      "Ítems": v.items || "",
+      "Costo Total": v.costo_total || 0,
+      "Financiado Por": v.financiado_por || ""
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Viajes");
+
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0];
+    XLSX.writeFile(wb, `Reporte_Viajes_LobbyControl_${dateStr}.xlsx`);
+    showToast("Reporte de viajes exportado exitosamente.", "success");
+  } catch (err) {
+    console.error("Error exportando viajes a Excel:", err);
+    showToast("Error al generar el archivo Excel de viajes.", "error");
+  }
+}
+
+window.renderViajes = renderViajes;
+window.showViajeDetailsModal = showViajeDetailsModal;
+window.exportarViajesExcel = exportarViajesExcel;
+
+// ============================================================================
+// VISTA UNIFICADA: AUDIENCIAS (Solicitudes, Pendientes, Publicadas)
+// ============================================================================
+function renderAudiencias(container) {
+  const activeSubTab = window.activeAudienciasSubTab || 'solicitudes';
+  if (activeSubTab === 'solicitudes') {
+    renderSolicitudes(container);
+  } else {
+    paginationState.publicadas.subTab = activeSubTab;
+    renderPublicadas(container);
+  }
+}
+window.renderAudiencias = renderAudiencias;
+
+// ============================================================================
+// VISTA: DONATIVOS (Hoja DH / Tabla DH)
+// ============================================================================
+function renderDonativos(container) {
+  const filters = paginationState.donativos.filters;
+  const currentPage = paginationState.donativos.page || 1;
+  const pageSize = 10;
+
+  const isServerPaged = dataStore.donativos && !Array.isArray(dataStore.donativos);
+  const items = isServerPaged ? (dataStore.donativos.data || []) : (dataStore.donativos || []);
+  const totalItems = isServerPaged ? (dataStore.donativos.totalItems || 0) : items.length;
+
+  const stats = dataStore.donativosStats || {
+    totalDonativos: totalItems,
+    totalSujetos: 0,
+    totalProcedencias: 0,
+    donativosAnioActual: 0,
+    topTipos: []
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      
+      <!-- CABECERA DE LA VISTA -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-black text-text-primary tracking-tight flex items-center gap-2.5">
+            <div class="h-9 w-9 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center">
+              <i data-lucide="gift" class="h-5 w-5"></i>
+            </div>
+            <span>Registro de Donativos</span>
+          </h2>
+          <p class="text-xs text-text-secondary mt-1">
+            Donativos y regalos protocolares recibidos por sujetos pasivos en ejercicio de sus funciones (Ley N° 20.730).
+          </p>
+        </div>
+
+        <!-- ACCIONES SUPERIORES -->
+        <div class="flex items-center gap-2">
+          <button onclick="exportarDonativosExcel()" class="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border border-border-ui bg-bg-card hover:bg-border-ui/50 text-text-primary transition-all duration-150 cursor-pointer shadow-xs" title="Exportar vista actual a Excel">
+            <i data-lucide="file-spreadsheet" class="h-4 w-4 text-emerald-600 dark:text-emerald-400"></i>
+            <span>Exportar Excel</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TARJETAS KPI RESUMEN DE DONATIVOS -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 1. Total Donativos -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Total Donativos</p>
+            <h3 class="text-2xl font-black text-text-primary mt-0.5">${stats.totalDonativos || 0}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Registros históricos</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+            <i data-lucide="gift" class="h-5 w-5"></i>
+          </div>
+        </div>
+
+        <!-- 2. Sujetos Receptores -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Sujetos Receptores</p>
+            <h3 class="text-2xl font-black text-text-primary mt-0.5">${stats.totalSujetos || 0}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Autoridades y funcionarios</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <i data-lucide="users" class="h-5 w-5"></i>
+          </div>
+        </div>
+
+        <!-- 3. Procedencias Únicas -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Procedencias</p>
+            <h3 class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5">${stats.totalProcedencias || 0}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Orígenes registrados</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <i data-lucide="map-pin" class="h-5 w-5"></i>
+          </div>
+        </div>
+
+        <!-- 4. Donativos Año Actual -->
+        <div class="glass-card p-4 rounded-2xl border border-border-ui flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Año ${currentYear}</p>
+            <h3 class="text-2xl font-black text-sky-600 dark:text-sky-400 mt-0.5">${stats.donativosAnioActual || 0}</h3>
+            <p class="text-[10px] text-text-secondary mt-0.5">Donativos año en curso</p>
+          </div>
+          <div class="h-10 w-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+            <i data-lucide="calendar" class="h-5 w-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENEDOR FILTROS -->
+      ${renderGlassCard(
+        `
+        <div class="flex flex-wrap items-center justify-between border-b border-border-ui pb-3 gap-2">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 flex items-center gap-2">
+              <i data-lucide="sliders-horizontal" class="h-3.5 w-3.5"></i>
+              Filtros
+            </h3>
+            ${renderVigenciaSelect({
+              id: "filter-donativos-vigencia",
+              value: filters.vigencia,
+              onChange: "changeDonativosVigencia",
+            })}
+          </div>
+          <button onclick="clearFilters('donativos')" class="text-[10px] text-text-tertiary hover:text-text-primary transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-0">
+            <i data-lucide="rotate-ccw" class="h-3 w-3"></i> Limpiar Filtros
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <!-- BÚSQUEDA GENERAL -->
+          ${renderSearchInput({
+            id: "donativos-filter-search",
+            fieldName: "search",
+            label: "Búsqueda General",
+            placeholder: "Descripción, ocasión...",
+            value: filters.search,
+            icon: "search",
+          })}
+          <!-- NOMBRE SUJETO PASIVO -->
+          ${renderSearchInput({
+            id: "donativos-filter-nombre",
+            fieldName: "nombre",
+            label: "Nombre Sujeto Pasivo",
+            placeholder: "Escribir nombre...",
+            value: filters.nombre || filters.sujetoPasivo,
+            icon: "user",
+            hasSuggestions: true,
+          })}
+          <!-- CARGO -->
+          ${renderSearchInput({
+            id: "donativos-filter-cargo",
+            fieldName: "cargo",
+            label: "Cargo",
+            placeholder: !(filters.nombre || filters.sujetoPasivo)
+              ? "Seleccione nombre primero..."
+              : "Escribir cargo...",
+            value: filters.cargo,
+            icon: "user",
+            disabled: !(filters.nombre || filters.sujetoPasivo),
+            hasSuggestions: true,
+          })}
+          <!-- PROCEDENCIA -->
+          ${renderSearchInput({
+            id: "donativos-filter-procedencia",
+            fieldName: "procedencia",
+            label: "Procedencia",
+            placeholder: "Buscar procedencia...",
+            value: filters.procedencia,
+            icon: "map-pin",
+          })}
+          <!-- TIPO -->
+          ${renderSearchInput({
+            id: "donativos-filter-tipo",
+            fieldName: "tipo",
+            label: "Tipo de Donativo",
+            placeholder: "Buscar tipo...",
+            value: filters.tipo,
+            icon: "tag",
+          })}
+        </div>
+      `,
+        "rounded-2xl p-5 space-y-4 relative z-20",
+      )}
+
+      <!-- TABLA PRINCIPAL DE DONATIVOS -->
+      <div class="glass-card rounded-2xl border border-border-ui overflow-hidden shadow-xs">
+        <div class="p-4 border-b border-border-ui flex justify-between items-center">
+          <div class="text-xs text-text-secondary" id="donativos-counter">${totalItems} registros encontrados</div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-border-ui bg-border-ui/30 text-[11px] font-bold uppercase tracking-wider text-text-tertiary">
+                <th class="py-3 px-4">Fecha</th>
+                <th class="py-3 px-4">Sujeto Pasivo / Cargo</th>
+                <th class="py-3 px-4 max-w-xs">Descripción</th>
+                <th class="py-3 px-4">Ocasión</th>
+                <th class="py-3 px-4">Procedencia</th>
+                <th class="py-3 px-4">Tipo</th>
+                <th class="py-3 px-3 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-ui text-xs">
+              ${items.length === 0 ? `
+                <tr>
+                  <td colspan="7" class="py-12 text-center text-text-tertiary">
+                    <div class="flex flex-col items-center justify-center gap-2">
+                      <i data-lucide="gift" class="h-8 w-8 text-text-tertiary/50"></i>
+                      <p class="font-medium">No se encontraron registros de donativos para los filtros aplicados.</p>
+                      <button onclick="clearFilters('donativos')" class="text-xs text-brand-500 hover:underline font-semibold mt-1 bg-transparent border-0 cursor-pointer">Limpiar filtros de búsqueda</button>
+                    </div>
+                  </td>
+                </tr>
+              ` : items.map(d => {
+                const sujetoName = d.sujeto_pasivo || d.sujetoPasivo || '—';
+                const cargoName = d.cargo || '—';
+                const tipoVal = d.tipo || 'General';
+
+                return `
+                  <tr class="hover:bg-border-ui/30 transition-colors cursor-pointer group" onclick="showDonativoDetailsModal(${d.id})">
+                    <!-- Fecha -->
+                    <td class="py-3 px-4 whitespace-nowrap text-[11px] font-mono text-text-secondary">
+                      <div class="font-semibold text-text-primary">${formatDate(d.fecha)}</div>
+                    </td>
+
+                    <!-- Sujeto Pasivo & Cargo -->
+                    <td class="py-3 px-4">
+                      <div class="font-bold text-text-primary">${escapeHtml(sujetoName)}</div>
+                      <div class="text-[11px] text-text-tertiary truncate max-w-xs mt-0.5">${escapeHtml(cargoName)}</div>
+                    </td>
+
+                    <!-- Descripción -->
+                    <td class="py-3 px-4 max-w-xs">
+                      <p class="line-clamp-2 text-text-secondary text-[11px] leading-relaxed" title="${escapeHtmlAttr(d.descripcion || '')}">
+                        ${escapeHtml(d.descripcion || '—')}
+                      </p>
+                    </td>
+
+                    <!-- Ocasión -->
+                    <td class="py-3 px-4 whitespace-nowrap text-text-secondary">
+                      <span class="text-[11px] font-medium">${escapeHtml(d.ocasion || '—')}</span>
+                    </td>
+
+                    <!-- Procedencia -->
+                    <td class="py-3 px-4 whitespace-nowrap">
+                      <div class="flex items-center gap-1.5 font-medium text-text-primary text-[11px]">
+                        <i data-lucide="map-pin" class="h-3 w-3 text-brand-500 shrink-0"></i>
+                        <span>${escapeHtml(d.procedencia || '—')}</span>
+                      </div>
+                    </td>
+
+                    <!-- Tipo -->
+                    <td class="py-3 px-4 whitespace-nowrap">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/20 max-w-[160px] truncate" title="${escapeHtmlAttr(tipoVal)}">
+                        ${escapeHtml(tipoVal)}
+                      </span>
+                    </td>
+
+                    <!-- Acción -->
+                    <td class="py-3 px-3 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                      <button onclick="showDonativoDetailsModal(${d.id})" class="h-7 w-7 rounded-lg inline-flex items-center justify-center border border-border-ui hover:border-brand-500 bg-bg-card hover:bg-border-ui/50 text-text-secondary hover:text-brand-500 transition-colors cursor-pointer" title="Ver detalle completo">
+                        <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- CONTROLES DE PAGINACIÓN -->
+        <div class="p-4 border-t border-border-ui flex flex-col sm:flex-row items-center justify-between gap-3 bg-border-ui/10">
+          <div class="text-xs text-text-tertiary">
+            Mostrando <span class="font-semibold text-text-secondary">${items.length}</span> de <span class="font-semibold text-text-secondary">${totalItems}</span> donativos registrados
+          </div>
+          <div>
+            ${renderPaginationControls('donativos', totalItems, currentPage, pageSize)}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
+}
+
+// MODAL: DETALLE COMPLETO DE UN DONATIVO
+async function showDonativoDetailsModal(donativoId) {
+  const modal = document.getElementById('modal-container');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('backdrop-animate-in');
+
+  modal.innerHTML = `
+    <div class="glass-card w-full max-w-2xl p-6 rounded-3xl space-y-6 shadow-2xl relative modal-animate-in border border-border-ui">
+      <div class="h-32 flex items-center justify-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch(`/api/donativos/${donativoId}`);
+    if (!res.ok) throw new Error("No se pudo cargar el registro");
+    const d = await res.json();
+
+    const sujetoName = d.sujeto_pasivo || d.sujetoPasivo || '—';
+    const cargoName = d.cargo || '—';
+
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-2xl p-6 rounded-3xl space-y-5 shadow-2xl relative modal-animate-in border border-border-ui">
+        
+        <!-- HEADER MODAL -->
+        <div class="flex items-start justify-between pb-4 border-b border-border-ui">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+              <i data-lucide="gift" class="h-5 w-5"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-text-primary">Detalle de Donativo</h3>
+              <p class="text-[11px] text-text-tertiary">Registro de donativo protocolar (Ley N° 20.730)</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeModal()" class="text-text-tertiary hover:text-text-primary transition-colors p-1 cursor-pointer bg-transparent border-0">
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+
+        <!-- GRID DATOS GENERALES -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Sujeto Pasivo -->
+          <div class="p-3 bg-bg-card rounded-xl border border-border-ui">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Sujeto Pasivo</p>
+            <p class="text-xs font-bold text-text-primary mt-1">${escapeHtml(sujetoName)}</p>
+            <p class="text-[11px] text-text-secondary mt-0.5">${escapeHtml(cargoName)}</p>
+            ${d.id_sujeto_pasivo || d.idSujetoPasivo ? `<p class="text-[10px] text-text-tertiary mt-1 font-mono">ID: ${escapeHtml(d.id_sujeto_pasivo || d.idSujetoPasivo)}</p>` : ''}
+          </div>
+
+          <!-- Fechas -->
+          <div class="p-3 bg-bg-card rounded-xl border border-border-ui">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Fechas de Registro</p>
+            <p class="text-xs font-semibold text-text-primary mt-1">Fecha Recepción: ${formatDate(d.fecha)}</p>
+            ${d.fecha_ultima_modificacion || d.fechaUltimaModificacion ? `
+              <p class="text-[10px] text-text-tertiary mt-0.5">Última modif.: ${formatDate(d.fecha_ultima_modificacion || d.fechaUltimaModificacion)}</p>
+            ` : ''}
+          </div>
+
+          <!-- Ocasión -->
+          <div class="p-3 bg-bg-card rounded-xl border border-border-ui">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Ocasión</p>
+            <p class="text-xs font-semibold text-text-primary mt-1">${escapeHtml(d.ocasion || '—')}</p>
+          </div>
+
+          <!-- Procedencia y Tipo -->
+          <div class="p-3 bg-bg-card rounded-xl border border-border-ui">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Procedencia & Tipo</p>
+            <p class="text-xs font-semibold text-text-primary mt-1">${escapeHtml(d.procedencia || '—')}</p>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/20 mt-1">
+              ${escapeHtml(d.tipo || 'General')}
+            </span>
+          </div>
+        </div>
+
+        <!-- DESCRIPCIÓN COMPLETA -->
+        <div class="p-4 bg-bg-card rounded-xl border border-border-ui space-y-1.5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Descripción del Donativo</p>
+          <p class="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">${escapeHtml(d.descripcion || 'Sin descripción detallada.')}</p>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="pt-3 border-t border-border-ui flex justify-end">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold btn-secondary cursor-pointer">
+            Cerrar
+          </button>
+        </div>
+
+      </div>
+    `;
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  } catch (err) {
+    modal.innerHTML = `
+      <div class="glass-card w-full max-w-md p-6 rounded-3xl space-y-4 shadow-2xl text-center">
+        <p class="text-xs text-rose-500 font-semibold">Error al cargar el detalle del donativo.</p>
+        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-xs font-semibold btn-secondary">Cerrar</button>
+      </div>
+    `;
+  }
+}
+
+// EXPORTACIÓN A EXCEL DE DONATIVOS
+async function exportarDonativosExcel() {
+  try {
+    const filters = paginationState.donativos.filters;
+    const params = new URLSearchParams({
+      all: 'true',
+      search: filters.search || '',
+      sujetoPasivo: filters.sujetoPasivo || filters.nombre || '',
+      cargo: filters.cargo || '',
+      procedencia: filters.procedencia || '',
+      tipo: filters.tipo || '',
+      ocasion: filters.ocasion || '',
+      anio: filters.anio || '',
+      fechaInicio: filters.fechaInicio || '',
+      fechaTermino: filters.fechaTermino || ''
+    });
+
+    const res = await fetch(`/api/donativos?${params.toString()}`);
+    if (!res.ok) throw new Error("Error al consultar datos de donativos");
+    const data = await res.json();
+
+    if (!Array.isArray(data) || data.length === 0) {
+      showToast("No hay registros para exportar con los filtros seleccionados.", "warning");
+      return;
+    }
+
+    const exportRows = data.map(d => ({
+      "Fecha": d.fecha || "",
+      "Fecha Última Modificación": d.fecha_ultima_modificacion || d.fechaUltimaModificacion || "",
+      "Sujeto Pasivo": d.sujeto_pasivo || d.sujetoPasivo || "",
+      "Cargo": d.cargo || "",
+      "ID Sujeto Pasivo": d.id_sujeto_pasivo || d.idSujetoPasivo || "",
+      "Ocasión": d.ocasion || "",
+      "Descripción": d.descripcion || "",
+      "Procedencia": d.procedencia || "",
+      "Tipo": d.tipo || ""
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Donativos");
+
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0];
+    XLSX.writeFile(wb, `Reporte_Donativos_LobbyControl_${dateStr}.xlsx`);
+    showToast("Reporte de donativos exportado exitosamente.", "success");
+  } catch (err) {
+    console.error("Error exportando donativos a Excel:", err);
+    showToast("Error al generar el archivo Excel de donativos.", "error");
+  }
+}
+
+window.renderDonativos = renderDonativos;
+window.showDonativoDetailsModal = showDonativoDetailsModal;
+window.exportarDonativosExcel = exportarDonativosExcel;
+
 

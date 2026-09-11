@@ -26,5 +26,10 @@ contextBridge.exposeInMainWorld("api", {
     const handler = (event, ...args) => callback(...args);
     ipcRenderer.on("categorias-updated", handler);
     return () => ipcRenderer.removeListener("categorias-updated", handler);
+  },
+  onTriggerToggleAssistance: (callback) => {
+    const handler = (event, ...args) => callback(...args);
+    ipcRenderer.on("trigger-toggle-assistance", handler);
+    return () => ipcRenderer.removeListener("trigger-toggle-assistance", handler);
   }
 });

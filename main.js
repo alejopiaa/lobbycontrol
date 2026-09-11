@@ -139,15 +139,11 @@ function createAssistanceWindow(id) {
 }
 
 function toggleOrFocusAssistanceWindow(id) {
-  if (assistanceWindow && !assistanceWindow.isDestroyed()) {
-    if (assistanceWindow.isMinimized()) assistanceWindow.restore();
-    assistanceWindow.show();
-    assistanceWindow.focus();
-    if (id) {
-      assistanceWindow.webContents.send("load-assistance-for-edit", id);
-    }
-  } else {
-    createAssistanceWindow(id);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send("trigger-toggle-assistance", id);
   }
 }
 

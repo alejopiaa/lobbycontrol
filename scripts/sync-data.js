@@ -29,8 +29,31 @@ function compressFileAsync(src, dest) {
   });
 }
 
-// Agente HTTPS que ignora errores de certificado en entornos corporativos (Electron + Microsoft)
-const sharepointAgent = new https.Agent({ rejectUnauthorized: false });
+function computeFileHmacStream(filePath, secretKey) {
+  return new Promise((resolve, reject) => {
+    const hmac = crypto.createHmac("sha256", secretKey);
+    const stream = fs.createReadStream(filePath);
+    let totalBytes = 0;
+
+    stream.on("data", (chunk) => {
+      hmac.update(chunk);
+      totalBytes += chunk.length;
+    });
+
+    stream.on("end", () => {
+      resolve({ signature: hmac.digest("hex"), size: totalBytes });
+    });
+
+    stream.on("error", reject);
+  });
+}
+
+// Agente HTTPS seguro por defecto (valida certificados CA)
+const allowInsecureTls = process.env.SHAREPOINT_INSECURE_TLS === "true" || process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0";
+if (allowInsecureTls) {
+  console.warn("⚠️ [Seguridad TLS] Validación estricta de certificados desactivada por variable de entorno.");
+}
+const sharepointAgent = new https.Agent({ rejectUnauthorized: !allowInsecureTls });
 
 function extractSiteUrl(sharepointUrl) {
   try {
@@ -168,30 +191,39 @@ function uploadFileToSharePoint(
   });
 }
 
-let dbPath;
+let dbDir;
 let excelPath;
 
 if (process.env.PRODUCTION_DB === "true") {
+  const os = require("os");
   const baseDir =
     process.env.USER_DATA_DIR ||
-    path.join(require("os").homedir(), "AppData", "Local", "LobbyControl");
-  dbPath = path.join(baseDir, "data", "lobby_control.db");
-  excelPath = path.join(baseDir, "data", "lobby_data.xlsx");
+    (process.env.APPDATA
+      ? path.join(process.env.APPDATA, "LobbyControl")
+      : path.join(os.homedir(), "AppData", "Roaming", "LobbyControl"));
+  dbDir = path.join(baseDir, "data");
+  excelPath = path.join(dbDir, "lobby_data.xlsx");
 } else {
-  dbPath = path.join(
-    __dirname,
-    "..",
-    process.env.DATABASE_PATH || "lobby_control.db",
-  );
+  const envDbPath = process.env.DATABASE_PATH;
+  if (envDbPath) {
+    const fullEnvDbPath = path.isAbsolute(envDbPath) ? envDbPath : path.join(__dirname, "..", envDbPath);
+    dbDir = path.dirname(fullEnvDbPath);
+  } else {
+    dbDir = path.join(__dirname, "..", "data");
+  }
   excelPath = path.join(
     __dirname,
     "..",
-    process.env.EXCEL_PATH || "lobby_data.xlsx",
+    process.env.EXCEL_PATH || "data/lobby_data.xlsx",
   );
 }
 
+// Rutas canónicas
+const dataDbPath = path.join(dbDir, "data.db");
+const appDbPath = path.join(dbDir, "app.db");
+const dbPath = dataDbPath;
+
 // Asegurar que la carpeta de destino de la base de datos exista
-const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
@@ -466,6 +498,67 @@ try {
   process.exit(1);
 }
 
+// =========================================================================
+// VALIDACIÓN TEMPRANA ESTRICTA DE ESTRUCTURA (5 HOJAS OBLIGATORIAS)
+// =========================================================================
+const REQUIRED_COLUMNS = {
+  SH: [
+    "id", "folio", "fechaIngreso", "fechaRespuesta", "fechaAgenda",
+    "sujetoPasivo", "cargoSujetoPasivo", "idSujetoPasivo", "sujetoActivo",
+    "runSujetoActivo", "generoSujetoActivo", "representado", "materia",
+    "especificacionMateria", "estado"
+  ],
+  PH: [
+    "id", "folio", "fechaInicio", "fechaTermino", "duracion",
+    "fechaPublicacion", "cumplimiento", "estado", "forma", "materia",
+    "especificacionMateria", "lugar", "comuna", "sujetoPasivo",
+    "cargoSujetoPasivo", "sujetoActivo", "runSujetoActivo", "generoSujetoActivo",
+    "tipoSujetoActivo", "representado"
+  ],
+  SPH: [
+    "id", "nombre", "run", "cargo", "tipo", "zona", "fechaInicio",
+    "fechaTermino", "respaldoJuridico", "asistenteTecnico"
+  ],
+  VH: [
+    "fechaInicio", "fechaTermino", "fechaUltimaModificacion", "destino",
+    "objeto", "tipo", "sujetoPasivo", "cargo", "idSujetoPasivo", "items",
+    "costoTotal", "financiadoPor"
+  ],
+  DH: [
+    "fecha", "fechaUltimaModificacion", "sujetoPasivo", "cargo",
+    "idSujetoPasivo", "ocasion", "descripcion", "procedencia", "tipo"
+  ]
+};
+
+const validationErrors = [];
+for (const [sheetName, expected] of Object.entries(REQUIRED_COLUMNS)) {
+  if (!workbook.SheetNames.includes(sheetName)) {
+    validationErrors.push(`• Falta la pestaña obligatoria "${sheetName}".`);
+    continue;
+  }
+  const sheet = workbook.Sheets[sheetName];
+  const rawHeaders = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || [];
+  const cleanHeaders = rawHeaders
+    .map((cell) => String(cell ?? ""))
+    .filter((cell) => cell.trim() !== "" && !cell.startsWith("__EMPTY"));
+
+  const missing = expected.filter((col) => !cleanHeaders.includes(col));
+  const extra = cleanHeaders.filter((col) => !expected.includes(col));
+
+  if (missing.length > 0 || extra.length > 0) {
+    let detail = `• Hoja "${sheetName}":`;
+    if (missing.length > 0) detail += ` Faltan encabezados: [${missing.join(", ")}].`;
+    if (extra.length > 0) detail += ` Encabezados no permitidos: [${extra.join(", ")}].`;
+    validationErrors.push(detail);
+  }
+}
+
+if (validationErrors.length > 0) {
+  console.error(`Estructura de archivo Excel no válida:\n${validationErrors.join("\n")}`);
+  db.close();
+  process.exit(1);
+}
+
 /**
  * Normaliza un valor de celda para el cálculo del hash
  * - null/undefined/"" -> ""
@@ -563,6 +656,16 @@ function diffSujetoPasivoSPH(oldRow, newRow) {
   }
   return changes;
 }
+
+function parseMonto(val) {
+  if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val);
+  if (!val) return 0;
+  const clean = String(val).replace(/[^\d-]/g, '');
+  const num = parseInt(clean, 10);
+  return isNaN(num) ? 0 : num;
+}
+
+
 
 /**
  * Calcula un hash MD5 de un array de valores normalizados
@@ -1376,6 +1479,180 @@ function syncSujetosPasivos(rows, callback) {
 }
 
 /**
+ * Genera un hash SHA-256 determinista a partir de las filas de una hoja de Excel
+ */
+function computeSheetHash(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return "empty";
+  const serialized = JSON.stringify(rows);
+  return crypto.createHash("sha256").update(serialized).digest("hex");
+}
+
+/**
+ * Sincronización de viajes_vh: Reemplazo limpio directo (DELETE + INSERT)
+ */
+function syncViajes(rows, callback) {
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION", (txErr) => {
+      if (txErr) {
+        console.error("Error al iniciar transacción VH:", txErr.message);
+        return callback(txErr);
+      }
+
+      db.run("DELETE FROM viajes_vh", (delErr) => {
+        if (delErr) {
+          console.error("Error al limpiar viajes_vh:", delErr.message);
+          return db.run("ROLLBACK", () => callback(delErr));
+        }
+
+        const insertStmt = db.prepare(`
+          INSERT INTO viajes_vh (
+            fecha_inicio, fecha_termino, fecha_ultima_modificacion, destino, objeto,
+            tipo, sujeto_pasivo, cargo, id_sujeto_pasivo, items, costo_total,
+            financiado_por
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        let insertsCount = 0;
+        rows.forEach((row) => {
+          const parsedFechaInicio = parseExcelDate(row["fechaInicio"]);
+          const parsedFechaTermino = parseExcelDate(row["fechaTermino"]);
+          const parsedFechaMod = parseExcelDate(row["fechaUltimaModificacion"]);
+          const destino = (row["destino"] || "").trim();
+          const objeto = (row["objeto"] || "").trim();
+          const tipo = (row["tipo"] || "").trim();
+          const sujetoPasivo = (row["sujetoPasivo"] || "").trim();
+          const cargo = (row["cargo"] || "").trim();
+          const idSujetoPasivo = row["idSujetoPasivo"] ? parseInt(row["idSujetoPasivo"], 10) : null;
+          const items = (row["items"] || "").trim();
+          const costoTotal = parseMonto(row["costoTotal"]);
+          const financiadoPor = (row["financiadoPor"] || "").trim();
+
+          const rowValues = [
+            parsedFechaInicio,
+            parsedFechaTermino,
+            parsedFechaMod,
+            destino,
+            objeto,
+            tipo,
+            sujetoPasivo,
+            cargo,
+            idSujetoPasivo,
+            items,
+            costoTotal,
+            financiadoPor,
+          ];
+
+          insertStmt.run(rowValues);
+          insertsCount++;
+        });
+
+        insertStmt.finalize((finErr) => {
+          if (finErr) {
+            console.error("Error al finalizar insertStmt VH:", finErr.message);
+            return db.run("ROLLBACK", () => callback(finErr));
+          }
+
+          db.run("COMMIT", (commitErr) => {
+            if (commitErr) {
+              console.error("Error al hacer COMMIT de VH:", commitErr.message);
+              return db.run("ROLLBACK", () => callback(commitErr));
+            }
+
+            console.log(`✓ Sincronización VH: ${insertsCount} registros insertados.`);
+            callback(null, {
+              insertsCount,
+              updatesCount: 0,
+              skippedCount: 0,
+              deletesCount: 0,
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+/**
+ * Sincronización de donativos_dh: Reemplazo limpio directo (DELETE + INSERT)
+ */
+function syncDonativos(rows, callback) {
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION", (txErr) => {
+      if (txErr) {
+        console.error("Error al iniciar transacción DH:", txErr.message);
+        return callback(txErr);
+      }
+
+      db.run("DELETE FROM donativos_dh", (delErr) => {
+        if (delErr) {
+          console.error("Error al limpiar donativos_dh:", delErr.message);
+          return db.run("ROLLBACK", () => callback(delErr));
+        }
+
+        const insertStmt = db.prepare(`
+          INSERT INTO donativos_dh (
+            fecha, fecha_ultima_modificacion, sujeto_pasivo, cargo, id_sujeto_pasivo,
+            ocasion, descripcion, procedencia, tipo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        let insertsCount = 0;
+        rows.forEach((row) => {
+          const rawFecha = row["fecha"] || "";
+          const rawFechaMod = row["fechaUltimaModificacion"] || row["fecha_ultima_modificacion"] || "";
+          const parsedFecha = parseExcelDate(rawFecha);
+          const parsedFechaMod = parseExcelDate(rawFechaMod);
+          const sujetoPasivo = (row["sujetoPasivo"] || row["sujeto_pasivo"] || "").trim();
+          const cargo = (row["cargo"] || "").trim();
+          const idSujetoPasivo = row["idSujetoPasivo"] || row["id_sujeto_pasivo"] || null;
+          const ocasion = (row["ocasión"] || row["ocasion"] || "").trim();
+          const descripcion = (row["descripcion"] || row["descripción"] || "").trim();
+          const procedencia = (row["procedencia"] || "").trim();
+          const tipo = (row["tipo"] || "").trim();
+
+          const rowValues = [
+            parsedFecha,
+            parsedFechaMod,
+            sujetoPasivo,
+            cargo,
+            idSujetoPasivo,
+            ocasion,
+            descripcion,
+            procedencia,
+            tipo,
+          ];
+
+          insertStmt.run(rowValues);
+          insertsCount++;
+        });
+
+        insertStmt.finalize((finErr) => {
+          if (finErr) {
+            console.error("Error al finalizar insertStmt DH:", finErr.message);
+            return db.run("ROLLBACK", () => callback(finErr));
+          }
+
+          db.run("COMMIT", (commitErr) => {
+            if (commitErr) {
+              console.error("Error al hacer COMMIT de DH:", commitErr.message);
+              return db.run("ROLLBACK", () => callback(commitErr));
+            }
+
+            console.log(`✓ Sincronización DH: ${insertsCount} registros insertados.`);
+            callback(null, {
+              insertsCount,
+              updatesCount: 0,
+              skippedCount: 0,
+              deletesCount: 0,
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+/**
  * Guarda la fecha de última actualización en la tabla configuracion
  */
 function saveLastImportTimestamp(callback) {
@@ -1387,20 +1664,34 @@ function saveLastImportTimestamp(callback) {
   const min = String(mtime.getMinutes()).padStart(2, "0");
   const timestampStr = `${dd}-${mm}-${yyyy} ${hh}:${min}`;
 
-  db.run(
-    "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('last_import_timestamp', ?)",
-    [timestampStr],
-    (err) => {
-      if (err) {
-        console.error("Error al registrar fecha de importación:", err.message);
-      } else {
-        console.log(
-          `✓ Fecha de última actualización registrada en la base de datos: ${timestampStr}`,
-        );
-      }
-      callback(err);
-    },
-  );
+  if (!fs.existsSync(appDbPath)) {
+    if (typeof callback === "function") callback(null);
+    return;
+  }
+
+  const appDbConn = new sqlite3.Database(appDbPath, (openErr) => {
+    if (openErr) {
+      console.error("Error al abrir app.db para timestamp:", openErr.message);
+      if (typeof callback === "function") callback(openErr);
+      return;
+    }
+    appDbConn.run(
+      "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('last_import_timestamp', ?)",
+      [timestampStr],
+      (err) => {
+        if (err) {
+          console.error("Error al registrar fecha de importación:", err.message);
+        } else {
+          console.log(
+            `✓ Fecha de última actualización registrada en la base de datos: ${timestampStr}`,
+          );
+        }
+        appDbConn.close(() => {
+          if (typeof callback === "function") callback(err);
+        });
+      },
+    );
+  });
 }
 
 // Objeto acumulador de estadísticas de importación
@@ -1408,6 +1699,8 @@ const allStats = {
   sh: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
   ph: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
   sph: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
+  vh: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
+  dh: { inserts: 0, updates: 0, skipped: 0, deletes: 0, details: [] },
   sharepoint: { uploaded: false, error: null },
 };
 
@@ -1416,6 +1709,59 @@ db.serialize(() => {
   console.time("Tiempo: Ejecución total de importación");
   db.run("PRAGMA busy_timeout = 30000");
   db.run("PRAGMA synchronous = OFF");
+
+  // Asegurar que las tablas de viajes_vh y donativos_dh existan siempre
+  db.run(`
+    CREATE TABLE IF NOT EXISTS viajes_vh (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha_inicio TEXT,
+      fecha_termino TEXT,
+      fecha_ultima_modificacion TEXT,
+      destino TEXT,
+      objeto TEXT,
+      tipo TEXT,
+      sujeto_pasivo TEXT,
+      cargo TEXT,
+      id_sujeto_pasivo INTEGER,
+      items TEXT,
+      costo_total INTEGER,
+      financiado_por TEXT,
+      row_hash TEXT
+    )
+  `);
+  db.run("CREATE INDEX IF NOT EXISTS idx_vh_sujeto ON viajes_vh(sujeto_pasivo)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_vh_id_sujeto ON viajes_vh(id_sujeto_pasivo)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_vh_hash ON viajes_vh(row_hash)");
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS donativos_dh (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT,
+      fecha_ultima_modificacion TEXT,
+      sujeto_pasivo TEXT,
+      cargo TEXT,
+      id_sujeto_pasivo INTEGER,
+      ocasion TEXT,
+      descripcion TEXT,
+      procedencia TEXT,
+      tipo TEXT,
+      row_hash TEXT
+    )
+  `);
+  db.run("CREATE INDEX IF NOT EXISTS idx_dh_sujeto ON donativos_dh(sujeto_pasivo)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_dh_id_sujeto ON donativos_dh(id_sujeto_pasivo)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_dh_fecha ON donativos_dh(fecha)");
+  db.run("CREATE INDEX IF NOT EXISTS idx_dh_hash ON donativos_dh(row_hash)");
+
+  // Tabla técnica para el control de firmas/hashes de hojas sin ID propio (VH y DH)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS _sync_sheets_metadata (
+      sheet_name TEXT PRIMARY KEY,
+      sheet_hash TEXT NOT NULL,
+      last_sync TEXT NOT NULL,
+      row_count INTEGER NOT NULL
+    )
+  `);
 
   // Validar y migrar esquema de la base de datos si es necesario (ej: si fue sobrescrita por sincronización desde SharePoint)
   db.all("PRAGMA table_info(sujetos_pasivos_sph)", [], (err, rows) => {
@@ -1564,7 +1910,7 @@ db.serialize(() => {
         console.warn(
           '⚠ Advertencia: La hoja "SPH" no contiene registros válidos.',
         );
-        finalizeImport();
+        processVH();
       } else {
         const headers = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || [];
         const required = ["id", "nombre", "run"];
@@ -1574,7 +1920,7 @@ db.serialize(() => {
           console.warn(
             `⚠️ Omitiendo sincronización SPH: La hoja no contiene la estructura esperada. Faltan columnas: ${missing.join(", ")}.`,
           );
-          finalizeImport();
+          processVH();
         } else {
           console.log(
             `\nProcesando ${rows.length} registros para la tabla "sujetos_pasivos_sph"...`,
@@ -1600,12 +1946,227 @@ db.serialize(() => {
                 deletes: stats.deletesCount,
               };
             }
-            finalizeImport();
+            processVH();
           });
         }
       }
     } else {
       console.log('⚠ No se encontró la hoja "SPH" en el Excel.');
+      processVH();
+    }
+  }
+
+  function processVH() {
+    if (workbook.SheetNames.includes("VH")) {
+      const sheet = workbook.Sheets["VH"];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        console.warn(
+          '⚠ Advertencia: La hoja "VH" no contiene registros válidos.',
+        );
+        processDH();
+      } else {
+        const headers = XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || [];
+        const required = ["fechaInicio", "sujetoPasivo"];
+        const missing = required.filter((col) => !headers.includes(col));
+
+        if (missing.length > 0) {
+          console.warn(
+            `⚠️ Omitiendo sincronización VH: La hoja no contiene la estructura esperada. Faltan columnas: ${missing.join(", ")}.`,
+          );
+          processDH();
+        } else {
+          const currentHash = computeSheetHash(rows);
+
+          db.get(
+            "SELECT sheet_hash, row_count FROM _sync_sheets_metadata WHERE sheet_name = 'VH'",
+            (metaErr, meta) => {
+              if (metaErr) {
+                console.warn("Advertencia al consultar _sync_sheets_metadata (VH):", metaErr.message);
+              }
+
+              db.get("SELECT COUNT(*) AS count FROM viajes_vh", (countErr, countRow) => {
+                const dbCount = (countRow && countRow.count) ? countRow.count : 0;
+
+                // Caso 1: La hoja no ha cambiado y los datos existen en la BD
+                if (meta && meta.sheet_hash === currentHash && dbCount === rows.length) {
+                  console.log(
+                    `✓ Sincronización VH: Hoja sin modificaciones (hash coincide, ${dbCount} registros intactos en BD).`
+                  );
+                  allStats.vh = {
+                    ...allStats.vh,
+                    inserts: 0,
+                    updates: 0,
+                    skipped: rows.length,
+                    deletes: 0,
+                  };
+                  return processDH();
+                }
+
+                // Caso 2: Datos ya existentes previamente cargados en la BD pero sin metadatos inicializados
+                if ((!meta || !meta.sheet_hash) && dbCount === rows.length && dbCount > 0) {
+                  const nowIso = new Date().toISOString();
+                  db.run(
+                    "INSERT OR REPLACE INTO _sync_sheets_metadata (sheet_name, sheet_hash, last_sync, row_count) VALUES ('VH', ?, ?, ?)",
+                    [currentHash, nowIso, rows.length],
+                    () => {
+                      console.log(
+                        `✓ Sincronización VH: Datos ya existentes en BD (${dbCount} registros). Se establece firma base sin reescribir.`
+                      );
+                      allStats.vh = {
+                        ...allStats.vh,
+                        inserts: 0,
+                        updates: 0,
+                        skipped: rows.length,
+                        deletes: 0,
+                      };
+                      processDH();
+                    }
+                  );
+                  return;
+                }
+
+                // Caso 3: Modificación detectada o tabla vacía -> Reemplazo atómico transaccional
+                console.log(
+                  `\nProcesando actualización de ${rows.length} registros para la tabla "viajes_vh"...`
+                );
+                console.time("Tiempo: Sincronización VH");
+                syncViajes(rows, (err, stats) => {
+                  console.timeEnd("Tiempo: Sincronización VH");
+                  if (err) {
+                    console.error("Error al sincronizar viajes_vh:", err.message);
+                    db.close();
+                    process.exit(1);
+                  }
+
+                  const nowIso = new Date().toISOString();
+                  db.run(
+                    "INSERT OR REPLACE INTO _sync_sheets_metadata (sheet_name, sheet_hash, last_sync, row_count) VALUES ('VH', ?, ?, ?)",
+                    [currentHash, nowIso, rows.length],
+                    () => {
+                      if (stats) {
+                        allStats.vh = {
+                          ...allStats.vh,
+                          inserts: stats.insertsCount,
+                          updates: stats.updatesCount,
+                          skipped: stats.skippedCount,
+                          deletes: stats.deletesCount,
+                        };
+                      }
+                      processDH();
+                    }
+                  );
+                });
+              });
+            }
+          );
+        }
+      }
+    } else {
+      console.log('⚠ No se encontró la hoja "VH" en el Excel.');
+      processDH();
+    }
+  }
+
+  function processDH() {
+    if (workbook.SheetNames.includes("DH")) {
+      const sheet = workbook.Sheets["DH"];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        console.warn(
+          '⚠ Advertencia: La hoja "DH" no contiene registros válidos.',
+        );
+        finalizeImport();
+      } else {
+        const currentHash = computeSheetHash(rows);
+
+        db.get(
+          "SELECT sheet_hash, row_count FROM _sync_sheets_metadata WHERE sheet_name = 'DH'",
+          (metaErr, meta) => {
+            if (metaErr) {
+              console.warn("Advertencia al consultar _sync_sheets_metadata (DH):", metaErr.message);
+            }
+
+            db.get("SELECT COUNT(*) AS count FROM donativos_dh", (countErr, countRow) => {
+              const dbCount = (countRow && countRow.count) ? countRow.count : 0;
+
+              // Caso 1: La hoja no ha cambiado y los datos existen en la BD
+              if (meta && meta.sheet_hash === currentHash && dbCount === rows.length) {
+                console.log(
+                  `✓ Sincronización DH: Hoja sin modificaciones (hash coincide, ${dbCount} registros intactos en BD).`
+                );
+                allStats.dh = {
+                  ...allStats.dh,
+                  inserts: 0,
+                  updates: 0,
+                  skipped: rows.length,
+                  deletes: 0,
+                };
+                return finalizeImport();
+              }
+
+              // Caso 2: Datos ya existentes previamente cargados en la BD pero sin metadatos inicializados
+              if ((!meta || !meta.sheet_hash) && dbCount === rows.length && dbCount > 0) {
+                const nowIso = new Date().toISOString();
+                db.run(
+                  "INSERT OR REPLACE INTO _sync_sheets_metadata (sheet_name, sheet_hash, last_sync, row_count) VALUES ('DH', ?, ?, ?)",
+                  [currentHash, nowIso, rows.length],
+                  () => {
+                    console.log(
+                      `✓ Sincronización DH: Datos ya existentes en BD (${dbCount} registros). Se establece firma base sin reescribir.`
+                    );
+                    allStats.dh = {
+                      ...allStats.dh,
+                      inserts: 0,
+                      updates: 0,
+                      skipped: rows.length,
+                      deletes: 0,
+                    };
+                    finalizeImport();
+                  }
+                );
+                return;
+              }
+
+              // Caso 3: Modificación detectada o tabla vacía -> Reemplazo atómico transaccional
+              console.log(
+                `\nProcesando actualización de ${rows.length} registros para la tabla "donativos_dh"...`
+              );
+              console.time("Tiempo: Sincronización DH");
+              syncDonativos(rows, (err, stats) => {
+                console.timeEnd("Tiempo: Sincronización DH");
+                if (err) {
+                  console.error("Error al sincronizar donativos_dh:", err.message);
+                  db.close();
+                  process.exit(1);
+                }
+
+                const nowIso = new Date().toISOString();
+                db.run(
+                  "INSERT OR REPLACE INTO _sync_sheets_metadata (sheet_name, sheet_hash, last_sync, row_count) VALUES ('DH', ?, ?, ?)",
+                  [currentHash, nowIso, rows.length],
+                  () => {
+                    if (stats) {
+                      allStats.dh = {
+                        ...allStats.dh,
+                        inserts: stats.insertsCount,
+                        updates: stats.updatesCount,
+                        skipped: stats.skippedCount,
+                        deletes: stats.deletesCount,
+                      };
+                    }
+                    finalizeImport();
+                  }
+                );
+              });
+            });
+          }
+        );
+      }
+    } else {
+      console.log('⚠ No se encontró la hoja "DH" en el Excel.');
       finalizeImport();
     }
   }
@@ -1620,236 +2181,263 @@ db.serialize(() => {
       (allStats.ph.deletes || 0) +
       (allStats.sph.inserts || 0) +
       (allStats.sph.updates || 0) +
-      (allStats.sph.deletes || 0);
+      (allStats.sph.deletes || 0) +
+      (allStats.vh?.inserts || 0) +
+      (allStats.vh?.updates || 0) +
+      (allStats.vh?.deletes || 0) +
+      (allStats.dh?.inserts || 0) +
+      (allStats.dh?.updates || 0) +
+      (allStats.dh?.deletes || 0);
 
     const userName = process.env.IMPORT_USER_NAME || "Sistema";
     const userEmail = process.env.IMPORT_USER_EMAIL || "";
     const userStr = userEmail ? `${userName} (${userEmail})` : userName;
 
     const nextStep = () => {
-      console.log("Registrando bitácora de importación en el historial...");
-      db.run(
-        "INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)",
-        [userStr, "Exitoso", JSON.stringify(allStats)],
-        (bitErr) => {
-          if (bitErr)
+      const mtime = new Date();
+      const yyyy = mtime.getFullYear();
+      const mm = String(mtime.getMonth() + 1).padStart(2, "0");
+      const dd = String(mtime.getDate()).padStart(2, "0");
+      const hh = String(mtime.getHours()).padStart(2, "0");
+      const min = String(mtime.getMinutes()).padStart(2, "0");
+      const timestampStr = `${dd}-${mm}-${yyyy} ${hh}:${min}`;
+
+      // 1. Registrar bitácora y timestamp de importación en app.db
+      if (fs.existsSync(appDbPath)) {
+        console.log("Registrando bitácora y timestamp de importación en app.db...");
+        const appDb = new sqlite3.Database(appDbPath);
+        appDb.serialize(() => {
+          appDb.run("PRAGMA busy_timeout = 30000");
+          appDb.run(
+            "INSERT INTO historial_sincronizaciones (usuario, estado, detalles) VALUES (?, ?, ?)",
+            [userStr, "Exitoso", JSON.stringify(allStats)],
+            (bitErr) => {
+              if (bitErr) console.error("Error al registrar bitácora en app.db:", bitErr.message);
+            }
+          );
+          appDb.run(
+            "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('last_import_timestamp', ?)",
+            [timestampStr],
+            (cfgErr) => {
+              if (cfgErr) console.error("Error al registrar last_import_timestamp en app.db:", cfgErr.message);
+            }
+          );
+          appDb.run(
+            "INSERT OR REPLACE INTO configuracion (clave, valor) VALUES ('db_last_update', ?)",
+            [timestampStr],
+            (cfgErr2) => {
+              if (cfgErr2) console.error("Error al registrar db_last_update en app.db:", cfgErr2.message);
+            }
+          );
+          appDb.run("PRAGMA wal_checkpoint(TRUNCATE)", () => {
+            appDb.close();
+          });
+        });
+      }
+
+      console.log(
+        "Ejecutando limpieza y optimización de base de datos (VACUUM)...",
+      );
+      console.time("Tiempo: VACUUM");
+      db.run("VACUUM", (vErr) => {
+        console.timeEnd("Tiempo: VACUUM");
+        if (vErr) {
+          console.error("Error al ejecutar VACUUM:", vErr.message);
+        } else {
+          console.log(
+            "✓ Base de datos optimizada y compactada con éxito (VACUUM).",
+          );
+        }
+
+        console.log("Ejecutando checkpoint de WAL en data.db...");
+        db.run("PRAGMA wal_checkpoint(TRUNCATE)", (cpErr) => {
+          if (cpErr)
             console.error(
-              "Error al registrar bitácora de importación:",
-              bitErr.message,
+              "Error al ejecutar checkpoint de WAL:",
+              cpErr.message,
             );
 
-          console.log(
-            "Ejecutando limpieza y optimización de base de datos (VACUUM)...",
-          );
-          console.time("Tiempo: VACUUM");
-          db.run("VACUUM", (vErr) => {
-            console.timeEnd("Tiempo: VACUUM");
-            if (vErr) {
-              console.error("Error al ejecutar VACUUM:", vErr.message);
-            } else {
-              console.log(
-                "✓ Base de datos optimizada y compactada con éxito (VACUUM).",
+          console.timeEnd("Tiempo: Ejecución total de importación");
+          console.log("\nImportación masiva completada con éxito.");
+
+          // Secuencia estricta Windows: cerrar la conexión db antes de leer el binario para Gzip
+          db.close(async (closeErr) => {
+            if (closeErr) console.error("Error al cerrar data.db:", closeErr.message);
+            try {
+              // Calcular firma digital HMAC de data.db mediante flujo por fragmentos (Streaming) para optimizar memoria
+              const { signature: dbSignature, size: dbSize } = await computeFileHmacStream(
+                dbPath,
+                "LobbyControl_Secure_Key_2026_Maipu"
               );
-            }
 
-            console.log("Ejecutando checkpoint de WAL...");
-            db.run("PRAGMA wal_checkpoint(TRUNCATE)", (cpErr) => {
-              if (cpErr)
-                console.error(
-                  "Error al ejecutar checkpoint de WAL:",
-                  cpErr.message,
+              const versionData = {
+                last_import_timestamp: timestampStr,
+                db_size: dbSize,
+                db_signature: dbSignature,
+                db_compression: "gzip",
+              };
+
+              const localJsonPath = path.join(dbDir, "version_data.json");
+              const legacyJsonPath = path.join(dbDir, "version_lobby.json");
+              fs.writeFileSync(
+                localJsonPath,
+                JSON.stringify(versionData, null, 2),
+              );
+              try {
+                fs.writeFileSync(legacyJsonPath, JSON.stringify(versionData, null, 2));
+              } catch (e) {}
+              console.log(
+                `✓ [Local Version] Generado archivo de versión local (Firmado) en: ${localJsonPath}`,
+              );
+
+              // Subir a SharePoint vía REST API si hay cookies
+              if (process.env.SHAREPOINT_COOKIES) {
+                console.log(
+                  "[SharePoint Upload] Cookies de sesión encontradas. Iniciando subida directa a la nube...",
                 );
+                const siteUrl =
+                  process.env.SHAREPOINT_SITE_URL ||
+                  "https://immaipu.sharepoint.com/sites/SECMU";
+                const folderPath =
+                  process.env.SHAREPOINT_FOLDER_PATH ||
+                  "/sites/SECMU/Lobby/LobbyControl";
+                const cookies = process.env.SHAREPOINT_COOKIES;
 
-              console.timeEnd("Tiempo: Ejecución total de importación");
-              console.log("\nImportación masiva completada con éxito.");
-
-              db.close(async () => {
-                // Generar versión local primero en el directorio de la base de datos
-                try {
-                  const mtime = new Date();
-                  const yyyy = mtime.getFullYear();
-                  const mm = String(mtime.getMonth() + 1).padStart(2, "0");
-                  const dd = String(mtime.getDate()).padStart(2, "0");
-                  const hh = String(mtime.getHours()).padStart(2, "0");
-                  const min = String(mtime.getMinutes()).padStart(2, "0");
-                  const timestampStr = `${dd}-${mm}-${yyyy} ${hh}:${min}`;
-
-                  // Calcular firma digital HMAC de la base de datos para prevenir alteraciones
-                  const dbBuffer = fs.readFileSync(dbPath);
-                  const dbSignature = crypto
-                    .createHmac("sha256", "LobbyControl_Secure_Key_2026_Maipu")
-                    .update(dbBuffer)
-                    .digest("hex");
-
-                  const versionData = {
-                    last_import_timestamp: timestampStr,
-                    db_size: dbBuffer.length,
-                    db_signature: dbSignature,
-                    db_compression: "gzip",
+                if (!folderPath) {
+                  console.error(
+                    "❌ [SharePoint Upload] Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
+                  );
+                  allStats.sharepoint = {
+                    uploaded: false,
+                    error:
+                      "Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
                   };
-
-                  const localJsonPath = path.join(
-                    path.dirname(dbPath),
-                    "version_lobby.json",
-                  );
-                  fs.writeFileSync(
-                    localJsonPath,
-                    JSON.stringify(versionData, null, 2),
-                  );
+                } else {
+                  console.log(`[SharePoint Upload] Sitio: ${siteUrl}`);
                   console.log(
-                    `✓ [Local Version] Generado archivo de versión local (Firmado) en: ${localJsonPath}`,
+                    `[SharePoint Upload] Carpeta destino: ${folderPath}`,
                   );
 
-                  // Subir a SharePoint vía REST API si hay cookies
-                  if (process.env.SHAREPOINT_COOKIES) {
+                  const tempGzPath = dbPath + ".gz.tmp";
+                  try {
                     console.log(
-                      "[SharePoint Upload] Cookies de sesión encontradas. Iniciando subida directa a la nube...",
+                      "[SharePoint Upload] Comprimiendo base de datos de forma asíncrona...",
                     );
-                    const siteUrl =
-                      process.env.SHAREPOINT_SITE_URL ||
-                      "https://immaipu.sharepoint.com/sites/SECMU";
-                    const folderPath =
-                      process.env.SHAREPOINT_FOLDER_PATH ||
-                      "/sites/SECMU/Lobby/LobbyControl";
-                    const cookies = process.env.SHAREPOINT_COOKIES;
-
-                    if (!folderPath) {
-                      console.error(
-                        "❌ [SharePoint Upload] Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
-                      );
-                      allStats.sharepoint = {
-                        uploaded: false,
-                        error:
-                          "Falta la variable SHAREPOINT_FOLDER_PATH en .env.",
-                      };
-                    } else {
-                      console.log(`[SharePoint Upload] Sitio: ${siteUrl}`);
-                      console.log(
-                        `[SharePoint Upload] Carpeta destino: ${folderPath}`,
-                      );
-
-                      const tempGzPath = dbPath + ".gz.tmp";
-                      try {
-                        console.log(
-                          "[SharePoint Upload] Comprimiendo base de datos de forma asíncrona...",
-                        );
-                        await compressFileAsync(dbPath, tempGzPath);
-                        console.log(
-                          "[SharePoint Upload] Compresión finalizada.",
-                        );
-
-                        const digest = await getRequestDigest(siteUrl, cookies);
-                        console.log(
-                          "[SharePoint Upload] Request Digest obtenido.",
-                        );
-
-                        console.log(
-                          "[SharePoint Upload] Subiendo version_lobby.json...",
-                        );
-                        await uploadFileToSharePoint(
-                          siteUrl,
-                          folderPath,
-                          "version_lobby.json",
-                          localJsonPath,
-                          digest,
-                          cookies,
-                        );
-
-                        console.log(
-                          "[SharePoint Upload] Subiendo lobby_control.db (comprimido)...",
-                        );
-                        await uploadFileToSharePoint(
-                          siteUrl,
-                          folderPath,
-                          "lobby_control.db",
-                          tempGzPath,
-                          digest,
-                          cookies,
-                        );
-
-                        console.log(
-                          "✓ [SharePoint Upload] Sincronización directa en la nube completada con éxito.",
-                        );
-                        allStats.sharepoint = { uploaded: true, error: null };
-                      } catch (spErr) {
-                        console.error(
-                          "❌ [SharePoint Upload] Error al subir directamente a SharePoint:",
-                          spErr.message,
-                        );
-                        allStats.sharepoint = {
-                          uploaded: false,
-                          error: spErr.message,
-                        };
-                      } finally {
-                        if (fs.existsSync(tempGzPath)) {
-                          try {
-                            fs.unlinkSync(tempGzPath);
-                            console.log(
-                              "[SharePoint Upload] Archivo temporal comprimido eliminado.",
-                            );
-                          } catch (e) {
-                            console.error(
-                              "[SharePoint Upload] No se pudo eliminar el archivo temporal comprimido:",
-                              e.message,
-                            );
-                          }
-                        }
-                      }
-                    }
-                  } else {
+                    await compressFileAsync(dbPath, tempGzPath);
                     console.log(
-                      "[SharePoint Upload] No se encontraron cookies de sesión (SHAREPOINT_COOKIES). Se omite la subida directa.",
+                      "[SharePoint Upload] Compresión finalizada.",
+                    );
+
+                    const digest = await getRequestDigest(siteUrl, cookies);
+                    console.log(
+                      "[SharePoint Upload] Request Digest obtenido.",
+                    );
+
+                    console.log(
+                      "[SharePoint Upload] Subiendo version_data.json...",
+                    );
+                    await uploadFileToSharePoint(
+                      siteUrl,
+                      folderPath,
+                      "version_data.json",
+                      localJsonPath,
+                      digest,
+                      cookies,
+                    );
+
+                    console.log(
+                      "[SharePoint Upload] Subiendo data.db (comprimido)...",
+                    );
+                    await uploadFileToSharePoint(
+                      siteUrl,
+                      folderPath,
+                      "data.db",
+                      tempGzPath,
+                      digest,
+                      cookies,
+                    );
+
+                    console.log(
+                      "✓ [SharePoint Upload] Sincronización directa en la nube completada con éxito.",
+                    );
+                    allStats.sharepoint = { uploaded: true, error: null };
+                  } catch (spErr) {
+                    console.error(
+                      "❌ [SharePoint Upload] Error al subir directamente a SharePoint:",
+                      spErr.message,
                     );
                     allStats.sharepoint = {
                       uploaded: false,
-                      error:
-                        "Omitido: Se requiere inicio de sesión institucional (SSO) para subir a SharePoint.",
+                      error: spErr.message,
                     };
-                  }
-
-                  // Copiar a la carpeta compartida de OneDrive si está configurada
-                  if (process.env.ONEDRIVE_SYNC_PATH) {
-                    const odPath = process.env.ONEDRIVE_SYNC_PATH;
-                    if (fs.existsSync(odPath)) {
-                      const destJsonPath = path.join(
-                        odPath,
-                        "version_lobby.json",
-                      );
-                      const destDbPath = path.join(odPath, "lobby_control.db");
-
-                      fs.writeFileSync(
-                        destJsonPath,
-                        JSON.stringify(versionData, null, 2),
-                      );
-                      fs.copyFileSync(dbPath, destDbPath);
-
-                      console.log(
-                        `✓ [OneDrive Sync] Publicación de versión completada con éxito en: ${odPath}`,
-                      );
-                    } else {
-                      console.warn(
-                        `⚠️ [OneDrive Sync] La ruta especificada en ONEDRIVE_SYNC_PATH no existe: ${odPath}`,
-                      );
+                  } finally {
+                    if (fs.existsSync(tempGzPath)) {
+                      try {
+                        fs.unlinkSync(tempGzPath);
+                        console.log(
+                          "[SharePoint Upload] Archivo temporal comprimido eliminado.",
+                        );
+                      } catch (e) {
+                        console.error(
+                          "[SharePoint Upload] No se pudo eliminar el archivo temporal comprimido:",
+                          e.message,
+                        );
+                      }
                     }
                   }
-                } catch (err) {
-                  console.error(
-                    "❌ Error al generar versión o copiar archivos:",
-                    err.message,
+                }
+              } else {
+                console.log(
+                  "[SharePoint Upload] No se encontraron cookies de sesión (SHAREPOINT_COOKIES). Se omite la subida directa.",
+                );
+                allStats.sharepoint = {
+                  uploaded: false,
+                  error:
+                    "Omitido: Se requiere inicio de sesión institucional (SSO) para subir a SharePoint.",
+                };
+              }
+
+              // Copiar a la carpeta compartida de OneDrive si está configurada
+              if (process.env.ONEDRIVE_SYNC_PATH) {
+                const odPath = process.env.ONEDRIVE_SYNC_PATH;
+                if (fs.existsSync(odPath)) {
+                  const destJsonPath = path.join(
+                    odPath,
+                    "version_data.json",
+                  );
+                  const destDbPath = path.join(odPath, "data.db");
+
+                  fs.writeFileSync(
+                    destJsonPath,
+                    JSON.stringify(versionData, null, 2),
+                  );
+                  fs.copyFileSync(dbPath, destDbPath);
+
+                  console.log(
+                    `✓ [OneDrive Sync] Publicación de versión completada con éxito en: ${odPath}`,
+                  );
+                } else {
+                  console.warn(
+                    `⚠️ [OneDrive Sync] La ruta especificada en ONEDRIVE_SYNC_PATH no existe: ${odPath}`,
                   );
                 }
+              }
+            } catch (err) {
+              console.error(
+                "❌ Error crítico al finalizar importación:",
+                err.message,
+              );
+            }
 
-                if (process.send) {
-                  process.send({
-                    type: "import_stats",
-                    stats: allStats,
-                  });
-                }
+            if (process.send) {
+              process.send({
+                type: "import_stats",
+                stats: allStats,
               });
-            });
+            }
           });
-        },
-      );
+        });
+      });
     };
 
     if (totalChanges > 0) {
@@ -1875,71 +2463,73 @@ db.serialize(() => {
 
 function rebuildActiveSujetoIdsTable(done) {
   const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  db.serialize(() => {
-    db.run("BEGIN IMMEDIATE TRANSACTION", (txErr) => {
-      if (txErr) {
-        console.error(
-          "Error al iniciar transacción para vigentes:",
-          txErr.message,
-        );
-        if (typeof done === "function") done();
-        return;
-      }
-    });
+  db.run("BEGIN IMMEDIATE TRANSACTION", (txErr) => {
+    if (txErr) {
+      console.error(
+        "Error al iniciar transacción para vigentes:",
+        txErr.message,
+      );
+      if (typeof done === "function") done();
+      return;
+    }
 
-    db.run("DELETE FROM sujetos_pasivos_vigentes", (err) => {
-      if (err) {
+    db.run("DELETE FROM sujetos_pasivos_vigentes", (delErr) => {
+      if (delErr) {
         console.error(
           "Error al limpiar sujetos_pasivos_vigentes:",
-          err.message,
+          delErr.message,
         );
-        db.run("ROLLBACK");
-        if (typeof done === "function") done();
+        db.run("ROLLBACK", () => {
+          if (typeof done === "function") done();
+        });
         return;
       }
-    });
 
-    db.run(
-      `
-      INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby)
-      SELECT DISTINCT id_sujeto_lobby
-      FROM sujetos_pasivos_sph
-      WHERE id_sujeto_lobby IS NOT NULL
-        AND (
-          fecha_termino IS NULL
-          OR TRIM(fecha_termino) = ''
-          OR LOWER(TRIM(fecha_termino)) IN ('indefinido', 'indefinicio', 'null', '-')
-          OR LOWER(TRIM(fecha_termino)) LIKE '%indefin%'
-          OR TRIM(fecha_termino) >= ?
-        )
-    `,
-      [todayStr],
-      function (insertErr) {
-        if (insertErr) {
-          console.error(
-            "Error al poblar sujetos_pasivos_vigentes:",
-            insertErr.message,
-          );
-          db.run("ROLLBACK");
-          if (typeof done === "function") done();
-        } else {
-          const changes = this ? this.changes : 0;
-          db.run("COMMIT", (commitErr) => {
-            if (commitErr) {
-              console.error(
-                "Error al hacer COMMIT de vigentes:",
-                commitErr.message,
-              );
-              db.run("ROLLBACK");
-            } else {
-              console.log(
-                `✓ Sincronización vigentes: ${changes} registros vigentes creados en sujetos_pasivos_vigentes.`,
-              );
-            }
-            if (typeof done === "function") done();
-          });
-        }
-      },
-    );
+      db.run(
+        `
+        INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby)
+        SELECT DISTINCT id_sujeto_lobby
+        FROM sujetos_pasivos_sph
+        WHERE id_sujeto_lobby IS NOT NULL
+          AND (
+            fecha_termino IS NULL
+            OR TRIM(fecha_termino) = ''
+            OR LOWER(TRIM(fecha_termino)) IN ('indefinido', 'indefinicio', 'null', '-')
+            OR LOWER(TRIM(fecha_termino)) LIKE '%indefin%'
+            OR TRIM(fecha_termino) >= ?
+          )
+      `,
+        [todayStr],
+        function (insertErr) {
+          if (insertErr) {
+            console.error(
+              "Error al poblar sujetos_pasivos_vigentes:",
+              insertErr.message,
+            );
+            db.run("ROLLBACK", () => {
+              if (typeof done === "function") done();
+            });
+          } else {
+            const changes = this ? this.changes : 0;
+            db.run("COMMIT", (commitErr) => {
+              if (commitErr) {
+                console.error(
+                  "Error al hacer COMMIT de vigentes:",
+                  commitErr.message,
+                );
+                db.run("ROLLBACK", () => {
+                  if (typeof done === "function") done();
+                });
+              } else {
+                console.log(
+                  `✓ Sincronización vigentes: ${changes} registros vigentes creados en sujetos_pasivos_vigentes.`,
+                );
+                if (typeof done === "function") done();
+              }
+            });
+          }
+        },
+      );
+    });
   });
 }

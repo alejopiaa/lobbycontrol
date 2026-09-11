@@ -9,6 +9,10 @@ let dataStore = {
   publicadas: [],
   sujetos_pasivos: [],
   sujetosVigentesNombres: [],
+  viajes: [],
+  viajesStats: {},
+  donativos: [],
+  donativosStats: {},
   stats: {},
   dbHealth: null,
   syncHistory: [],
@@ -128,7 +132,9 @@ let paginationState = {
       relacionSujetoActivo: '',
       relacionRut: '',
       relacionRepresentado: '',
-      vigencia: 'todos'
+      vigencia: 'todos',
+      fechaInicio: '',
+      fechaTermino: ''
     }
   },
   publicadas: { 
@@ -143,10 +149,47 @@ let paginationState = {
       relacionSujetoActivo: '',
       relacionRut: '',
       relacionRepresentado: '',
-      vigencia: 'todos'
+      vigencia: 'todos',
+      fechaInicio: '',
+      fechaTermino: ''
     }
   },
   sujetos_pasivos: { page: 1, search: '', vigencia: 'todos', tipoFecha: 'incorporacion', fechaDesde: '', fechaHasta: '' },
+  viajes: {
+    page: 1,
+    filters: {
+      search: '',
+      nombre: '',
+      sujetoPasivo: '',
+      cargo: '',
+      destino: '',
+      financiador: '',
+      anio: '',
+      fechaInicio: '',
+      fechaTermino: '',
+      vigencia: 'todos'
+    }
+  },
+  donativos: {
+    page: 1,
+    filters: {
+      search: '',
+      nombre: '',
+      sujetoPasivo: '',
+      cargo: '',
+      procedencia: '',
+      tipo: '',
+      ocasion: '',
+      anio: '',
+      fechaInicio: '',
+      fechaTermino: '',
+      vigencia: 'todos'
+    }
+  },
+  audiencias: {
+    page: 1,
+    subTab: 'solicitudes'
+  },
   reportes: { page: 1 },
   logs: { page: 1, filterType: 'all' }
 };
@@ -183,46 +226,145 @@ let dashboardDropdownCache = {
   sujetosActivosRepresentados: []
 };
 
+// Seguimiento dinámico de la última comprobación con la nube
+window.lastCloudCheckTimestamp = null;
+
+window.getCloudCheckText = function() {
+  if (!window.lastCloudCheckTimestamp) return 'Comprobando conexión...';
+  const elapsedSec = Math.floor((Date.now() - window.lastCloudCheckTimestamp) / 1000);
+  const timeStr = new Date(window.lastCloudCheckTimestamp).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+  let relative = '';
+  if (elapsedSec < 60) {
+    relative = `hace ${Math.max(1, elapsedSec)} s`;
+  } else {
+    const diffMinutes = Math.floor(elapsedSec / 60);
+    relative = `hace ${diffMinutes} min`;
+  }
+  return `${timeStr} hrs (${relative}) · Sin cambios`;
+};
+
+function parseTimestampToMs(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return 0;
+  const str = dateStr.trim();
+  if (str === '-' || str === '--' || str.startsWith('No se')) return 0;
+
+  // Formato Latino: DD-MM-YYYY o DD/MM/YYYY [HH:mm]
+  const latin = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  if (latin) {
+    const day = parseInt(latin[1], 10);
+    const month = parseInt(latin[2], 10) - 1;
+    const year = parseInt(latin[3], 10);
+    const hour = parseInt(latin[4] || '0', 10);
+    const min = parseInt(latin[5] || '0', 10);
+    return new Date(year, month, day, hour, min).getTime();
+  }
+
+  // Formato ISO: YYYY-MM-DD [HH:mm]
+  const iso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}))?/);
+  if (iso) {
+    const year = parseInt(iso[1], 10);
+    const month = parseInt(iso[2], 10) - 1;
+    const day = parseInt(iso[3], 10);
+    const hour = parseInt(iso[4] || '0', 10);
+    const min = parseInt(iso[5] || '0', 10);
+    return new Date(year, month, day, hour, min).getTime();
+  }
+
+  const parsed = Date.parse(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function getEffectiveLastUpdate() {
+  const cloud = dataStore.dbHealth?.lastCloudUpdate;
+  const localImport = dataStore.dbHealth?.lastImport;
+  const storeUpdate = dataStore.dbLastUpdate;
+  const candidates = [cloud, localImport, storeUpdate].filter(c => c && typeof c === 'string' && c !== '-' && c !== '--' && !c.startsWith('No se'));
+
+  if (candidates.length === 0) return '08-09-2026 12:23';
+
+  let latestStr = candidates[0];
+  let latestMs = parseTimestampToMs(candidates[0]);
+
+  for (let i = 1; i < candidates.length; i++) {
+    const ms = parseTimestampToMs(candidates[i]);
+    if (ms > latestMs) {
+      latestMs = ms;
+      latestStr = candidates[i];
+    }
+  }
+
+  return latestStr || '08-09-2026 12:23';
+}
+
+function updateCloudCheckDisplay() {
+  const timeEl = document.getElementById('capsule-cloud-time');
+  const statusEl = document.getElementById('capsule-cloud-status');
+  const downloadEl = document.getElementById('capsule-last-download');
+
+  if (timeEl && window.lastCloudCheckTimestamp) {
+    const timeStr = new Date(window.lastCloudCheckTimestamp).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+    timeEl.textContent = `${timeStr} hrs`;
+  }
+
+  if (downloadEl) {
+    downloadEl.textContent = getEffectiveLastUpdate();
+  }
+
+  const syncViewEl = document.getElementById('sync-view-cloud-check');
+  if (syncViewEl) {
+    syncViewEl.textContent = window.getCloudCheckText();
+  }
+}
+
+// Actualizar cada 15 segundos el texto relativo de comprobación
+setInterval(updateCloudCheckDisplay, 15000);
+
 // Administrar visualmente el estado de la cápsula flotante de conexión
-function updateCapsuleStatus(state, details = '') {
+function updateCapsuleStatus(state) {
   const pingEl = document.getElementById('capsule-indicator-ping');
   const dotEl = document.getElementById('capsule-indicator-dot');
   const labelEl = document.getElementById('capsule-label');
   const netStatusEl = document.getElementById('capsule-net-status');
-  const lastUpdateEl = document.getElementById('capsule-last-update');
+  const cloudTimeEl = document.getElementById('capsule-cloud-time');
+  const cloudStatusEl = document.getElementById('capsule-cloud-status');
+  const lastDownloadEl = document.getElementById('capsule-last-download');
   const syncContainer = document.getElementById('capsule-sync-container');
 
-  if (details && lastUpdateEl) {
-    lastUpdateEl.textContent = details;
+  if (lastDownloadEl) {
+    lastDownloadEl.textContent = getEffectiveLastUpdate();
   }
 
   if (pingEl && dotEl && labelEl && netStatusEl) {
     pingEl.className = 'animate-ping absolute inline-flex h-full w-full rounded-full';
     dotEl.className = 'relative inline-flex rounded-full h-2 w-2';
-    netStatusEl.className = 'font-semibold';
 
     if (state === 'synced') {
+      window.lastCloudCheckTimestamp = Date.now();
+      updateCloudCheckDisplay();
       pingEl.classList.remove('hidden');
       pingEl.classList.add('bg-emerald-400');
       dotEl.classList.add('bg-emerald-500');
       labelEl.textContent = 'Conectado';
       netStatusEl.textContent = 'Conectado';
-      netStatusEl.classList.add('text-emerald-600', 'dark:text-emerald-400');
+      netStatusEl.className = 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+      if (cloudStatusEl) cloudStatusEl.textContent = 'Sin cambios';
       if (syncContainer) syncContainer.classList.add('hidden');
     } else if (state === 'syncing') {
+      if (cloudStatusEl) cloudStatusEl.textContent = 'Comprobando...';
       pingEl.classList.remove('hidden');
       pingEl.classList.add('bg-amber-400');
       dotEl.classList.add('bg-amber-500');
       labelEl.textContent = 'Actualizando...';
       netStatusEl.textContent = 'Sincronizando...';
-      netStatusEl.classList.add('text-amber-500');
+      netStatusEl.className = 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400';
       if (syncContainer) syncContainer.classList.add('hidden');
     } else if (state === 'error') {
+      if (cloudStatusEl) cloudStatusEl.textContent = 'Error enlace';
       pingEl.classList.add('hidden');
       dotEl.classList.add('bg-rose-500');
       labelEl.textContent = 'Desconectado';
-      netStatusEl.textContent = 'Error Sync';
-      netStatusEl.classList.add('text-rose-600', 'dark:text-rose-400');
+      netStatusEl.textContent = 'Error';
+      netStatusEl.className = 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400';
       if (syncContainer) syncContainer.classList.remove('hidden');
     }
   }
@@ -235,7 +377,8 @@ async function fetchAndUpdateDbTimestamp() {
     if (res.ok) {
       const data = await res.json();
       if (data.dbLastUpdate) {
-        updateCapsuleStatus('synced', data.dbLastUpdate);
+        dataStore.dbLastUpdate = data.dbLastUpdate;
+        updateCapsuleStatus('synced');
       }
       if (data.usersLastUpdate) {
         dataStore.usersLastUpdate = data.usersLastUpdate;
@@ -254,7 +397,13 @@ async function checkAuth() {
     if (res.ok) {
       currentUser = await res.json();
       if (currentUser) {
+        if (currentUser.nombre || currentUser.correo) {
+          localStorage.setItem('lobby_user_name', currentUser.nombre || currentUser.correo);
+        }
         updateHeaderUserSection();
+        if (typeof window.loadDockCatalogs === 'function') {
+          window.loadDockCatalogs();
+        }
         return true;
       }
     }
@@ -467,16 +616,13 @@ function initBackgroundSync() {
           showToast('Base de datos actualizada con nuevos registros.', 'success');
           
           // 2. Éxito
-          updateCapsuleStatus('synced', data.dbLastUpdate || 'Al día');
+          updateCapsuleStatus('synced');
           
           if (typeof renderView === 'function') {
             renderView();
           }
         } else {
-          // Si no hubo cambios, recuperar el valor actual
-          const lastUpdateEl = document.getElementById('capsule-last-update');
-          const lastText = lastUpdateEl ? lastUpdateEl.textContent : 'Al día';
-          updateCapsuleStatus('synced', lastText);
+          updateCapsuleStatus('synced');
         }
       } else {
         updateCapsuleStatus('error');
@@ -520,7 +666,7 @@ async function runCapsuleSync(isManual = false) {
         if (data.updated) {
           console.log('[Manual-Sync] ¡Base de datos actualizada con éxito!');
           showToast('Base de datos sincronizada con éxito.', 'success');
-          updateCapsuleStatus('synced', data.dbLastUpdate || 'Al día');
+          updateCapsuleStatus('synced');
           
           if (typeof renderView === 'function') {
             renderView();
@@ -530,9 +676,7 @@ async function runCapsuleSync(isManual = false) {
           if (isManual) {
             showToast('La base de datos ya se encuentra al día.', 'info');
           }
-          const lastUpdateEl = document.getElementById('capsule-last-update');
-          const lastText = lastUpdateEl ? lastUpdateEl.textContent : 'Al día';
-          updateCapsuleStatus('synced', lastText);
+          updateCapsuleStatus('synced');
         }
       } else {
         updateCapsuleStatus('error');
@@ -611,7 +755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Control de paginación
 function changePage(viewName, newPage) {
   paginationState[viewName].page = newPage;
-  if (viewName === 'solicitudes' || viewName === 'publicadas') {
+  if (viewName === 'solicitudes' || viewName === 'publicadas' || viewName === 'viajes') {
     updateListView(viewName);
   } else {
     renderView();
@@ -619,28 +763,35 @@ function changePage(viewName, newPage) {
 }
 
 // Control de sub-pestañas de publicadas (Historial / Pendientes)
-function changePublicadasSubTab(subTabName) {
-  paginationState.publicadas.subTab = subTabName;
-  paginationState.publicadas.page = 1;
-  // Limpiar filtros al cambiar de sub-pestaña para evitar incongruencias
-  paginationState.publicadas.filters = {
-    folio: '',
-    nombre: '',
-    cargo: '',
-    sujetoActivoRepresentado: '',
-    estado: '',
-    relacionSujetoActivo: '',
-    relacionRut: '',
-    relacionRepresentado: ''
-  };
-  updateListView('publicadas');
+function changeAudienciasSubTab(subTabName) {
+  window.activeAudienciasSubTab = subTabName;
+  if (subTabName === 'solicitudes') {
+    paginationState.solicitudes.page = 1;
+    updateListView('solicitudes');
+  } else {
+    paginationState.publicadas.subTab = subTabName;
+    paginationState.publicadas.page = 1;
+    paginationState.publicadas.filters = {
+      folio: '',
+      nombre: '',
+      cargo: '',
+      sujetoActivoRepresentado: '',
+      estado: '',
+      relacionSujetoActivo: '',
+      relacionRut: '',
+      relacionRepresentado: '',
+      vigencia: paginationState.publicadas.filters?.vigencia || 'todos'
+    };
+    updateListView('publicadas');
+  }
 }
+window.changeAudienciasSubTab = changeAudienciasSubTab;
 
 // Nota: debounce fue movido a helpers.js para estar disponible antes en la carga de scripts
 
 // Renderizados diferidos por debounce para mantener el foco en la posición correcta del cursor
 const debouncedSearchRender = debounce((viewName, text, inputId) => {
-  if (viewName === 'solicitudes' || viewName === 'publicadas') {
+  if (viewName === 'solicitudes' || viewName === 'publicadas' || viewName === 'audiencias' || viewName === 'viajes' || viewName === 'donativos') {
     updateListView(viewName, inputId);
   } else {
     window.activeInputId = inputId;
@@ -656,7 +807,7 @@ const debouncedSearchRender = debounce((viewName, text, inputId) => {
 }, 250);
 
 const debouncedFilterRender = debounce((viewName, inputId) => {
-  if (viewName === 'solicitudes' || viewName === 'publicadas') {
+  if (viewName === 'solicitudes' || viewName === 'publicadas' || viewName === 'audiencias' || viewName === 'viajes' || viewName === 'donativos') {
     updateListView(viewName, inputId);
   } else {
     window.activeInputId = inputId;
@@ -678,44 +829,98 @@ function handleSearch(viewName, text) {
   paginationState[viewName].search = text;
   paginationState[viewName].page = 1;
   
-  const inputId = viewName === 'sujetos_pasivos' ? 'search-sujetos' : `search-${viewName}`;
+  const inputId = viewName === 'sujetos_pasivos' ? 'search-sujetos' : (viewName === 'viajes' ? 'search-viajes' : `search-${viewName}`);
   debouncedSearchRender(viewName, text, inputId);
 }
 
 // Filtros múltiples interconectados
 function handleMultiFilter(viewName, fieldName, value) {
-  paginationState[viewName].filters[fieldName] = value;
-  paginationState[viewName].page = 1;
+  let targetView = viewName;
+  if (viewName === 'audiencias') {
+    const subTab = window.activeAudienciasSubTab || 'solicitudes';
+    targetView = (subTab === 'solicitudes') ? 'solicitudes' : 'publicadas';
+  }
+  if (!paginationState[targetView]) return;
+
+  paginationState[targetView].filters[fieldName] = value;
+  paginationState[targetView].page = 1;
   
   const inputId = `filter-${viewName}-${fieldName}`;
   const input = document.getElementById(inputId);
   
   if (input && input.tagName === 'SELECT') {
-    if (viewName === 'solicitudes' || viewName === 'publicadas') {
-      updateListView(viewName, inputId);
+    if (targetView === 'solicitudes' || targetView === 'publicadas' || targetView === 'viajes') {
+      updateListView(targetView, inputId);
     } else {
       renderView();
     }
   } else {
-    debouncedFilterRender(viewName, inputId);
+    debouncedFilterRender(targetView, inputId);
   }
 }
 
 // Limpiar filtros
 function clearFilters(viewName) {
-  paginationState[viewName].filters = {
-    folio: '',
-    nombre: '',
-    cargo: '',
-    sujetoActivoRepresentado: '',
-    estado: '',
-    relacionSujetoActivo: '',
-    relacionRut: '',
-    relacionRepresentado: '',
-    vigencia: 'todos'
-  };
-  paginationState[viewName].page = 1;
-  if (viewName === 'solicitudes' || viewName === 'publicadas') {
+  if (viewName === 'viajes') {
+    paginationState.viajes.filters = {
+      search: '',
+      nombre: '',
+      sujetoPasivo: '',
+      cargo: '',
+      destino: '',
+      financiador: '',
+      anio: '',
+      fechaInicio: '',
+      fechaTermino: '',
+      vigencia: 'todos'
+    };
+    paginationState.viajes.page = 1;
+    updateListView('viajes');
+    return;
+  }
+  if (viewName === 'donativos') {
+    paginationState.donativos.filters = {
+      search: '',
+      nombre: '',
+      sujetoPasivo: '',
+      cargo: '',
+      procedencia: '',
+      tipo: '',
+      ocasion: '',
+      anio: '',
+      fechaInicio: '',
+      fechaTermino: '',
+      vigencia: 'todos'
+    };
+    paginationState.donativos.page = 1;
+    updateListView('donativos');
+    return;
+  }
+  if (viewName === 'audiencias') {
+    const subTab = window.activeAudienciasSubTab || 'solicitudes';
+    clearFilters(subTab === 'solicitudes' ? 'solicitudes' : 'publicadas');
+    return;
+  }
+  if (paginationState[viewName]) {
+    paginationState[viewName].filters = {
+      folio: '',
+      nombre: '',
+      cargo: '',
+      sujetoActivoRepresentado: '',
+      estado: '',
+      relacionSujetoActivo: '',
+      relacionRut: '',
+      relacionRepresentado: '',
+      vigencia: 'todos',
+      fechaInicio: '',
+      fechaTermino: ''
+    };
+    paginationState[viewName].page = 1;
+  }
+  if (typeof syncAllLinkedDatepickers === 'function') {
+    syncAllLinkedDatepickers();
+  }
+  if (viewName === 'solicitudes' || viewName === 'publicadas' || viewName === 'audiencias') {
     updateListView(viewName);
   } else {
     renderView();
@@ -753,6 +958,20 @@ window.clearRelacionFilter = clearRelacionFilter;
 
 
 
+
+// Descartar notificación Toast con animación de salida suave
+function dismissToast(element) {
+  if (!element) return;
+  const t = element.closest('.toast-notification-item, [data-toast-item]') || element;
+  if (t) {
+    t.classList.remove('toast-animate-in');
+    t.classList.add('toast-animate-out');
+    setTimeout(() => {
+      if (t.parentNode) t.parentNode.removeChild(t);
+    }, 190);
+  }
+}
+window.dismissToast = dismissToast;
 
 // Mostrar notificaciones Toast
 function showToast(message, type = 'success', options = {}) {
@@ -792,17 +1011,21 @@ ${message}
 
   const persistent = options.persistent !== undefined ? options.persistent : isError;
 
-  toast.className = `flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm toast-animate-in glass-card border ${
-    type === 'success' ? 'border-emerald-500/30 text-emerald-300' : 'border-rose-500/30 text-rose-300'
-  }`;
+  const borderTextClass = type === 'success' 
+    ? 'border-emerald-500/30 text-emerald-300' 
+    : (type === 'warning' ? 'border-amber-500/30 text-amber-300' : 'border-rose-500/30 text-rose-300');
+
+  toast.className = `toast-notification-item flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm toast-animate-in glass-card border ${borderTextClass}`;
+  toast.setAttribute('data-toast-item', 'true');
   toast.style.position = 'relative';
   toast.style.overflow = 'hidden';
   
-  const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+  const icon = type === 'success' ? 'check-circle' : (type === 'warning' ? 'alert-triangle' : 'alert-circle');
+  const iconColor = type === 'success' ? 'text-emerald-400' : (type === 'warning' ? 'text-amber-400' : 'text-rose-400');
   
   let htmlContent = `
     <div class="flex items-center gap-3 pr-2">
-      <i data-lucide="${icon}" class="h-5 w-5 shrink-0 ${type === 'success' ? 'text-emerald-400' : 'text-rose-400'}"></i>
+      <i data-lucide="${icon}" class="h-5 w-5 shrink-0 ${iconColor}"></i>
       <span class="break-words text-left font-medium">${displayMessage}</span>
     </div>
     <div class="flex items-center gap-2 shrink-0">
@@ -820,8 +1043,9 @@ ${message}
 
   if (persistent) {
     htmlContent += `
-      <button onclick="const t = this.closest('.toast-animate-in, div'); t.classList.remove('toast-animate-in'); t.classList.add('toast-animate-out'); setTimeout(() => t.remove(), 190);" 
-              class="text-text-tertiary hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center">
+      <button onclick="dismissToast(this)" 
+              class="text-text-tertiary hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center"
+              title="Cerrar notificación">
         <i data-lucide="x" class="h-4 w-4"></i>
       </button>
     `;
@@ -830,9 +1054,10 @@ ${message}
   htmlContent += `</div>`;
 
   if (!persistent) {
+    const progressBarColor = type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#f43f5e');
     htmlContent += `
       <div style="position: absolute; bottom: 0; left: 0; right: 0; width: 100%; height: 3px; overflow: hidden; pointer-events: none;">
-        <div class="toast-progress-bar" style="height: 100%; background-color: ${type === 'success' ? '#10b981' : '#f43f5e'};"></div>
+        <div class="toast-progress-bar" style="height: 100%; background-color: ${progressBarColor};"></div>
       </div>
     `;
   }
@@ -844,11 +1069,7 @@ ${message}
   // Eliminación automática con salida animada suave
   if (!persistent) {
     setTimeout(() => {
-      if (toast.parentNode) {
-        toast.classList.remove('toast-animate-in');
-        toast.classList.add('toast-animate-out');
-        setTimeout(() => toast.remove(), 190);
-      }
+      dismissToast(toast);
     }, 3800);
   }
 }
@@ -879,6 +1100,16 @@ async function switchView(viewName) {
     }
   }
 
+  if (viewName === 'solicitudes') {
+    viewName = 'audiencias';
+    window.activeAudienciasSubTab = 'solicitudes';
+  } else if (viewName === 'publicadas') {
+    viewName = 'audiencias';
+    window.activeAudienciasSubTab = 'publicadas';
+  } else if (viewName === 'audiencias' && !window.activeAudienciasSubTab) {
+    window.activeAudienciasSubTab = 'solicitudes';
+  }
+
   currentView = viewName;
   localStorage.setItem('lobby_current_view', viewName);
 
@@ -903,7 +1134,7 @@ async function switchView(viewName) {
   }
   
   // Actualizar estilos de la Navegación Superior (píldoras del menú central)
-  const navButtons = ['dashboard', 'solicitudes', 'publicadas', 'agenda'];
+  const navButtons = ['dashboard', 'audiencias', 'agenda', 'viajes', 'donativos'];
   navButtons.forEach(btn => {
     const el = document.getElementById(`nav-${btn}`);
     if (el) {
@@ -961,7 +1192,7 @@ async function switchView(viewName) {
       dataStore.dashboardRawData = dataStore.reportesRawData;
       buildDashboardDropdownCache();
     } else {
-      if (viewName === 'solicitudes' || viewName === 'publicadas') {
+      if (viewName === 'solicitudes' || viewName === 'publicadas' || viewName === 'audiencias' || viewName === 'viajes' || viewName === 'donativos') {
         if (!dataStore.dashboardRawData || dataStore.dashboardRawData.length === 0) {
           await fetchDashboardData(signal);
         }
@@ -992,7 +1223,7 @@ async function switchView(viewName) {
           console.error(e);
         }
       }
-      if (viewName === 'solicitudes' || viewName === 'publicadas') {
+      if (viewName === 'solicitudes' || viewName === 'publicadas' || viewName === 'audiencias') {
         buildDashboardDropdownCache();
       }
     }
@@ -1096,6 +1327,16 @@ async function fetchData(viewName, signal) {
 async function fetchPaginatedList(viewName, signal) {
   const pageLimit = 10;
   
+  if (viewName === 'audiencias') {
+    const subTab = window.activeAudienciasSubTab || 'solicitudes';
+    if (subTab === 'solicitudes') {
+      return await fetchPaginatedList('solicitudes', signal);
+    } else {
+      paginationState.publicadas.subTab = (subTab === 'pendientes') ? 'pendientes' : 'historial';
+      return await fetchPaginatedList('publicadas', signal);
+    }
+  }
+
   if (viewName === 'solicitudes') {
     const state = paginationState.solicitudes;
     const params = new URLSearchParams({
@@ -1143,6 +1384,61 @@ async function fetchPaginatedList(viewName, signal) {
       if (!res.ok) throw new Error();
       dataStore.solicitudesPendientesPublicacion = await res.json();
     }
+  } else if (viewName === 'viajes') {
+    const state = paginationState.viajes;
+    const params = new URLSearchParams({
+      page: state.page,
+      limit: pageLimit,
+      search: state.filters.search || '',
+      nombre: state.filters.nombre || state.filters.sujetoPasivo || '',
+      sujetoPasivo: state.filters.sujetoPasivo || state.filters.nombre || '',
+      cargo: state.filters.cargo || '',
+      destino: state.filters.destino || '',
+      financiador: state.filters.financiador || '',
+      anio: state.filters.anio || '',
+      fechaInicio: state.filters.fechaInicio || '',
+      fechaTermino: state.filters.fechaTermino || '',
+      vigencia: state.filters.vigencia || 'todos'
+    });
+
+    const [resViajes, resStats] = await Promise.all([
+      fetch(`/api/viajes?${params.toString()}`, { signal }),
+      fetch('/api/viajes/stats', { signal })
+    ]);
+
+    if (!resViajes.ok) throw new Error();
+    dataStore.viajes = await resViajes.json();
+    if (resStats.ok) {
+      dataStore.viajesStats = await resStats.json();
+    }
+  } else if (viewName === 'donativos') {
+    const state = paginationState.donativos;
+    const params = new URLSearchParams({
+      page: state.page,
+      limit: pageLimit,
+      search: state.filters.search || '',
+      nombre: state.filters.nombre || state.filters.sujetoPasivo || '',
+      sujetoPasivo: state.filters.sujetoPasivo || state.filters.nombre || '',
+      cargo: state.filters.cargo || '',
+      procedencia: state.filters.procedencia || '',
+      tipo: state.filters.tipo || '',
+      ocasion: state.filters.ocasion || '',
+      anio: state.filters.anio || '',
+      fechaInicio: state.filters.fechaInicio || '',
+      fechaTermino: state.filters.fechaTermino || '',
+      vigencia: state.filters.vigencia || 'todos'
+    });
+
+    const [resDonativos, resStats] = await Promise.all([
+      fetch(`/api/donativos?${params.toString()}`, { signal }),
+      fetch('/api/donativos/stats', { signal })
+    ]);
+
+    if (!resDonativos.ok) throw new Error();
+    dataStore.donativos = await resDonativos.json();
+    if (resStats.ok) {
+      dataStore.donativosStats = await resStats.json();
+    }
   }
 }
 
@@ -1176,7 +1472,7 @@ async function updateListView(viewName, activeInputId = null) {
 
 // Helper para disparar re-renderizado o llamada paginada según corresponda
 function triggerRenderOrFetch() {
-  if (currentView === 'solicitudes' || currentView === 'publicadas') {
+  if (currentView === 'solicitudes' || currentView === 'publicadas' || currentView === 'viajes' || currentView === 'donativos' || currentView === 'audiencias') {
     updateListView(currentView);
   } else {
     renderView();
@@ -1322,6 +1618,21 @@ function getActiveFiltersAndPrefix() {
   } else if (currentView === 'publicadas') {
     idPrefix = 'publicadas-filter-';
     filters = paginationState.publicadas.filters;
+  } else if (currentView === 'viajes') {
+    idPrefix = 'viajes-filter-';
+    filters = paginationState.viajes.filters;
+  } else if (currentView === 'donativos') {
+    idPrefix = 'donativos-filter-';
+    filters = paginationState.donativos.filters;
+  } else if (currentView === 'audiencias') {
+    const subTab = window.activeAudienciasSubTab || 'solicitudes';
+    if (subTab === 'solicitudes') {
+      idPrefix = 'solicitudes-filter-';
+      filters = paginationState.solicitudes.filters;
+    } else {
+      idPrefix = 'publicadas-filter-';
+      filters = paginationState.publicadas.filters;
+    }
   } else if (currentView === 'sujetos_pasivos' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'sujetos')) {
     idPrefix = 'search-';
     filters = paginationState.sujetos_pasivos;
@@ -1333,6 +1644,22 @@ function getActiveFiltersAndPrefix() {
 function getLookupDataset() {
   if (currentView === 'publicadas') {
     return Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+  }
+  if (currentView === 'audiencias') {
+    const subTab = window.activeAudienciasSubTab || 'solicitudes';
+    if (subTab === 'solicitudes') {
+      return (dataStore.dashboardRawData && dataStore.dashboardRawData.length)
+        ? dataStore.dashboardRawData
+        : (Array.isArray(dataStore.solicitudes) ? dataStore.solicitudes : (dataStore.solicitudes?.data || []));
+    } else {
+      return Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
+    }
+  }
+  if (currentView === 'viajes') {
+    return Array.isArray(dataStore.viajes) ? dataStore.viajes : (dataStore.viajes?.data || []);
+  }
+  if (currentView === 'donativos') {
+    return Array.isArray(dataStore.donativos) ? dataStore.donativos : (dataStore.donativos?.data || []);
   }
   if (currentView === 'solicitudes') {
     return (dataStore.dashboardRawData && dataStore.dashboardRawData.length)
@@ -1651,8 +1978,8 @@ function hideDashboardSuggestions(fieldName) {
             syncSearchInputBadge(input, matchedItem);
           }
           triggerRenderOrFetch();
-        } else if (isReportes || currentView === 'solicitudes' || currentView === 'publicadas') {
-          // En solicitudes, publicadas y reportes se permite búsqueda libre
+        } else if (isReportes || currentView === 'solicitudes' || currentView === 'publicadas' || currentView === 'audiencias' || fieldName === 'sujetoActivoRepresentado') {
+          // En solicitudes, publicadas, audiencias, reportes y búsqueda de sujeto activo/representado se permite búsqueda libre
           filters[fieldName] = val;
           input.value = val;
           if (fieldName === 'nombre') {
@@ -1669,12 +1996,12 @@ function hideDashboardSuggestions(fieldName) {
           }
           triggerRenderOrFetch();
         } else {
-          // Si no existe y no estamos en reportes, rechazar la entrada y volver al valor anterior
+          // Si no existe y estamos en vista restrictiva (dashboard), rechazar la entrada y volver al valor anterior
           input.value = filters[fieldName] || '';
           if (typeof syncSearchInputBadge === 'function') {
             syncSearchInputBadge(input, filters[fieldName] || '');
           }
-          showToast(`El ${fieldName === 'nombre' ? 'nombre' : (fieldName === 'cargo' ? 'cargo' : (fieldName === 'sujetoActivoRepresentado' ? 'sujeto activo/representado' : 'año'))} ingresado no existe en el sistema.`, 'error');
+          showToast(`El ${fieldName === 'nombre' ? 'nombre' : (fieldName === 'cargo' ? 'cargo' : (fieldName === 'sujetoActivoRepresentado' ? 'sujeto activo/representado' : 'año'))} ingresado no existe en el catálogo.`, 'warning');
           triggerRenderOrFetch();
         }
       }
@@ -1698,7 +2025,7 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
         
         // Si estamos en vistas con bloqueo reactivo, forzar bloqueo de cargo en DOM
         const cargoInput = document.getElementById(currentView === 'dashboard' ? 'dashboard-filter-cargo' : `${idPrefix}cargo`);
-        if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas')) {
+        if (cargoInput && (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes') || currentView === 'solicitudes' || currentView === 'publicadas' || currentView === 'viajes')) {
           cargoInput.disabled = true;
           cargoInput.placeholder = 'Seleccione nombre primero...';
           cargoInput.classList.add('glass-input-disabled', 'cursor-not-allowed');
@@ -1713,9 +2040,9 @@ function handleDashboardInputWithSuggestions(event, fieldName) {
       }
     }
   } else {
-    // Si no está vacío y estamos en tablas (reportes, solicitudes, publicadas), filtrar en tiempo real (debounced)
+    // Si no está vacío y estamos en tablas (reportes, solicitudes, publicadas, viajes), filtrar en tiempo real (debounced)
     const isReportesView = (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'));
-    if (isReportesView || currentView === 'solicitudes' || currentView === 'publicadas') {
+    if (isReportesView || currentView === 'solicitudes' || currentView === 'publicadas' || currentView === 'viajes') {
       filters[fieldName] = value;
       if (fieldName === 'nombre') {
         filters.cargo = '';
@@ -1791,14 +2118,23 @@ function handleDashboardInputKeydown(event, fieldName) {
         if (val === '') {
           selectDashboardSuggestion(fieldName, '');
         } else {
-          const isWildcardAllowed = ((currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes')) && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
+          const isReportes = (currentView === 'reportes' || (currentView === 'administracion' && typeof activeAdminTab !== 'undefined' && activeAdminTab === 'reportes'));
+          const isFreeSearchAllowed = (isReportes || currentView === 'solicitudes' || currentView === 'publicadas' || currentView === 'audiencias' || fieldName === 'sujetoActivoRepresentado');
+          const isWildcardAllowed = (isReportes && (fieldName === 'nombre' || fieldName === 'cargo') && val.toLowerCase() === 'todos');
           const matchedItem = isWildcardAllowed ? 'Todos' : list.find(item => item.toLowerCase() === val.toLowerCase());
           if (matchedItem) {
             selectDashboardSuggestion(fieldName, matchedItem);
+          } else if (isFreeSearchAllowed) {
+            // En solicitudes, publicadas, audiencias, reportes y búsqueda de sujeto activo/representado se permite búsqueda libre
+            if (suggestionsDiv) {
+              suggestionsDiv.classList.add('hidden');
+            }
+            activeSuggestionIndex = -1;
+            selectDashboardSuggestion(fieldName, val);
           } else {
-            // Si no existe, rechazar y revertir al filtro actual
+            // Si no existe y estamos en vista restrictiva (dashboard), rechazar y revertir al filtro actual
             input.value = filters[fieldName] || '';
-            showToast(`El ${fieldName === 'nombre' ? 'nombre' : (fieldName === 'cargo' ? 'cargo' : (fieldName === 'sujetoActivoRepresentado' ? 'sujeto activo/representado' : 'año'))} ingresado no existe en el sistema.`, 'error');
+            showToast(`El ${fieldName === 'nombre' ? 'nombre' : (fieldName === 'cargo' ? 'cargo' : (fieldName === 'sujetoActivoRepresentado' ? 'sujeto activo/representado' : 'año'))} ingresado no existe en el catálogo.`, 'warning');
             if (suggestionsDiv) {
               suggestionsDiv.classList.add('hidden');
             }
@@ -1875,6 +2211,18 @@ window.changePublicadasVigencia = function(val) {
   paginationState.publicadas.filters.vigencia = val;
   paginationState.publicadas.page = 1;
   updateListView('publicadas');
+};
+
+window.changeViajesVigencia = function(val) {
+  paginationState.viajes.filters.vigencia = val;
+  paginationState.viajes.page = 1;
+  updateListView('viajes');
+};
+
+window.changeDonativosVigencia = function(val) {
+  paginationState.donativos.filters.vigencia = val;
+  paginationState.donativos.page = 1;
+  updateListView('donativos');
 };
 
 window.changeCalendarVigencia = function(val) {
@@ -2018,8 +2366,17 @@ function renderView(forceAnimateCards = false) {
     case 'publicadas':
       renderPublicadas(main);
       break;
+    case 'audiencias':
+      renderAudiencias(main);
+      break;
     case 'agenda':
       renderAgenda(main);
+      break;
+    case 'viajes':
+      renderViajes(main);
+      break;
+    case 'donativos':
+      renderDonativos(main);
       break;
     case 'sujetos_pasivos':
       renderSujetosPasivos(main);
@@ -2510,17 +2867,17 @@ function openUsuarioModal(id = null) {
       <form id="usuario-form" onsubmit="saveUsuario(event, ${id})" class="space-y-4">
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">Nombre Completo</label>
-          <input type="text" id="user-nombre" value="${user.nombre}" required class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
+          <input type="text" id="user-nombre" value="${escapeHtml(user.nombre || '')}" required class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
         </div>
 
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">RUT</label>
-          <input type="text" id="user-rut" value="${user.rut || ''}" placeholder="12.345.678-9" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
+          <input type="text" id="user-rut" value="${escapeHtml(user.rut || '')}" placeholder="12.345.678-9" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary">
         </div>
 
         <div class="space-y-1">
           <label class="text-[10px] font-bold text-body-muted uppercase">Correo Electrónico</label>
-          <input type="email" id="user-correo" value="${user.correo}" required placeholder="ejemplo@correo.com" ${isEdit ? 'readonly class="w-full px-3 py-2 rounded-xl text-xs glass-input glass-input-disabled cursor-not-allowed"' : 'class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary"'}>
+          <input type="email" id="user-correo" value="${escapeHtml(user.correo || '')}" required placeholder="ejemplo@correo.com" ${isEdit ? 'readonly class="w-full px-3 py-2 rounded-xl text-xs glass-input glass-input-disabled cursor-not-allowed"' : 'class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary"'}>
         </div>
 
         <div class="space-y-1">
@@ -2641,7 +2998,7 @@ function openProfileModal() {
   modal.innerHTML = `
     <div class="glass-card w-full max-w-md p-6 rounded-2xl space-y-6 shadow-2xl relative animate-fade-in">
       <div class="absolute -top-10 -left-10 w-24 h-24 bg-brand-600/10 rounded-full blur-2xl pointer-events-none"></div>
-      <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="absolute -bottom-10 -right-10 w-24 h-24 bg-brand-500/5 rounded-full blur-2xl pointer-events-none"></div>
 
       <div>
         <h3 class="text-lg font-bold text-heading">Mi Perfil</h3>
@@ -2902,6 +3259,14 @@ document.addEventListener('change', (e) => {
       else if (fieldName === 'fechaHasta') paginationState.sujetos_pasivos.fechaHasta = value;
       paginationState.sujetos_pasivos.page = 1;
       if (isComplete) renderView();
+    } else if (currentView === 'audiencias' || currentView === 'solicitudes' || currentView === 'publicadas') {
+      const subTab = window.activeAudienciasSubTab || 'solicitudes';
+      const targetView = (subTab === 'solicitudes') ? 'solicitudes' : 'publicadas';
+      if (paginationState[targetView] && paginationState[targetView].filters) {
+        paginationState[targetView].filters[fieldName] = value;
+        paginationState[targetView].page = 1;
+        if (isComplete) updateListView(targetView);
+      }
     }
   } else if (target.classList.contains('report-estado-checkbox')) {
     updateReporteEstadoPillStyle(target);
@@ -3947,8 +4312,17 @@ function triggerImport() {
             showToast('La importación finalizó pero no devolvió el formato esperado.', 'error');
           }
         } else {
-          const err = await res.json();
-          showToast(err.error || 'Error al procesar la importación en el servidor.', 'error');
+          let errorText = 'Error al procesar la importación en el servidor.';
+          try {
+            const err = await res.json();
+            if (err && err.error) errorText = err.error;
+          } catch (_) {
+            try {
+              const text = await res.text();
+              if (text) errorText = text;
+            } catch (__) {}
+          }
+          showToast(errorText, 'error');
         }
       } catch (err) {
         console.error('Error gatillando importación:', err);
@@ -4224,10 +4598,10 @@ function openSyncSummaryModal(statsObj, dateStr) {
   window._activeSyncStats = statsObj;
   window._activeSyncDateStr = dateStr;
 
-  const inserts = (statsObj.sh?.inserts || 0) + (statsObj.ph?.inserts || 0) + (statsObj.sph?.inserts || 0);
-  const updates = (statsObj.sh?.updates || 0) + (statsObj.ph?.updates || 0) + (statsObj.sph?.updates || 0);
-  const deletes = (statsObj.sh?.deletes || 0) + (statsObj.ph?.deletes || 0) + (statsObj.sph?.deletes || 0);
-  const skipped = (statsObj.sh?.skipped || 0) + (statsObj.ph?.skipped || 0) + (statsObj.sph?.skipped || 0);
+  const inserts = (statsObj.sh?.inserts || 0) + (statsObj.ph?.inserts || 0) + (statsObj.sph?.inserts || 0) + (statsObj.vh?.inserts || 0) + (statsObj.dh?.inserts || 0);
+  const updates = (statsObj.sh?.updates || 0) + (statsObj.ph?.updates || 0) + (statsObj.sph?.updates || 0) + (statsObj.vh?.updates || 0) + (statsObj.dh?.updates || 0);
+  const deletes = (statsObj.sh?.deletes || 0) + (statsObj.ph?.deletes || 0) + (statsObj.sph?.deletes || 0) + (statsObj.vh?.deletes || 0) + (statsObj.dh?.deletes || 0);
+  const skipped = (statsObj.sh?.skipped || 0) + (statsObj.ph?.skipped || 0) + (statsObj.sph?.skipped || 0) + (statsObj.vh?.skipped || 0) + (statsObj.dh?.skipped || 0);
   const totalChanges = inserts + updates + deletes;
 
   let spStatusHtml = '';
@@ -4357,6 +4731,34 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
       else if (d.type === 'delete') deletes.push({ ...d, section: 'Sujeto Pasivo (SPH)' });
     });
   }
+  if (statsObj.vh && statsObj.vh.details) {
+    statsObj.vh.details.forEach(d => {
+      const travelInfo = {
+        ...d,
+        section: 'Viaje (VH)',
+        pasivo: d.sujeto || d.pasivo,
+        folio: d.destino ? `Destino: ${d.destino}` : `ID: ${d.id}`,
+        cargo: d.cargo || ''
+      };
+      if (d.type === 'insert') inserts.push(travelInfo);
+      else if (d.type === 'update') updates.push(travelInfo);
+      else if (d.type === 'delete') deletes.push(travelInfo);
+    });
+  }
+  if (statsObj.dh && statsObj.dh.details) {
+    statsObj.dh.details.forEach(d => {
+      const donativoInfo = {
+        ...d,
+        section: 'Donativo (DH)',
+        pasivo: d.sujeto || d.pasivo || d.sujetoPasivo,
+        folio: d.descripcion ? (d.descripcion.length > 30 ? d.descripcion.substring(0, 30) + '...' : d.descripcion) : `ID: ${d.id}`,
+        cargo: d.cargo || ''
+      };
+      if (d.type === 'insert') inserts.push(donativoInfo);
+      else if (d.type === 'update') updates.push(donativoInfo);
+      else if (d.type === 'delete') deletes.push(donativoInfo);
+    });
+  }
 
   // Selección inteligente de pestaña inicial
   let defaultTab = 'agregados';
@@ -4377,7 +4779,7 @@ function openSyncDetailsModal(statsObj, dateStr, showBackBtn = false) {
           <div class="sync-item-card bg-bg-main border border-border-ui rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all" data-search="${(item.folio || '') + ' ' + (item.pasivo || '') + ' ' + (item.nombre || '') + ' ' + (item.activo || '')}">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">${item.section}</span>
+                <span class="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20">${item.section}</span>
                 <span class="font-mono font-bold text-xs text-text-primary">${item.folio || item.nombre || `ID: ${item.id}`}</span>
               </div>
               <p class="text-[11px] text-text-tertiary leading-snug">
@@ -4724,7 +5126,7 @@ function handleExcelFileSelected(event) {
     // Activar botón de sincronización
     if (btn) {
       btn.disabled = false;
-      btn.className = 'flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer';
+      btn.className = 'flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold transition-all hover:shadow-lg hover:shadow-brand-500/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer';
     }
   };
   
@@ -4735,6 +5137,16 @@ function handleExcelFileSelected(event) {
   
   reader.readAsDataURL(file);
 }
+
+function clearSelectedExcelFile(event) {
+  if (event) event.stopPropagation();
+  const input = document.getElementById('import-excel-file');
+  if (input) {
+    input.value = '';
+    handleExcelFileSelected({ target: input });
+  }
+}
+window.clearSelectedExcelFile = clearSelectedExcelFile;
 
 // ============================================================================
 // ============================================================================
@@ -4773,14 +5185,14 @@ async function openAuditoriaModal(id = null) {
 
         <div class="grid grid-cols-2 gap-4">
           ${[
-            { key: 'total', label: 'Total Solicitudes', isTotal: true },
-            { key: 'ingresada', label: 'Ingresada' },
-            { key: 'aceptada', label: 'Aceptada' },
-            { key: 'rechazada', label: 'Rechazada' },
-            { key: 'suspendida', label: 'Suspendida' },
-            { key: 'cancelada', label: 'Cancelada' },
-            { key: 'encomendada', label: 'Encomendada' },
-            { key: 'publicada', label: 'Publicada' }
+            { key: 'total', id: 'aud-total', label: 'Total Solicitudes', isTotal: true },
+            { key: 'ingresada', id: 'aud-ingresada', label: 'Ingresada' },
+            { key: 'aceptada', id: 'aud-aceptada', label: 'Aceptada' },
+            { key: 'rechazada', id: 'aud-rechazada', label: 'Rechazada' },
+            { key: 'suspendida', id: 'aud-suspendida', label: 'Suspendida' },
+            { key: 'cancelada', id: 'aud-cancelada', label: 'Cancelada' },
+            { key: 'encomendada', id: 'aud-encomendada', label: 'Encomendada' },
+            { key: 'publicada', id: 'aud-publicada', label: 'Publicada' }
           ].map(f => {
             const isTotal = f.key === 'total';
             const val = rec[f.key] !== undefined && rec[f.key] !== null ? rec[f.key] : '';
@@ -4790,7 +5202,7 @@ async function openAuditoriaModal(id = null) {
                   <label class="text-[10px] font-bold text-body-muted uppercase">${f.label}</label>
                   <span id="sys-val-${f.key}" class="text-[9px] text-text-tertiary font-semibold ${isEnProceso ? '' : 'hidden'}">Cargando...</span>
                 </div>
-                <input type="number" id="aud-${f.key}" value="${val !== '' ? val : ''}" required min="0" oninput="validateAuditForm(); compareFieldDiscrepancy('${f.key}')" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary ${isTotal ? 'font-bold border-brand-500/30' : ''}">
+                <input type="number" id="${f.id}" value="${val !== '' ? val : ''}" required min="0" oninput="validateAuditForm(); compareFieldDiscrepancy('${f.key}')" class="w-full px-3 py-2 rounded-xl text-xs glass-input text-text-secondary placeholder:text-text-tertiary ${isTotal ? 'font-bold border-brand-500/30' : ''}">
                 <div id="discrepancy-info-${f.key}" class="text-[9px] font-bold hidden mt-0.5"></div>
               </div>
             `;
@@ -5786,7 +6198,7 @@ function goToAlertItem(type, folio) {
     updateListView('solicitudes');
     
     setTimeout(() => {
-      const input = document.getElementById('filter-solicitud-folio');
+      const input = document.getElementById('filter-solicitudes-folio');
       if (input) input.value = folio;
     }, 100);
   } else if (type === 'publicacion') {
@@ -6245,9 +6657,11 @@ window.asistenciaPaginationState = {
 let asistenciaFilterTimeout = null;
 let contactosFilterTimeout = null;
 
-// Abrir la consola auxiliar flotante
+// Abrir o alternar el panel flotante docked de asistencia
 async function openAssistanceConsole() {
-  if (window.api && window.api.openAssistanceWindow) {
+  if (typeof window.openAssistanceDock === 'function') {
+    window.openAssistanceDock();
+  } else if (window.api && window.api.openAssistanceWindow) {
     await window.api.openAssistanceWindow();
   }
 }
@@ -6257,7 +6671,11 @@ window.openAssistanceConsole = openAssistanceConsole;
 window.addEventListener('keydown', (e) => {
   if (e.key === 'F9' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a'))) {
     e.preventDefault();
-    openAssistanceConsole();
+    if (typeof window.toggleAssistanceDock === 'function') {
+      window.toggleAssistanceDock();
+    } else {
+      openAssistanceConsole();
+    }
   }
 });
 
@@ -6806,7 +7224,7 @@ async function loadAsistenciasData() {
 
       tbody.innerHTML = rows.map(r => {
         const canalBadges = {
-          'telefono': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"><i data-lucide="phone" class="h-2.5 w-2.5"></i> Teléfono</span>',
+          'telefono': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20"><i data-lucide="phone" class="h-2.5 w-2.5"></i> Teléfono</span>',
           'correo': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"><i data-lucide="mail" class="h-2.5 w-2.5"></i> Correo</span>',
           'presencial': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"><i data-lucide="users" class="h-2.5 w-2.5"></i> Presencial</span>',
           'teams': '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20"><i data-lucide="message-square" class="h-2.5 w-2.5"></i> Teams</span>'
@@ -6872,7 +7290,7 @@ async function loadAsistenciasData() {
             <!-- 6. MOTIVO & ORIENTACIÓN (UNIFICADO) -->
             <td class="px-4 py-3 align-middle text-left min-w-[220px]">
               <p class="text-text-primary line-clamp-2 text-xs leading-relaxed" title="${r.motivo_consulta}">${r.motivo_consulta || '<span class="text-text-tertiary italic">Sin motivo especificado</span>'}</p>
-              ${r.solucion_orientacion ? `<p class="text-[10px] text-emerald-600 dark:text-emerald-400 line-clamp-1 mt-1 font-medium" title="${r.solucion_orientacion}">↳ ${r.solucion_orientacion}</p>` : ''}
+              ${r.solucion_orientacion ? `<p class="text-[10px] text-text-secondary dark:text-text-tertiary line-clamp-1 mt-1 font-medium" title="${r.solucion_orientacion}">↳ ${r.solucion_orientacion}</p>` : ''}
             </td>
 
             <!-- 7. ESTADO -->
@@ -7025,9 +7443,11 @@ function filtrarBitacoraPorContacto(nombre) {
 }
 window.filtrarBitacoraPorContacto = filtrarBitacoraPorContacto;
 
-// 4. Abrir Consola Flotante Independiente para Detalle y Edición
+// 4. Abrir Panel Flotante Docked para Detalle y Edición
 async function openModalDetalleAsistencia(id) {
-  if (window.api && window.api.openAssistanceWindow) {
+  if (typeof window.openAssistanceDock === 'function') {
+    window.openAssistanceDock(id);
+  } else if (window.api && window.api.openAssistanceWindow) {
     await window.api.openAssistanceWindow(id);
   }
 }
@@ -7248,7 +7668,7 @@ async function openModalMergeContactos() {
             </p>
 
             <div>
-              <label class="text-[10px] font-bold uppercase text-emerald-400 block mb-1">1. Selecciona el Contacto Principal (Destino que prevalece):</label>
+              <label class="text-[10px] font-bold uppercase text-brand-600 dark:text-brand-400 block mb-1">1. Selecciona el Contacto Principal (Destino que prevalece):</label>
               <select id="merge-target-id" class="w-full glass-input border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
                 ${contacts.map(c => `<option value="${c.id}">${c.nombre} (${c.direccion || c.depto_habitual || 'Sin Dirección'}) - ${c.total_asistencias} atenciones</option>`).join('')}
               </select>
@@ -7967,11 +8387,11 @@ async function openModalEditarCategoria(id) {
         <div class="p-4 space-y-3 text-xs">
           <div>
             <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Nombre de la Materia *</label>
-            <input type="text" id="modal-cat-nombre" value="${cat.nombre}" placeholder="Nombre de la materia" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
+            <input type="text" id="modal-cat-nombre" value="${escapeHtml(cat.nombre || '')}" placeholder="Nombre de la materia" class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 font-medium">
           </div>
           <div>
             <label class="text-[10px] font-bold uppercase text-text-tertiary block mb-1">Descripción / Alcance</label>
-            <textarea id="modal-cat-desc" rows="2" placeholder="Detalle o alcance de esta materia..." class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 resize-none">${cat.descripcion || ''}</textarea>
+            <textarea id="modal-cat-desc" rows="2" placeholder="Detalle o alcance de esta materia..." class="w-full bg-bg-card border border-border-ui rounded-lg p-2 text-text-primary focus:border-brand-500 resize-none">${escapeHtml(cat.descripcion || '')}</textarea>
           </div>
         </div>
 

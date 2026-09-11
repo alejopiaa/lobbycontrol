@@ -1,17 +1,45 @@
 {
   "totalIssues": 0,
-  "categories": {
-    "eventHandlers": [],
-    "undefinedFunctions": [],
-    "emptyClassTokens": [],
-    "apiConsumption": [],
-    "domIds": [],
-    "apiRoutes": [],
-    "dataActionDelegation": [],
-    "dataStoreLoading": [],
-    "functionSignatures": [],
-    "modals": [],
-    "exports": [],
-    "unusedFunctions": []
-  }
+  "totalErrors": 0,
+  "totalWarnings": 0,
+  "executionTimeMs": 3178,
+  "executedModules": [
+    {
+      "id": "ui",
+      "name": "Integridad DOM, Clases y Tokens de Diseño",
+      "durationMs": 651,
+      "status": "passed"
+    },
+    {
+      "id": "ipc",
+      "name": "IPC, APIs y Flujo de Datos",
+      "durationMs": 33,
+      "status": "passed"
+    },
+    {
+      "id": "ast",
+      "name": "Calidad de Código, AST y Diálogos",
+      "durationMs": 2409,
+      "status": "passed"
+    },
+    {
+      "id": "lifecycle",
+      "name": "Ciclo de Vida, Listeners y Autenticación",
+      "durationMs": 25,
+      "status": "passed"
+    },
+    {
+      "id": "security",
+      "name": "Seguridad y Vulnerabilidades (AppSec)",
+      "durationMs": 38,
+      "status": "passed"
+    },
+    {
+      "id": "hygiene",
+      "name": "Higiene de Código y Vestigios de IA",
+      "durationMs": 22,
+      "status": "passed"
+    }
+  ],
+  "categories": {}
 }

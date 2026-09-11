@@ -43,8 +43,8 @@ export const AdministracionView = {
       `;
     } else {
       tabsListHtml = `
-        <button type="button" data-tab="usuarios" class="${tabClass('usuarios')}"><i data-lucide="users" class="h-4 w-4"></i> Gestión de Usuarios</button>
         <button type="button" data-tab="sincronizacion" class="${tabClass('sincronizacion')}"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Sincronización</button>
+        <button type="button" data-tab="usuarios" class="${tabClass('usuarios')}"><i data-lucide="users" class="h-4 w-4"></i> Gestión de Usuarios</button>
         <button type="button" data-tab="database" class="${tabClass('database')}"><i data-lucide="database" class="h-4 w-4"></i> Base de Datos</button>
         <button type="button" data-tab="logs" class="${tabClass('logs')}"><i data-lucide="file-text" class="h-4 w-4"></i> Bitácora de Logs</button>
       `;
@@ -98,7 +98,7 @@ export const AdministracionView = {
     if (btnSistema) {
       btnSistema.onclick = () => {
         appStore.state.activeAdminScope = 'sistema';
-        this.currentTab = 'usuarios';
+        this.currentTab = 'sincronizacion';
         this.renderContainer(container);
         this.renderActiveTab(container);
       };

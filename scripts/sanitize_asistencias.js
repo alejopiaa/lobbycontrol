@@ -1,11 +1,11 @@
-const sqlite3 = require('c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\node_modules\\sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-const dbPath = 'c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\data\\asistencias.db';
-const backupPath = 'c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\data\\asistencias.db.bak_' + Date.now();
-const backupStatic = 'c:\\Users\\abarrazaj\\OneDrive - Ilustre Municipalidad de Maipú\\Documentos\\Antigravity\\Lobby\\data\\asistencias.db.bak';
+const dbPath = process.env.APP_DB_PATH || path.join(__dirname, '../data/app.db');
+const backupPath = `${dbPath}.bak_` + Date.now();
+const backupStatic = `${dbPath}.bak`;
 
 console.log('--- INICIO DE SANEAMIENTO DE ASISTENCIAS ---');
 console.log('Base de datos:', dbPath);

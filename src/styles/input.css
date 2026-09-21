@@ -8,10 +8,10 @@
   --accent-color: #6d28d9;       /* Violeta profundo foco */
   
   /* Fondo Principal y Encabezado */
-  --bg-main: #f8f7fc;           /* Misty Lavender pálido (muy fácil en los ojos) */
+  --bg-main: #f7f6fb;           /* Fondo cálido, limpio y diáfano Behance */
   --bg-header: #ffffff;         /* Blanco puro para paneles y tarjetas */
-  --bg-card: rgba(255, 255, 255, 0.9);
-  --border-ui: #e2e8f0;         /* Bordes lavanda suaves */
+  --bg-card: #ffffff;
+  --border-ui: rgba(226, 232, 240, 0.4); /* Bordes ultra suaves casi imperceptibles */
   --border-ui-focus: #7c3aed;
   
   /* Jerarquía de Texto */
@@ -20,11 +20,19 @@
   --text-tertiary: #64748b;     /* Lavanda desaturado */
   
   /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: color-mix(in srgb, var(--brand-color), transparent 92%);
-  --glass-shadow: 0 4px 12px -1px color-mix(in srgb, var(--brand-color), transparent 95%);
-  --glass-input-bg: rgba(255, 255, 255, 0.9);
-  --glass-input-border: color-mix(in srgb, var(--brand-color), transparent 85%);
+  --glass-bg: #ffffff;
+  --glass-border: rgba(226, 232, 240, 0.45);
+  --glass-shadow: 0 4px 20px -2px rgba(120, 110, 180, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  --glass-input-bg: #ffffff;
+  --glass-input-border: rgba(226, 232, 240, 0.6);
+
+  /* LMS Glassmorphism Tokens (Light-First) */
+  --canvas-bg: #f7f6fb;
+  --glass-frame-bg: #f7f6fb;
+  --glass-frame-border: rgba(255, 255, 255, 0.95);
+  --glass-card-bg: #ffffff;
+  --glass-card-border: rgba(226, 232, 240, 0.45);
+  --sidebar-bg: #ffffff;
 
   /* Scrollbar */
   --scrollbar-track: #f5f4fa;
@@ -134,6 +142,14 @@ html.dark {
   --glass-shadow: none;
   --glass-input-bg: rgba(20, 18, 33, 0.4);
   --glass-input-border: rgba(255, 255, 255, 0.15);
+
+  /* LMS Glassmorphism Tokens (Dark Mode) */
+  --canvas-bg: #07060b;
+  --glass-frame-bg: rgba(18, 16, 28, 0.78);
+  --glass-frame-border: rgba(255, 255, 255, 0.08);
+  --glass-card-bg: rgba(20, 18, 33, 0.85);
+  --glass-card-border: rgba(255, 255, 255, 0.08);
+  --sidebar-bg: rgba(14, 12, 22, 0.6);
 
   /* Scrollbar */
   --scrollbar-track: #0c0817;
@@ -246,6 +262,14 @@ html.dark {
   --color-cal-past-bg: var(--cal-past-bg);
   --color-cal-past-text: var(--cal-past-text);
   
+  /* LMS Glassmorphism Tokens */
+  --color-canvas-bg: var(--canvas-bg);
+  --color-glass-frame: var(--glass-frame-bg);
+  --color-glass-frame-border: var(--glass-frame-border);
+  --color-glass-card: var(--glass-card-bg);
+  --color-glass-card-border: var(--glass-card-border);
+  --color-sidebar-bg: var(--sidebar-bg);
+
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
@@ -284,6 +308,14 @@ html.dark {
    COMPONENTES GLOBALES DE LA APLICACIÓN (@layer components)
    ============================================================ */
 @layer components {
+  /* Navegación Ergonómica del Sidebar */
+  .nav-sidebar-item {
+    @apply w-full flex items-center gap-3.5 px-4 py-2.5 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/50 font-semibold text-xs transition-all text-left cursor-pointer;
+  }
+  .nav-sidebar-item.active {
+    @apply bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 font-bold shadow-xs;
+  }
+
   /* Glassmorphism y Base */
   .glass-card {
     background: var(--glass-bg);
@@ -404,16 +436,6 @@ html.dark {
     background-color: var(--bg-header);
     border-bottom: 1px solid var(--border-ui);
     box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
-  }
-  header.header-premium::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--brand-color);
-    z-index: 10;
   }
   html.dark header.header-premium {
     box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
@@ -1221,22 +1243,23 @@ html.dark #system-status-hover-card {
   background: #ede9fe !important;
 }
 
-/* Botones Hoy / Limpiar */
+/* Botones Hoy y Limpiar */
 .air-datepicker-buttons {
   display: flex !important;
   gap: 6px !important;
-  padding: 6px 8px 4px !important;
-  border-top: 1px solid #f0ebff !important;
+  padding: 8px 12px !important;
+  border-top: 1px solid var(--border-ui, #f0ebff) !important;
 }
 .air-datepicker-button {
   flex: 1 !important;
-  padding: 5px 8px !important;
+  padding: 6px 10px !important;
   border-radius: 8px !important;
   font-size: 11px !important;
   font-weight: 600 !important;
   cursor: pointer !important;
   border: none !important;
-  transition: background 0.15s !important;
+  transition: all 0.15s !important;
+  text-align: center !important;
 }
 .adp-btn-today {
   background: #7c3aed !important;
@@ -1386,4 +1409,56 @@ html.dark .apexcharts-menu-item:hover {
   background: #1e293b !important;
   color: #38bdf8 !important;
 }
+
+/* Tooltip ApexCharts Glassmorphism */
+.apexcharts-tooltip.apexcharts-theme-light,
+.apexcharts-tooltip.apexcharts-theme-dark {
+  background: var(--bg-card, #ffffff) !important;
+  border: 1px solid var(--border-ui, #e2e8f0) !important;
+  border-radius: 0.875rem !important;
+  color: var(--text-primary, #18112b) !important;
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+.apexcharts-tooltip-title {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-ui, #e2e8f0) !important;
+  color: var(--text-secondary, #3b2a66) !important;
+  font-family: inherit !important;
+}
+
+/* Ocultar sidebar cuando el header esté oculto (ej. pantalla de login) */
+body:has(header.hidden) #app-sidebar {
+  display: none !important;
+}
+
+/* Fondo Ambiental Pastel Behance con Micro-Puntos */
+.behance-bg {
+  background-color: #eef1f8;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(224, 231, 255, 0.95) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(243, 232, 255, 0.9) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(238, 242, 255, 0.85) 0%, transparent 50%),
+    radial-gradient(circle at 85% 85%, rgba(254, 243, 199, 0.5) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+.dot-pattern {
+  background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+html.dark .behance-bg {
+  background-color: #07060b;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(30, 27, 75, 0.45) 0%, transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(59, 7, 100, 0.35) 0%, transparent 45%),
+    radial-gradient(circle at 50% 85%, rgba(17, 24, 39, 0.7) 0%, transparent 50%);
+}
+html.dark .dot-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1.2px, transparent 1.2px);
+}
+
+
+
 

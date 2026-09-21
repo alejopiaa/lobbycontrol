@@ -1,4 +1,7 @@
-// Helper para escapar comillas y caracteres especiales en atributos HTML
+/**
+ * Helper para escapar comillas y caracteres especiales en atributos HTML
+ * @param {string} str - Parámetro str.
+ */
 function escapeHtmlAttr(str) {
   if (!str) return '';
   return String(str)
@@ -9,12 +12,18 @@ function escapeHtmlAttr(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Helper para escapar HTML en nodos de texto (Previene XSS pasivo)
+/**
+ * Helper para escapar HTML en nodos de texto (Previene XSS pasivo)
+ * @param {string} str - Parámetro str.
+ */
 function escapeHtml(str) {
   return escapeHtmlAttr(str);
 }
 
-// Helper para formatear fechas (solo fecha)
+/**
+ * Helper para formatear fechas (solo fecha)
+ * @param {string} dateString - Parámetro dateString.
+ */
 function formatDate(dateString) {
   if (!dateString || dateString === '-' || dateString === '---' || dateString === 'null') return '-';
   try {
@@ -24,6 +33,7 @@ function formatDate(dateString) {
     }
     return dateString;
   } catch (e) {
+    console.warn('[helpers] Error formateando fecha:', e);
     return dateString;
   }
 }
@@ -58,11 +68,17 @@ function formatDateTime(dateString) {
     }
     return dateString;
   } catch (e) {
+    console.warn('[helpers] Error formateando fecha/hora:', e);
     return dateString;
   }
 }
 
-// Helper universal para copiado rápido de folios y tickets al portapapeles
+/**
+ * Helper universal para copiado rápido de folios y tickets al portapapeles
+ * @param {*} folio - Parámetro folio.
+ * @param {Event} event - Parámetro event.
+ * @param {*} label - Parámetro label.
+ */
 function copiarFolio(folio, event, label = 'Folio') {
   if (event) {
     if (typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -88,7 +104,13 @@ function copiarFolio(folio, event, label = 'Folio') {
 }
 window.copiarFolio = copiarFolio;
 
-// Helper para obtener el badge de estado del plazo (DDL) y el estado unificados en un objeto semántico de datos
+/**
+ * Helper para obtener el badge de estado del plazo (DDL) y el estado unificados en un objeto semántico de datos
+ * @param {string|Date} fechaIngreso - Parámetro fechaIngreso.
+ * @param {string|Date} fechaRespuesta - Parámetro fechaRespuesta.
+ * @param {*} estado - Parámetro estado.
+ * @param {Object} item - Parámetro item.
+ */
 function getDeadlineStatusBadge(fechaIngreso, fechaRespuesta, estado, item) {
   const estadoClean = (estado || 'Ingresada').trim();
   const hasRespuesta = fechaRespuesta && fechaRespuesta !== '-' && fechaRespuesta !== 'null' && fechaRespuesta !== '---';
@@ -135,7 +157,10 @@ function getDeadlineStatusBadge(fechaIngreso, fechaRespuesta, estado, item) {
 
 
 
-// Helper para obtener el cargo limpio (específico para licitaciones en PH)
+/**
+ * Helper para obtener el cargo limpio (específico para licitaciones en PH)
+ * @param {string} cargoString - Parámetro cargoString.
+ */
 function getCargoCleanBidding(cargoString) {
   if (!cargoString) return 'No definido';
   
@@ -150,7 +175,10 @@ function getCargoCleanBidding(cargoString) {
   return parts[0].trim();
 }
 
-// Helper para obtener sólo el cargo/función limpio (sin el nombre) - Conservado para SPH
+/**
+ * Helper para obtener sólo el cargo/función limpio (sin el nombre) - Conservado para SPH
+ * @param {string} cargoString - Parámetro cargoString.
+ */
 function getCargoClean(cargoString) {
   if (!cargoString) return 'No definido';
   const parts = cargoString.split(' - ');
@@ -176,7 +204,9 @@ function normalizeName(name) {
     .join(' ');
 }
 
-// Control de modo claro/oscuro
+/**
+ * Control de modo claro/oscuro
+ */
 function toggleTheme() {
   const html = document.documentElement;
   if (html.classList.contains('dark')) {
@@ -189,8 +219,13 @@ function toggleTheme() {
     if (typeof showToast === 'function') showToast('Modo Oscuro activado');
   }
   updateThemeIcons();
-  if (typeof currentView !== 'undefined' && currentView === 'dashboard' && typeof initDashboardCharts === 'function') {
-    initDashboardCharts();
+  const isDark = html.classList.contains('dark');
+  if (typeof currentView !== 'undefined' && currentView === 'dashboard') {
+    if (window.dashboardCharts && typeof window.dashboardCharts.updateTheme === 'function') {
+      window.dashboardCharts.updateTheme(isDark);
+    } else if (typeof initDashboardCharts === 'function') {
+      initDashboardCharts();
+    }
   }
 }
 
@@ -243,7 +278,6 @@ function roundPercentagesTo100(values, total) {
   const diff = target - currentSum;
 
   if (diff > 0 && items.length > 0) {
-    // Ordenar por residuo descendente
     const sorted = [...items].sort((a, b) => b.remainder - a.remainder);
     for (let i = 0; i < diff; i++) {
       const idx = i % sorted.length;
@@ -261,18 +295,29 @@ function roundPercentagesTo100(values, total) {
   return result;
 }
 
-// Función central del motor analítico para el nuevo Dashboard
+/**
+ * Función central del motor analítico para el nuevo Dashboard
+ * @param {Object} rawData - Parámetro rawData.
+ * @param {*} filters - Parámetro filters.
+ */
 function calculateDashboardStats(rawData, filters) {
   // 1. Filtrar los datos en base a los filtros provistos
   let filtered = rawData;
 
+  const sujetoCache = (typeof window !== 'undefined' && window.activeSujetoIdsCache) || (typeof activeSujetoIdsCache !== 'undefined' ? activeSujetoIdsCache : null);
   if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
-    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-      filtered = filtered.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    if (sujetoCache && sujetoCache.size > 0) {
+      filtered = filtered.filter(item => {
+        const id = item.sujeto_pasivo_id;
+        return id != null && (sujetoCache.has(Number(id)) || sujetoCache.has(String(id)));
+      });
     }
   } else if (filters.vigencia === 'no_vigentes') {
-    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-      filtered = filtered.filter(item => !item.sujeto_pasivo_id || !activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    if (sujetoCache && sujetoCache.size > 0) {
+      filtered = filtered.filter(item => {
+        const id = item.sujeto_pasivo_id;
+        return id == null || (!sujetoCache.has(Number(id)) && !sujetoCache.has(String(id)));
+      });
     }
   }
 
@@ -325,16 +370,21 @@ function calculateDashboardStats(rawData, filters) {
   const today = new Date();
   const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
-  // Filtrar las publicaciones directamente con la misma lógica del dashboard
   let filteredPublicadas = Array.isArray(dataStore.publicadas) ? dataStore.publicadas : (dataStore.publicadas?.data || []);
 
   if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
-    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-      filteredPublicadas = filteredPublicadas.filter(item => item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    if (sujetoCache && sujetoCache.size > 0) {
+      filteredPublicadas = filteredPublicadas.filter(item => {
+        const id = item.sujeto_pasivo_id;
+        return id != null && (sujetoCache.has(Number(id)) || sujetoCache.has(String(id)));
+      });
     }
   } else if (filters.vigencia === 'no_vigentes') {
-    if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-      filteredPublicadas = filteredPublicadas.filter(item => !item.sujeto_pasivo_id || !activeSujetoIdsCache.has(item.sujeto_pasivo_id));
+    if (sujetoCache && sujetoCache.size > 0) {
+      filteredPublicadas = filteredPublicadas.filter(item => {
+        const id = item.sujeto_pasivo_id;
+        return id == null || (!sujetoCache.has(Number(id)) && !sujetoCache.has(String(id)));
+      });
     }
   }
 
@@ -406,7 +456,6 @@ function calculateDashboardStats(rawData, filters) {
   const total = filtered.length;
   const aceptadasCount = countsByEstado.aceptada;
 
-  // Calcular porcentajes redondeados consistentes para el desglose total de estados (6 estados particionan total)
   const [
     pctPendientes,
     pctAceptada,
@@ -426,16 +475,13 @@ function calculateDashboardStats(rawData, filters) {
   // La suma de los estados respondidos es la parte de respondidas
   const pctRespondidas = parseFloat((100.0 - pctPendientes).toFixed(1));
 
-  // Calcular porcentajes para publicaciones (publicadas vs pendientes de publicación relativas a aceptadas)
   const [pctPublicadas, pctPendientesPublicacion] = roundPercentagesTo100([
     publicadasCount,
     pendientesPublicacionCount
   ], publicadasCount + pendientesPublicacionCount);
 
-  // Calcular porcentajes para respondidas (RDP vs RFP relativas a respondidas)
   const [pctRdp, pctRfp] = roundPercentagesTo100([rdpCount, rfpCount], respondidasCount);
 
-  // Calcular porcentajes para pendientes (DDP vs FDP relativas a pendientes)
   const [pctDdp, pctFdp] = roundPercentagesTo100([ddpCount, fdpCount], pendientesCount);
 
   const rawTotal = Array.isArray(rawData) ? rawData.length : 0;
@@ -464,7 +510,11 @@ function calculateDashboardStats(rawData, filters) {
   };
 }
 
-// Helper para estandarizar el texto del plazo según especificaciones (DDP, FDP, RDP, RFP)
+/**
+ * Helper para estandarizar el texto del plazo según especificaciones (DDP, FDP, RDP, RFP)
+ * @param {Object} item - Parámetro item.
+ * @param {boolean} isPendiente - Parámetro isPendiente.
+ */
 function getStandardizedPlazoText(item, isPendiente) {
   if (isPendiente) {
     const pubDelayDays = item.dias_retraso_publicacion || 0;
@@ -494,7 +544,11 @@ function getStandardizedPlazoText(item, isPendiente) {
   }
 }
 
-// Helper para procesar datos de reportes con filtros multidimensionales y truncamiento de cargo
+/**
+ * Helper para procesar datos de reportes con filtros multidimensionales y truncamiento de cargo
+ * @param {Object} rawData - Parámetro rawData.
+ * @param {*} filters - Parámetro filters.
+ */
 function processReportData(rawData, filters) {
   const hasAnyFilter = (filters.nombre && filters.nombre !== '') ||
                        (filters.cargo && filters.cargo !== '') ||
@@ -517,16 +571,18 @@ function processReportData(rawData, filters) {
   const publicadosFolios = new Set(publicadasArray.map(p => p.folio_lobby).filter(Boolean));
 
   rawData.forEach(item => {
-    // Filtro por Estado de Sujeto Pasivo (Vigentes / No Vigentes / Todos)
+    const sujetoCache = (typeof window !== 'undefined' && window.activeSujetoIdsCache) || (typeof activeSujetoIdsCache !== 'undefined' ? activeSujetoIdsCache : null);
     if (filters.vigencia === 'vigentes' || filters.soloVigentes === true) {
-      if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-        if (!activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+      if (sujetoCache && sujetoCache.size > 0) {
+        const id = item.sujeto_pasivo_id;
+        if (id == null || (!sujetoCache.has(Number(id)) && !sujetoCache.has(String(id)))) {
           return;
         }
       }
     } else if (filters.vigencia === 'no_vigentes') {
-      if (typeof activeSujetoIdsCache !== 'undefined' && activeSujetoIdsCache) {
-        if (item.sujeto_pasivo_id && activeSujetoIdsCache.has(item.sujeto_pasivo_id)) {
+      if (sujetoCache && sujetoCache.size > 0) {
+        const id = item.sujeto_pasivo_id;
+        if (id != null && (sujetoCache.has(Number(id)) || sujetoCache.has(String(id)))) {
           return;
         }
       }
@@ -544,20 +600,17 @@ function processReportData(rawData, filters) {
       itemEstado = 'Pendiente de publicación';
     }
 
-    // Filtro por Nombre
     if (hasNombreFilter) {
       if (!item.sujeto_pasivo || !item.sujeto_pasivo.toLowerCase().includes(filters.nombre.toLowerCase())) {
         return;
       }
     }
-    // Filtro por Cargo
     if (hasCargoFilter) {
       const cleanedCargo = getCargoClean(item.cargo);
       if (!cleanedCargo.toLowerCase().includes(filters.cargo.toLowerCase())) {
         return;
       }
     }
-    // Filtro por Rango de Fechas (PDR Compliance: la fecha de evaluación depende del estado)
     // - Ingresada (PDR): se evalúa contra la fecha límite de respuesta (DDL) para cumplimiento normativo
     // - Aceptada / Pendiente: se evalúa contra la fecha agendada de la audiencia
     // - Otros estados (Rechazada, Cancelada, etc.): se evalúa contra la fecha de ingreso
@@ -579,7 +632,6 @@ function processReportData(rawData, filters) {
         return; // Sin fecha de evaluación disponible, excluir del rango
       }
     }
-    // Filtro por Estados Múltiples
     if (hasEstadosFilter) {
       const match = filters.estados.some(est => est.toLowerCase() === itemEstado.toLowerCase());
       if (!match) {
@@ -590,7 +642,6 @@ function processReportData(rawData, filters) {
     filtered.push(item);
   });
 
-  // Mapear registros filtrados a su formato plano
   return filtered.map((item, idx) => {
     const isLicitacion = item.cargo && (item.cargo.includes('2770-') || item.cargo.includes('27770-'));
     const cleanedCargoText = isLicitacion ? getCargoCleanBidding(item.cargo) : getCargoClean(item.cargo);
@@ -609,7 +660,6 @@ function processReportData(rawData, filters) {
       itemEstado = 'Pendiente de publicación';
     }
 
-    // Obtener badge
     let badge;
     if (isPendiente) {
       badge = {
@@ -647,7 +697,11 @@ function processReportData(rawData, filters) {
   });
 }
 
-// Helper para calcular la fecha límite de publicación y el estado/días de atraso en incrementos de 30 días
+/**
+ * Helper para calcular la fecha límite de publicación y el estado/días de atraso en incrementos de 30 días
+ * @param {string|Date} fechaAgendada - Parámetro fechaAgendada.
+ * @param {Object} item - Parámetro item.
+ */
 function getPendingPublicationDelay(fechaAgendada, item) {
   if (!fechaAgendada) {
     return {
@@ -690,6 +744,7 @@ function getPendingPublicationDelay(fechaAgendada, item) {
       };
     }
   } catch (e) {
+    console.warn('[helpers] Error calculando plazo de publicación:', e);
     return {
       deadlineStr: '---',
       days: 0,
@@ -737,7 +792,11 @@ function animateNumberCount(elementId, targetValue, duration = 800) {
   window.requestAnimationFrame(step);
 }
 
-// Función utilitaria Debounce
+/**
+ * Función utilitaria Debounce
+ * @param {Function} fn - Parámetro fn.
+ * @param {*} delay - Parámetro delay.
+ */
 function debounce(fn, delay) {
   let timer = null;
   return function (...args) {
@@ -748,7 +807,10 @@ function debounce(fn, delay) {
   };
 }
 
-// Traducir y mapear errores técnicos a mensajes amigables y códigos de soporte
+/**
+ * Traducir y mapear errores técnicos a mensajes amigables y códigos de soporte
+ * @param {*} msg - Parámetro msg.
+ */
 function translateError(msg) {
   if (!msg) return 'Su sesión ha expirado. Por favor, inicie sesión nuevamente. [ERR-AUTH-201]';
   const cleanMsg = String(msg).toLowerCase();

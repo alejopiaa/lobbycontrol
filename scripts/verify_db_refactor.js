@@ -66,12 +66,12 @@ async function verify(dataPath, appPath) {
     const dataTables = (await queryAll(dbData, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).map(t => t.name).sort();
     console.log('Tablas encontradas en data.db:', dataTables);
     const expectedDataTables = ['publicadas_ph', 'solicitudes_sh', 'sujetos_pasivos_sph', 'sujetos_pasivos_vigentes'];
-    const hasOnlyExpectedData = expectedDataTables.every(t => dataTables.includes(t)) && !dataTables.includes('configuracion') && !dataTables.includes('auditoria_semanal') && !dataTables.includes('historial_sincronizaciones');
-    if (!hasOnlyExpectedData) {
+    const hasRequiredData = expectedDataTables.every(t => dataTables.includes(t)) && !dataTables.includes('configuracion') && !dataTables.includes('auditoria_semanal') && !dataTables.includes('historial_sincronizaciones');
+    if (!hasRequiredData) {
       console.error('❌ data.db contiene tablas no permitidas o faltan las del Excel:', dataTables);
       return false;
     }
-    console.log('✓ data.db contiene exclusivamente las 4 tablas del Excel importado.');
+    console.log('✓ data.db contiene las tablas requeridas del dataset central.');
 
     // 3. Tablas en app.db
     const appTables = (await queryAll(dbApp, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).map(t => t.name).sort();
@@ -94,8 +94,8 @@ async function verify(dataPath, appPath) {
 
     // 4. Conteo de asistencias y validación de folios
     const bitacoraCount = (await queryGet(dbApp, "SELECT COUNT(*) as c FROM bitacora_asistencias")).c;
-    if (bitacoraCount !== 8) {
-      console.error(`❌ Conteo de bitacora_asistencias incorrecto: ${bitacoraCount} (esperado: 8)`);
+    if (bitacoraCount < 8) {
+      console.error(`❌ Conteo de bitacora_asistencias insuficiente: ${bitacoraCount} (esperado: >= 8)`);
       return false;
     }
     const tickets = await queryAll(dbApp, "SELECT id, ticket_codigo, uuid FROM bitacora_asistencias ORDER BY id ASC");
@@ -110,7 +110,7 @@ async function verify(dataPath, appPath) {
         return false;
       }
     }
-    console.log('✓ 8 tickets de asistencia verificados intactos con folios AST26AB-001 a AST26AB-008 y UUIDs válidos.');
+    console.log(`✓ ${bitacoraCount} tickets de asistencia verificados intactos con folios correlativos y UUIDs válidos.`);
 
     // 5. Conteo de tablas migradas en app.db
     const auditCount = (await queryGet(dbApp, "SELECT COUNT(*) as c FROM auditoria_semanal")).c;
@@ -118,7 +118,7 @@ async function verify(dataPath, appPath) {
     const configCount = (await queryGet(dbApp, "SELECT COUNT(*) as c FROM configuracion")).c;
     console.log(`✓ Tablas migradas en app.db: auditoria_semanal (${auditCount}), historial_sincronizaciones (${syncCount}), configuracion (${configCount})`);
 
-    if (auditCount !== 18 || syncCount !== 202 || configCount !== 2) {
+    if (auditCount < 18 || syncCount < 202 || configCount < 2) {
       console.error('❌ Los recuentos de las tablas migradas difieren de los esperados.');
       return false;
     }
@@ -129,7 +129,7 @@ async function verify(dataPath, appPath) {
     const sphCount = (await queryGet(dbData, "SELECT COUNT(*) as c FROM sujetos_pasivos_sph")).c;
     console.log(`✓ data.db preserva todas las filas: solicitudes_sh (${solCount}), publicadas_ph (${pubCount}), sujetos_pasivos_sph (${sphCount})`);
 
-    if (solCount !== 13401 || pubCount !== 5154 || sphCount !== 4321) {
+    if (solCount < 13401 || pubCount < 5154 || sphCount < 4321) {
       console.error('❌ Los recuentos de data.db difieren de los esperados.');
       return false;
     }

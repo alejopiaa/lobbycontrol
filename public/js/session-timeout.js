@@ -28,7 +28,9 @@
   // ─── Eventos que reinician el temporizador ────────────────────────────────
   const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
 
-  // ─── Extender sesión en el servidor silenciosamente (con throttle de 5 min) ────
+  /**
+   * Extender sesión en el servidor silenciosamente (con throttle de 5 min)
+   */
   async function extendSessionOnServer() {
     const now = Date.now();
     if (now - lastServerExtend < MIN_EXTEND_INTERVAL_MS) return;
@@ -44,7 +46,9 @@
     }
   }
 
-  // ─── Iniciar / reiniciar el temporizador de inactividad ──────────────────
+  /**
+   * Iniciar / reiniciar el temporizador de inactividad
+   */
   function resetTimer() {
     // Si la advertencia ya está visible, no reiniciar por movimiento de ratón
     if (warningVisible) return;
@@ -56,7 +60,9 @@
     extendSessionOnServer();
   }
 
-  // ─── Mostrar modal de advertencia ─────────────────────────────────────────
+  /**
+   * Mostrar modal de advertencia
+   */
   function showWarning() {
     // No mostrar si no hay sesión activa (usuario en login)
     if (!currentUser) return;
@@ -71,7 +77,9 @@
     startCountdown();
   }
 
-  // ─── Renderizar el modal ──────────────────────────────────────────────────
+  /**
+   * Renderizar el modal
+   */
   function renderWarningModal() {
     let overlay = document.getElementById('session-timeout-overlay');
     if (!overlay) {
@@ -123,12 +131,13 @@
 
     overlay.style.display = 'flex';
 
-    // Inicializar íconos lucide dentro del modal
     if (window.lucide) lucide.createIcons();
     updateCountdownDisplay();
   }
 
-  // ─── Iniciar la cuenta regresiva ──────────────────────────────────────────
+  /**
+   * Iniciar la cuenta regresiva
+   */
   function startCountdown() {
     clearInterval(countdownTimer);
     countdownTimer = setInterval(() => {
@@ -142,7 +151,9 @@
     }, 1000);
   }
 
-  // ─── Actualizar la UI del contador ───────────────────────────────────────
+  /**
+   * Actualizar la UI del contador
+   */
   function updateCountdownDisplay() {
     const minEl = document.getElementById('sto-minutes');
     const secEl = document.getElementById('sto-seconds');
@@ -186,7 +197,6 @@
       if (!res.ok) throw new Error('No se pudo extender la sesión.');
 
       hideWarning();
-      // Reiniciar el timer con los nuevos 30 minutos
       initSessionTimeout();
       if (window.showToast) showToast('Sesión extendida 30 minutos más.', 'success');
     } catch (err) {
@@ -206,7 +216,6 @@
       console.warn('No se pudo notificar logout al servidor:', err);
     }
 
-    // Limpiar estado de la app y redirigir al login
     if (typeof currentUser !== 'undefined') currentUser = null;
     if (typeof switchView === 'function') {
       hideWarning();
@@ -217,7 +226,9 @@
     }
   };
 
-  // ─── Ocultar el modal ────────────────────────────────────────────────────
+  /**
+   * Ocultar el modal
+   */
   function hideWarning() {
     warningVisible = false;
     clearInterval(countdownTimer);
@@ -225,14 +236,15 @@
     if (overlay) overlay.style.display = 'none';
   }
 
-  // ─── Inicializar el módulo ────────────────────────────────────────────────
+  /**
+   * Inicializar el módulo
+   */
   function initSessionTimeout() {
     clearTimeout(warningTimer);
     clearInterval(countdownTimer);
     warningVisible = false;
     lastServerExtend = Date.now(); // Resetear el timestamp de control
 
-    // Escuchar actividad del usuario
     ACTIVITY_EVENTS.forEach(ev => {
       document.removeEventListener(ev, resetTimer, true);
       document.addEventListener(ev, resetTimer, true);

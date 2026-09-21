@@ -34,6 +34,7 @@ module.exports = {
       const lines = ctx.getFileLines(file);
 
       lines.forEach((line, lineIdx) => {
+        eventAttrRegex.lastIndex = 0;
         let match;
         while ((match = eventAttrRegex.exec(line)) !== null) {
           const attrName = match[1];
@@ -150,6 +151,50 @@ module.exports = {
           for (const m of rsiMatches) declaredIds.add(`suggestions-${m[1]}`);
           const rsiMatchesRev = content.matchAll(/renderSearchInput\(\s*\{[\s\S]*?hasSuggestions\s*:\s*true[\s\S]*?fieldName\s*:\s*["']([^"']+)["']/g);
           for (const m of rsiMatchesRev) declaredIds.add(`suggestions-${m[1]}`);
+
+          // Detectar contenedores dinámicos generados por componentes modulares (renderCargoSelect, renderAnioSelect, renderVigenciaSelect)
+          const rcsMatches = content.matchAll(/renderCargoSelect\(\s*\{[\s\S]*?id\s*:\s*["']([^"']+)["']/g);
+          for (const m of rcsMatches) declaredIds.add(`cargo-container-${m[1]}`);
+          const rasMatches = content.matchAll(/renderAnioSelect\(\s*\{[\s\S]*?id\s*:\s*["']([^"']+)["']/g);
+          for (const m of rasMatches) declaredIds.add(`anio-container-${m[1]}`);
+          const rvsMatches = content.matchAll(/renderVigenciaSelect\(\s*\{[\s\S]*?id\s*:\s*["']([^"']+)["']/g);
+          for (const m of rvsMatches) declaredIds.add(`vigencia-container-${m[1]}`);
+
+          // Detectar propiedades de layout reutilizable (table-list.layout.js)
+          const tableMatches = content.matchAll(/\b(tableId|counterId|paginationId)\s*:\s*["']([^"'${}\s]+)["']/g);
+          for (const m of tableMatches) declaredIds.add(m[2]);
+
+          // Detectar barras de filtro generadas por renderFilterBar
+          const rfbMatches = content.matchAll(/renderFilterBar\(\s*\{[\s\S]*?moduleName\s*:\s*["']([^"']+)["']/g);
+          for (const m of rfbMatches) {
+            const mod = m[1];
+            declaredIds.add(`${mod}-filters-card`);
+            declaredIds.add(`btn-toggle-${mod}-filters`);
+            declaredIds.add(`${mod}-filters-badge`);
+            declaredIds.add(`btn-clear-${mod}-filters`);
+            declaredIds.add(`${mod}-filters-panel`);
+            declaredIds.add(mod === 'dashboard' ? 'icon-toggle-filters-chevron' : `icon-toggle-${mod}-filters-chevron`);
+          }
+
+          // Detectar selectores de fecha generados por renderDualDatePicker
+          const rddpMatches = content.matchAll(/renderDualDatePicker\(\s*\{[\s\S]*?idPrefix\s*:\s*["']([^"']+)["']/g);
+          for (const m of rddpMatches) {
+            const p = m[1];
+            declaredIds.add(`${p}fechainicio`);
+            declaredIds.add(`${p}fechainicio-display`);
+            declaredIds.add(`${p}fechatermino`);
+            declaredIds.add(`${p}fechatermino-display`);
+          }
+          if (/renderDualDatePicker\s*\(/.test(content)) {
+            declaredIds.add('dashboard-filter-fechainicio');
+            declaredIds.add('dashboard-filter-fechainicio-display');
+            declaredIds.add('dashboard-filter-fechatermino');
+            declaredIds.add('dashboard-filter-fechatermino-display');
+          }
+
+          // Detectar asignaciones dinámicas a .id en JavaScript
+          const assignIdMatches = content.matchAll(/\.id\s*=\s*["']([^"'${}\s]+)["']/g);
+          for (const m of assignIdMatches) declaredIds.add(m[1]);
         }
       }
     };
@@ -288,6 +333,8 @@ module.exports = {
             surroundingSnippet.includes('netStatusEl') ||
             surroundingSnippet.includes('pingEl') ||
             surroundingSnippet.includes('dotEl') ||
+            surroundingSnippet.includes('En Línea') ||
+            surroundingSnippet.toLowerCase().includes('online') ||
             surroundingSnippet.includes('No hay alertas pendientes') ||
             surroundingSnippet.includes('No hay logs registrados') ||
             surroundingSnippet.includes('¡Todo en orden!') ||
@@ -297,7 +344,9 @@ module.exports = {
             surroundingSnippet.includes('switchAlertasType') ||
             surroundingSnippet.includes("dbName === 'app.db'") ||
             file.includes('auditoria.tab.js') ||
-            file.includes('asistencia.service.js');
+            file.includes('sync.tab.js') ||
+            file.includes('asistencia.service.js') ||
+            file.includes('table-list.layout.js');
 
           if (!isAllowedEmerald) {
             addIssue(
@@ -510,6 +559,30 @@ module.exports = {
           }
         }
       }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 8. DETECCIÓN DE INPUTS NATIVOS DE FECHA SIN WRAPPER AIR DATEPICKER
+    // ─────────────────────────────────────────────────────────────────────────
+    for (const file of jsFiles) {
+      if (file.includes('vendor') || file.includes('test')) continue;
+      const lines = ctx.getFileLines(file);
+      lines.forEach((line, idx) => {
+        const lineNum = idx + 1;
+        if (/<input[^>]*type=["']date["'][^>]*>/i.test(line)) {
+          if (!line.includes('sr-only') && !line.includes('hidden') && !line.includes('display: none')) {
+            addIssue(
+              'nativeDateInput',
+              file,
+              lineNum,
+              'Uso de <input type="date"> nativo visible sin clase "sr-only" detectado. Esto activa el popup cuadrado nativo del sistema operativo.',
+              'Use el componente estándar renderDateInput() con Air Datepicker y deje el input de fecha con clase "sr-only".',
+              line.trim(),
+              'error'
+            );
+          }
+        }
+      });
     }
   }
 };

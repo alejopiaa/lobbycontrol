@@ -23,7 +23,6 @@ app.whenReady().then(async () => {
       const userProfile = await fetchSharepointUser(cookieHeader);
       if (userProfile && userProfile.Email) {
         const email = userProfile.Email.toLowerCase().trim();
-        // Verificar si el usuario está registrado localmente
         const database = require("../config/database");
         database.usersDb.get("SELECT * FROM usuarios WHERE correo = ?", [email], (err, user) => {
           if (!err && user) {
@@ -39,7 +38,6 @@ app.whenReady().then(async () => {
             
             console.log(`[Auto-Login SSO] Sesión válida encontrada: ${user.correo}`);
             
-            // Disparar sincronización en segundo plano con retardo de 5 segundos
             setTimeout(async () => {
               try {
                 const usersUpdated = await checkAndSyncDatabase(database.usersDb, cookieHeader, "usuarios");
@@ -112,7 +110,6 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
         }
       }
 
-      // Abrir conexión a usuarios_temp.db para validación normal
       const tempDb = new sqlite3.Database(tempDbPath);
       try {
         user = await new Promise((resolve, reject) => {
@@ -148,14 +145,12 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
         fs.copyFileSync(tempDbPath, officialDbPath);
         fs.copyFileSync(tempVersionPath, officialVersionPath);
 
-        // Eliminar archivos temporales
         if (fs.existsSync(tempDbPath)) { try { fs.unlinkSync(tempDbPath); } catch (e) {} }
         if (fs.existsSync(tempVersionPath)) { try { fs.unlinkSync(tempVersionPath); } catch (e) {} }
 
         // Reabrir conexión principal
         await database.usersDb.openConnection();
       } else {
-        // Eliminar archivos temporales de forma física e inmediata para privacidad
         if (fs.existsSync(tempDbPath)) { try { fs.unlinkSync(tempDbPath); } catch (e) {} }
         if (fs.existsSync(tempVersionPath)) { try { fs.unlinkSync(tempVersionPath); } catch (e) {} }
       }
@@ -209,7 +204,6 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
       console.warn("[SSO IPC] Error o cancelación:", err.message);
       const { logError } = require("../config/logger");
       logError("ERR-AUTH-203", "Fallo en flujo interactivo SSO", err.message);
-      // Limpiar temporales si existen en caso de error de red durante la descarga
       const database = require("../config/database");
       const dbDir = database.usersDb.getUserDataDir();
       const tempDbPath = path.join(dbDir, "usuarios_temp.db");
@@ -256,9 +250,7 @@ safeIpcHandle("api-route", async (event, routeInfo) => {
   return routerRes;
 });
 
-// ==========================================
 // MANEJADORES IPC: DIÁLOGO DE CARPETA Y GENERACIÓN SILENCIOSA DE PDF
-// ==========================================
 safeIpcHandle("select-directory", async (event) => {
   const { dialog } = require("electron");
   const mainWindow = event.sender.getOwnerBrowserWindow();
@@ -367,7 +359,6 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
         }
       });
 
-      // REGISTRAR EVENTOS ANTES DE LOADURL
       win.webContents.on("did-finish-load", async () => {
         try {
           const docTitle = title || path.basename(filePath, path.extname(filePath));
@@ -378,7 +369,6 @@ safeIpcHandle("generate-silent-pdf", async (event, { html, filePath, title }) =>
               document.title = ${escapedTitle};
               document.getElementById('print-content').innerHTML = ${escapedHtml};
               
-              // Esperar imágenes con límite
               const imgs = Array.from(document.images);
               await Promise.race([
                 Promise.all(imgs.map(img => {

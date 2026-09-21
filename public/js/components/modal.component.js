@@ -83,3 +83,66 @@ export function openConfirmModal(title, message, onConfirmCallback = null) {
     }
   });
 }
+
+/**
+ * Eliminación genérica de registros con confirmación modal
+ * @param {string} viewName - Parámetro viewName.
+ * @param {string|number} id - Parámetro id.
+ */
+export async function deleteRecord(viewName, id) {
+  openConfirmModal(
+    'Eliminar Registro',
+    '¿Estás seguro de que deseas eliminar este registro de la base de datos local? Esta acción no se puede deshacer.',
+    async () => {
+      try {
+        let endpoint = `/api/${viewName}/${id}`;
+        if (viewName === 'solicitudes_sh') endpoint = `/api/solicitudes/${id}`;
+        
+        const res = await fetch(endpoint, {
+          method: 'DELETE'
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || 'No se pudo eliminar el registro.');
+        }
+
+        if (typeof window.showToast === 'function') {
+          window.showToast('Registro eliminado con éxito.');
+        }
+        if (typeof window.fetchAndUpdateDbTimestamp === 'function') {
+          window.fetchAndUpdateDbTimestamp();
+        }
+        if (typeof window.switchView === 'function') {
+          window.switchView(window.currentView || viewName);
+        }
+      } catch (err) {
+        if (typeof window.showToast === 'function') {
+          window.showToast(err.message, 'error');
+        }
+      }
+    }
+  );
+}
+
+// Exposición canónica a window para eventos inline y llamadas DOM
+window.closeModal = closeModal;
+window.openConfirmModal = openConfirmModal;
+window.deleteRecord = deleteRecord;
+
+// Atajos globales: Escape y Clic en backdrop para cerrar modales
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('modal-container');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeModal();
+    }
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('modal-container');
+  if (modal && !modal.classList.contains('hidden') && e.target === modal) {
+    closeModal();
+  }
+});

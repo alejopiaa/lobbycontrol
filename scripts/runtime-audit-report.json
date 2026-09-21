@@ -2,43 +2,95 @@
   "totalIssues": 0,
   "totalErrors": 0,
   "totalWarnings": 0,
-  "executionTimeMs": 3178,
+  "executionTimeMs": 2446,
   "executedModules": [
     {
       "id": "ui",
       "name": "Integridad DOM, Clases y Tokens de Diseño",
-      "durationMs": 651,
-      "status": "passed"
+      "durationMs": 191,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
     },
     {
       "id": "ipc",
       "name": "IPC, APIs y Flujo de Datos",
-      "durationMs": 33,
-      "status": "passed"
+      "durationMs": 164,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
     },
     {
       "id": "ast",
       "name": "Calidad de Código, AST y Diálogos",
-      "durationMs": 2409,
-      "status": "passed"
+      "durationMs": 1926,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
     },
     {
       "id": "lifecycle",
       "name": "Ciclo de Vida, Listeners y Autenticación",
-      "durationMs": 25,
-      "status": "passed"
+      "durationMs": 23,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
     },
     {
       "id": "security",
       "name": "Seguridad y Vulnerabilidades (AppSec)",
-      "durationMs": 38,
-      "status": "passed"
+      "durationMs": 39,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
     },
     {
       "id": "hygiene",
       "name": "Higiene de Código y Vestigios de IA",
-      "durationMs": 22,
-      "status": "passed"
+      "durationMs": 21,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "id": "resilience",
+      "name": "Resiliencia de Red y Manejo de Errores",
+      "durationMs": 15,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "id": "packaging",
+      "name": "Empaquetado, Dependencias y Archivos Residuales",
+      "durationMs": 48,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "id": "accessibility",
+      "name": "Accesibilidad, Formularios y UX Compliance",
+      "durationMs": 4,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "id": "hardcoded",
+      "name": "Datos Estáticos, Ficticios y Contadores Hardcodeados",
+      "durationMs": 5,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
+    },
+    {
+      "id": "comments",
+      "name": "Estandarización de Comentarios y Clean Code",
+      "durationMs": 8,
+      "status": "passed",
+      "errors": 0,
+      "warnings": 0
     }
   ],
   "categories": {}

@@ -252,13 +252,16 @@ module.exports = {
 
       // B. Verificar ausencia de @electron/remote
       if (mainContent.includes('@electron/remote')) {
+        const mLines = ctx.getFileLines(mainJsPath);
+        const targetIdx = mLines.findIndex(l => l.includes('@electron/remote'));
+        const lineNum = targetIdx !== -1 ? targetIdx + 1 : 1;
         addIssue(
           'electronSecurity',
           mainJsPath,
-          1,
+          lineNum,
           'Módulo desaconsejado "@electron/remote" detectado en el proceso principal.',
           'Elimine el uso de @electron/remote y comunique a través de contextBridge e IPC bidireccional seguro.',
-          '@electron/remote',
+          mLines[lineNum - 1] || '@electron/remote',
           'error'
         );
       }
@@ -317,13 +320,16 @@ module.exports = {
     if (fs.existsSync(customProtocolCheck)) {
       const mainContent = ctx.getFileContent(customProtocolCheck);
       if (mainContent.includes('protocol.handle') && !mainContent.includes('relative.startsWith') && !mainContent.includes('path.relative')) {
+        const mLines = ctx.getFileLines(customProtocolCheck);
+        const targetIdx = mLines.findIndex(l => l.includes('protocol.handle'));
+        const lineNum = targetIdx !== -1 ? targetIdx + 1 : 1;
         addIssue(
           'pathTraversal',
           customProtocolCheck,
-          160,
+          lineNum,
           'El manejador de protocolo de archivos no valida la ruta relativa contra salto de directorio ("..").',
           'Utilice path.relative() para comprobar que el archivo resuelto permanezca estrictamente dentro del directorio permitido.',
-          null,
+          mLines[lineNum - 1] || null,
           'error'
         );
       }

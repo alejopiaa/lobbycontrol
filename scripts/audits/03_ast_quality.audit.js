@@ -29,16 +29,31 @@ module.exports = {
             const fnName = node.callee.name;
             if (['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'delete', 'import', 'export', 'super', 'new', 'void', 'throw'].includes(fnName)) return;
 
+            // Helper recursivo para verificar identificadores en cualquier patrón (destructuring objeto/array/default)
+            function patternHasName(pattern, targetName) {
+              if (!pattern) return false;
+              if (pattern.type === 'Identifier') return pattern.name === targetName;
+              if (pattern.type === 'AssignmentPattern') return patternHasName(pattern.left, targetName);
+              if (pattern.type === 'RestElement') return patternHasName(pattern.argument, targetName);
+              if (pattern.type === 'ObjectPattern') {
+                return (pattern.properties || []).some(prop => {
+                  if (prop.type === 'Property') return patternHasName(prop.value, targetName);
+                  if (prop.type === 'RestElement') return patternHasName(prop.argument, targetName);
+                  return false;
+                });
+              }
+              if (pattern.type === 'ArrayPattern') {
+                return (pattern.elements || []).some(el => el && patternHasName(el, targetName));
+              }
+              return false;
+            }
+
             // Verificar si el identificador está en el ámbito local
             let isScoped = false;
             for (let i = ancestors.length - 1; i >= 0; i--) {
               const anc = ancestors[i];
               if (anc.type === 'FunctionDeclaration' || anc.type === 'FunctionExpression' || anc.type === 'ArrowFunctionExpression') {
-                if (anc.params && anc.params.some(p => {
-                  if (p.type === 'Identifier') return p.name === fnName;
-                  if (p.type === 'AssignmentPattern' && p.left && p.left.type === 'Identifier') return p.left.name === fnName;
-                  return false;
-                })) {
+                if (anc.params && anc.params.some(p => patternHasName(p, fnName))) {
                   isScoped = true;
                   break;
                 }
@@ -48,7 +63,7 @@ module.exports = {
                   for (const stmt of anc.body) {
                     if (stmt.type === 'VariableDeclaration') {
                       for (const decl of stmt.declarations) {
-                        if (decl.id && decl.id.type === 'Identifier' && decl.id.name === fnName) {
+                        if (patternHasName(decl.id, fnName)) {
                           isScoped = true;
                           break;
                         }
@@ -114,6 +129,8 @@ module.exports = {
     functionDeclarations.forEach((meta, fnName) => {
       if (coreLifecycleSet.has(fnName)) return;
       if (fnName.startsWith('render') || fnName.startsWith('get') || fnName.startsWith('format') || fnName.startsWith('build')) return;
+      if (fnName.startsWith('toggle') || fnName.startsWith('exportar') || fnName.startsWith('handle') || fnName.startsWith('change')) return;
+      if (meta.code && /\bexport\s+/.test(meta.code)) return;
 
       let activeUsageCount = 0;
       const usageRegex = new RegExp(`\\b${fnName}\\b`, 'g');

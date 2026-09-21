@@ -7,7 +7,6 @@ if (app) {
   const baseDir = process.env.USER_DATA_DIR || app.getPath('userData');
   logDir = path.join(baseDir, 'logs');
 } else {
-  // Configuración estándar para desarrollo local
   const baseDir = path.join(__dirname, '../../');
   logDir = path.join(baseDir, 'data', 'logs');
 }

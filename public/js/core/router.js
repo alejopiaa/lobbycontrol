@@ -46,7 +46,7 @@ export class Router {
     }
 
     // 2. Control de seguridad por rol y sesión
-    const user = appStore.state.currentUser;
+    const user = appStore.state.currentUser || (typeof window !== 'undefined' ? window.currentUser : null);
     if (!user && viewName !== 'login') {
       console.warn('[Router] Acceso no autenticado. Redirigiendo a login.');
       viewName = 'login';
@@ -56,15 +56,50 @@ export class Router {
     const viewModule = this.routes[viewName];
     this.currentViewName = viewName;
     appStore.state.currentView = viewName;
+    if (typeof window !== 'undefined') {
+      window.currentView = viewName;
+      if (user && !window.currentUser) {
+        window.currentUser = user;
+      }
+    }
+    if (typeof currentView !== 'undefined') {
+      try { currentView = viewName; } catch (_) {}
+    }
     localStorage.setItem('lobby_current_view', viewName);
 
-    // 4. Notificar cambio de vista
+    // 4. Controlar visibilidad del layout (Header, Sidebar, Cápsula) según la vista
+    const header = document.querySelector('header');
+    const sidebar = document.getElementById('app-sidebar');
+    const capsule = document.getElementById('system-status-capsule');
+    if (viewName === 'login') {
+      if (header) header.classList.add('hidden');
+      if (sidebar) sidebar.classList.add('hidden');
+      if (capsule) capsule.classList.add('hidden');
+    } else {
+      if (header) header.classList.remove('hidden');
+      if (sidebar) sidebar.classList.remove('hidden');
+      if (capsule) capsule.classList.remove('hidden');
+      if (typeof window.updateHeaderUserSection === 'function') {
+        window.updateHeaderUserSection();
+      }
+      const navButtons = ['dashboard', 'audiencias', 'agenda', 'viajes', 'donativos', 'settings'];
+      navButtons.forEach(btn => {
+        const el = document.getElementById(`nav-${btn}`);
+        if (el) {
+          const isCurrent = (btn === viewName) || (btn === 'settings' && viewName === 'administracion');
+          el.classList.toggle('active', isCurrent);
+        }
+      });
+    }
+
+    // 5. Notificar cambio de vista
     eventBus.emit('router:navigating', { viewName, params });
 
     if (viewModule) {
       this.currentViewInstance = viewModule;
       if (container && typeof viewModule.mount === 'function') {
         try {
+          container.innerHTML = '';
           await viewModule.mount(container, params);
         } catch (err) {
           console.error(`[Router] Error al montar vista '${viewName}':`, err);
@@ -82,10 +117,9 @@ export class Router {
       }
     }
 
-    // 5. Notificar vista montada
+    // 6. Notificar vista montada
     eventBus.emit('router:navigated', { viewName, params });
 
-    // Actualizar iconos Lucide
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
     }
@@ -97,3 +131,6 @@ export class Router {
 }
 
 export const appRouter = new Router();
+if (typeof window !== 'undefined') {
+  window.appRouter = appRouter;
+}

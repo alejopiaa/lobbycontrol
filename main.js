@@ -13,7 +13,6 @@ process.env.IS_ELECTRON = "true";
 process.env.EXE_DIR = exeDir;
 process.env.USER_DATA_DIR = app.getPath('userData');
 
-// Registrar el esquema de protocolo personalizado como privilegiado.
 // Esto debe ejecutarse antes de que la aplicación esté lista.
 protocol.registerSchemesAsPrivileged([
   {
@@ -64,14 +63,9 @@ function createMainWindow() {
     return { action: "allow" };
   });
 
-  // Cargar el index.html usando el protocolo privado seguro
-  mainWindow.loadURL("app://lobbycontrol/index.html").catch((err) => {
+    mainWindow.loadURL("app://lobbycontrol/index.html").catch((err) => {
     console.error("Error al cargar la interfaz de usuario via app://:", err);
   });
-
-  // if (!isPackaged) {
-  //   mainWindow.webContents.openDevTools();
-  // }
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -153,8 +147,7 @@ app.whenReady().then(() => {
 
   // 1. Configurar el manejador del protocolo seguro 'app://'
   protocol.handle("app", (request) => {
-    // Extraer y normalizar la ruta relativa del recurso
-    const urlStr = request.url.replace("app://lobbycontrol/", "");
+        const urlStr = request.url.replace("app://lobbycontrol/", "");
     const cleanPath = urlStr.split("?")[0].split("#")[0];
     
     // Resolver la ruta dentro del directorio "public" de la aplicación
@@ -200,15 +193,13 @@ app.whenReady().then(() => {
   });
 });
 
-// Limpieza al salir de la aplicación
 app.on("will-quit", () => {
   const { globalShortcut } = require("electron");
   try {
     globalShortcut.unregisterAll();
   } catch (e) {}
 
-  // Limpiar archivos temporales .eml
-  try {
+    try {
     const tempDir = app.getPath("temp");
     if (fs.existsSync(tempDir)) {
       const files = fs.readdirSync(tempDir);

@@ -99,6 +99,8 @@ async function downloadAuthenticatedFile(url, destPath, cookieHeader) {
  * Realiza una fusión a nivel de fila (Row-Level Delta Merge) para app.db (asistencias).
  * Garantiza cero pérdida de datos al sincronizar asistencias y contactos desde SharePoint
  * con remapeo dinámico de contacto_id por clave natural (nombre único).
+ * @param {boolean} targetAsistenciasDb - Parámetro targetAsistenciasDb.
+ * @param {Object} tempDbPath - Parámetro tempDbPath.
  */
 async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
   const sqlite3 = require('sqlite3').verbose();
@@ -463,6 +465,7 @@ async function mergeAsistenciasDatabase(targetAsistenciasDb, tempDbPath) {
  *  - 'app' / 'asistencias' / 'local' -> 'app.db', 'version_app.json'
  * Para cualquier base de datos futura (ej: 'inventario'):
  *  - '${type}.db', 'version_${type}.json'
+ * @param {string} type - Parámetro type.
  */
 function resolveDbMetadata(type) {
   const normType = String(type || 'data').trim().toLowerCase();
@@ -489,6 +492,9 @@ function resolveDbMetadata(type) {
  * Guarda la marca de tiempo de sincronización en la base de datos de manera universal.
  * Para 'lobby' se almacena en su tabla 'configuracion' ('db_last_update').
  * Para cualquier otra base de datos se almacena en 'configuracion_local' con clave `${normType}_last_update`.
+ * @param {Object} db - Parámetro db.
+ * @param {string} type - Parámetro type.
+ * @param {string} timestampStr - Parámetro timestampStr.
  */
 async function saveSyncTimestamp(db, type, timestampStr) {
   const { normType } = resolveDbMetadata(type);
@@ -652,7 +658,6 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         throw dbErr;
       }
       
-      // Verificar si el archivo descargado está comprimido en GZIP
       let isCompressed = false;
       try {
         const fd = fs.openSync(tempDbPath, 'r');
@@ -675,7 +680,6 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         fs.renameSync(decompressedTempPath, tempDbPath);
       }
 
-      // Validar la firma de la base de datos descargada para mayor seguridad
       const downloadedBuffer = fs.readFileSync(tempDbPath);
       const crypto = require('crypto');
       const downloadedSignature = crypto.createHmac('sha256', 'LobbyControl_Secure_Key_2026_Maipu')
@@ -730,13 +734,11 @@ async function checkAndSyncDatabase(db, cookieHeader, type = 'lobby') {
         throw copyErr;
       }
       
-      // Limpiar temporales
       try { fs.unlinkSync(tempDbPath); } catch (e) {}
       try { fs.unlinkSync(tempVersionPath); } catch (e) {}
 
       await db.openConnection();
       
-      // Guardar marca de tiempo en la base correspondiente
       const timestampStr = remoteVersion.last_import_timestamp;
       await saveSyncTimestamp(db, normType, timestampStr);
 
@@ -827,7 +829,6 @@ async function uploadDatabaseToSharePoint(db, cookieHeader, type = 'lobby') {
     .update(dbBuffer)
     .digest('hex');
 
-  // Obtener timestamp actual en formato DD-MM-YYYY HH:mm
   const now = new Date();
   const d = String(now.getDate()).padStart(2, '0');
   const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -977,7 +978,6 @@ async function downloadUsersDatabaseTemp(cookieHeader, tempDbPath, tempVersionPa
     console.log('[Login Temp Sync] Descompresión completada.');
   }
 
-  // Validar firma digital de la base de datos descargada para seguridad
   const remoteVersion = JSON.parse(fs.readFileSync(tempVersionPath, 'utf8'));
   const downloadedBuffer = fs.readFileSync(tempDbPath);
   const crypto = require('crypto');

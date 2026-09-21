@@ -6,22 +6,19 @@ import { appStore } from '../core/store.js';
 import { eventBus } from '../core/event-bus.js';
 
 export const AuthService = {
-  async loginLocal(username, password) {
-    const res = await apiClient.post('/api/auth/login', { username, password });
-    if (res.status === 200 && res.data && res.data.user) {
-      this._setSession(res.data.user, res.data.token);
-      return { success: true, user: res.data.user };
-    }
-    return { success: false, message: res.data?.message || 'Credenciales inválidas' };
-  },
-
   async loginMicrosoft() {
-    const res = await apiClient.post('/api/auth/login-microsoft');
-    if (res.status === 200 && res.data && res.data.user) {
-      this._setSession(res.data.user, res.data.token);
-      return { success: true, user: res.data.user };
+    try {
+      const res = await fetch('/api/auth/trigger-sso', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        this._setSession(data.user);
+        return { success: true, user: data.user };
+      }
+      return { success: false, message: data.message || data.error || 'Error al autenticar con Microsoft' };
+    } catch (err) {
+      console.error('[AuthService] Error en loginMicrosoft:', err);
+      return { success: false, message: err.message || 'Error de conexión con Microsoft 365' };
     }
-    return { success: false, message: res.data?.message || res.data?.error || 'Error al autenticar con Microsoft' };
   },
 
   async checkSession() {
@@ -49,12 +46,18 @@ export const AuthService = {
 
   _setSession(user, token) {
     appStore.state.currentUser = user;
+    if (typeof window !== 'undefined') {
+      window.currentUser = user;
+    }
     if (token) localStorage.setItem('lobby_token', token);
     eventBus.emit('auth:login', { user });
   },
 
   _clearSession() {
     appStore.state.currentUser = null;
+    if (typeof window !== 'undefined') {
+      window.currentUser = null;
+    }
     localStorage.removeItem('lobby_token');
     eventBus.emit('auth:logout');
   }

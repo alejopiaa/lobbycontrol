@@ -85,6 +85,8 @@ function renderSearchInput(options) {
         <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-border-ui text-text-primary text-[11px] font-semibold border border-border-ui shadow-sm max-w-[95%] pointer-events-auto">
           <span class="truncate max-w-[150px]">${value}</span>
           <button type="button" 
+                  title="Limpiar valor seleccionado"
+                  aria-label="Limpiar valor seleccionado"
                   data-action="clear-input-badge" 
                   data-field="${fieldName}" 
                   data-input-id="${id}"
@@ -155,6 +157,8 @@ function syncSearchInputBadge(inputOrId, customValue) {
       <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-border-ui text-text-primary text-[11px] font-semibold border border-border-ui shadow-sm max-w-[95%] pointer-events-auto">
         <span class="truncate max-w-[150px]">${escapeHtml(val)}</span>
         <button type="button" 
+                title="Limpiar valor seleccionado"
+                aria-label="Limpiar valor seleccionado"
                 data-action="clear-input-badge" 
                 data-field="${escapeHtmlAttr(fieldName)}" 
                 data-input-id="${escapeHtmlAttr(id)}"
@@ -219,6 +223,8 @@ function renderDateInput(options) {
                value="${escapeHtmlAttr(displayValue)}"
                class="datepicker-display-input w-full pl-3 pr-9 py-2 rounded-xl text-xs glass-input text-text-primary placeholder:text-text-tertiary tracking-widest cursor-pointer">
         <button type="button"
+                title="Abrir selector de calendario"
+                aria-label="Abrir selector de calendario"
                 data-datepicker-trigger="${id}"
                 class="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-brand-500 transition-colors p-0.5">
           <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
@@ -324,9 +330,7 @@ function renderStatusBadge(badgeData) {
   `;
 }
 
-// =========================================================================
 // CONTROLADORES DE EVENTOS PARA EL SELECTOR PERSONALIZADO (CUSTOM SELECT)
-// =========================================================================
 
 window.toggleCustomSelectDropdown = function(event, selectId) {
   if (event) event.stopPropagation();
@@ -336,7 +340,6 @@ window.toggleCustomSelectDropdown = function(event, selectId) {
   
   const isHidden = targetDropdown.classList.contains('hidden');
   
-  // Cerrar todos los demás dropdowns primero
   document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
     dropdown.classList.add('hidden');
   });
@@ -352,7 +355,6 @@ window.selectCustomOption = function(event, selectId, value, text) {
   const selectEl = document.getElementById(selectId);
   if (selectEl) {
     selectEl.value = value;
-    // Disparar evento change para que el listener global responda automáticamente
     selectEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
   
@@ -402,7 +404,6 @@ window.selectVigenciaOption = function(event, selectId, value, label, onChangeNa
   }
 };
 
-// Cerrar todos los selectores personalizados al hacer clic fuera
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.custom-select-dropdown') && !e.target.closest('[id^="custom-select-trigger-"]')) {
     document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {

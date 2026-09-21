@@ -1,5 +1,6 @@
 /**
  * Formatters - Utilidades puras de formateo y localización chilena (es-CL)
+ * @param {string|Date} dateInput - Parámetro dateInput.
  */
 
 export function formatDateForDisplay(dateInput) {
@@ -19,6 +20,7 @@ export function formatDateForDisplay(dateInput) {
     const year = d.getFullYear();
     return `${day}-${month}-${year}`;
   } catch (err) {
+    console.warn('[Formatters] Error formateando fecha:', err);
     return String(dateInput);
   }
 }
@@ -38,6 +40,7 @@ export function formatDateTime(dateInput) {
       hour12: false
     });
   } catch (err) {
+    console.warn('[Formatters] Error formateando fecha/hora:', err);
     return String(dateInput);
   }
 }
@@ -75,3 +78,16 @@ export function sanitizeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+export function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+export const escapeHtmlAttr = escapeHtml;
+

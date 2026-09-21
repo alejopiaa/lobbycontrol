@@ -41,10 +41,8 @@
     initDockRepresentadoCombobox();
     initDockDraftAutosave();
 
-    // Carga perezosa de catálogos
     loadDockCatalogs();
 
-    // Escuchar trigger desde proceso principal de Electron (atajo global OS)
     if (window.api && window.api.onTriggerToggleAssistance) {
       window.api.onTriggerToggleAssistance((id) => {
         toggleAssistanceDock(id);
@@ -58,7 +56,9 @@
     }
   });
 
-  // ─── Catálogos ────────────────────────────────────────────────────────────
+  /**
+   * Catálogos
+   */
   async function loadDockCatalogs() {
     await Promise.all([loadDockCategorias(), loadDockDirecciones(), loadDockAutoridades()]);
   }
@@ -144,7 +144,10 @@
     }
   }
 
-  // ─── Control del Ciclo de Vida: Abrir / Minimizar / Cerrar / Toggle ───────
+  /**
+   * Control del Ciclo de Vida: Abrir / Minimizar / Cerrar / Toggle
+   * @param {string|number} id - Parámetro id.
+   */
   function openAssistanceDock(id = null) {
     const panel = document.getElementById('asistencia-dock-panel');
     const tab = document.getElementById('asistencia-dock-tab');
@@ -153,10 +156,8 @@
     panel.classList.remove('hidden');
     if (tab) tab.classList.add('hidden');
 
-    // Inicializar Datepicker si no existe
     initDockFechaAirDatepicker();
 
-    // Carga perezosa defensiva si los catálogos aún no están en memoria
     if (!dockDireccionesList.length || !dockAutoridadesList.length) {
       loadDockCatalogs();
     }
@@ -264,7 +265,9 @@
     return !!localStorage.getItem(DOCK_DRAFT_KEY);
   }
 
-  // ─── Listeners de Botones y Atajos ────────────────────────────────────────
+  /**
+   * Listeners de Botones y Atajos
+   */
   function initDockListeners() {
     // Minimizar y Cerrar de cabecera
     document.getElementById('dock-btn-minimize')?.addEventListener('click', minimizeAssistanceDock);
@@ -334,7 +337,9 @@
     });
   }
 
-  // ─── Reloj en Vivo ────────────────────────────────────────────────────────
+  /**
+   * Reloj en Vivo
+   */
   function initDockLiveClock() {
     const clockEl = document.getElementById('dock-live-clock');
     if (!clockEl) return;
@@ -348,7 +353,9 @@
     setInterval(update, 1000);
   }
 
-  // ─── Air Datepicker ───────────────────────────────────────────────────────
+  /**
+   * Air Datepicker
+   */
   function initDockFechaAirDatepicker() {
     const input = document.getElementById('dock-input-fecha-atencion');
     if (!input || typeof AirDatepicker === 'undefined' || dockFechaAirDatepicker) return;
@@ -383,7 +390,9 @@
     }
   }
 
-  // ─── Modos: Nuevo vs Revisión/Edición ─────────────────────────────────────
+  /**
+   * Modos: Nuevo vs Revisión/Edición
+   */
   function applyDockNewMode() {
     dockIsReviewMode = false;
     dockIsFormLocked = false;
@@ -533,7 +542,10 @@
     });
   }
 
-  // ─── Carga de Asistencia para Edición ─────────────────────────────────────
+  /**
+   * Carga de Asistencia para Edición
+   * @param {string|number} id - Parámetro id.
+   */
   async function loadDockAsistenciaParaEdicion(id) {
     if (!id) return;
     try {
@@ -599,7 +611,9 @@
     }
   }
 
-  // ─── Dropdowns de UI ──────────────────────────────────────────────────────
+  /**
+   * Dropdowns de UI
+   */
   function initDockCustomDropdowns() {
     setupDockDropdownToggle('dock-btn-dropdown-canal', 'dock-menu-dropdown-canal');
     setupDockDropdownToggle('dock-btn-dropdown-categoria', 'dock-menu-dropdown-categoria');
@@ -682,7 +696,9 @@
     }
   }
 
-  // ─── Combobox de Direcciones y Representado ────────────────────────────────
+  /**
+   * Combobox de Direcciones y Representado
+   */
   function initDockDeptoCombobox() {
     const input = document.getElementById('dock-input-direccion');
     const toggleBtn = document.getElementById('dock-btn-toggle-direccion-dropdown');
@@ -855,7 +871,9 @@
     });
   }
 
-  // ─── Autocompletado de Solicitantes y Restricción de Teléfono ──────────────
+  /**
+   * Autocompletado de Solicitantes y Restricción de Teléfono
+   */
   function initDockPhoneRestriction() {
     const input = document.getElementById('dock-input-telefono');
     if (!input) return;
@@ -958,7 +976,9 @@
     saveDockDraft();
   }
 
-  // ─── Autocompletado Predictivo de Folio Lobby ─────────────────────────────
+  /**
+   * Autocompletado Predictivo de Folio Lobby
+   */
   function initDockFolioAutocomplete() {
     const input = document.getElementById('dock-input-folio');
     const suggestionsBox = document.getElementById('dock-folio-suggestions');
@@ -1050,7 +1070,9 @@
     });
   }
 
-  // ─── Borrador Local en Tiempo Real ────────────────────────────────────────
+  /**
+   * Borrador Local en Tiempo Real
+   */
   function initDockDraftAutosave() {
     const inputs = ['dock-input-solicitante', 'dock-input-direccion', 'dock-input-correo', 'dock-input-telefono', 'dock-input-representado', 'dock-input-folio', 'dock-input-motivo', 'dock-input-solucion'];
     inputs.forEach(id => {
@@ -1138,7 +1160,9 @@
     }
   }
 
-  // ─── Descartar y Nueva Atención ───────────────────────────────────────────
+  /**
+   * Descartar y Nueva Atención
+   */
   function handleDockDescartar() {
     const doDescartar = () => {
       resetDockForm();
@@ -1209,7 +1233,9 @@
     updateDockTabBadge();
   }
 
-  // ─── Guardar Asistencia ───────────────────────────────────────────────────
+  /**
+   * Guardar Asistencia
+   */
   async function guardarDockAsistencia() {
     const inputFecha = document.getElementById('dock-input-fecha-atencion');
     const inputSolicitante = document.getElementById('dock-input-solicitante');
@@ -1376,7 +1402,9 @@
     }
   }
 
-  // ─── Exportaciones: Correo Outlook y Ficha PDF ────────────────────────────
+  /**
+   * Exportaciones: Correo Outlook y Ficha PDF
+   */
   async function prepararDockCorreoOutlook() {
     if (!dockLastSavedTicket) {
       if (window.showToast) showToast('Debes guardar la atención antes de generar el correo.', 'warning');

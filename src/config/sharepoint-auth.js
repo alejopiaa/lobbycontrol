@@ -8,7 +8,6 @@ const SHAREPOINT_SITE_URL =
 const SHAREPOINT_LOGIN_URL =
   process.env.SHAREPOINT_LOGIN_URL || SHAREPOINT_SITE_URL;
 
-// Extraer la ruta del sub-sitio para consultas REST API
 let sitePath = "/sites/SECMU";
 try {
   const urlObj = new URL(SHAREPOINT_SITE_URL);
@@ -39,7 +38,6 @@ function loginWithMicrosoft() {
     }
 
     try {
-      // Limpiar cookies y almacenamiento antes de iniciar para evitar capturar sesiones viejas/expiradas
       await clearAllSsoData().catch(() => {});
     } catch (e) {
       console.warn("[SSO Auth] Error al limpiar sesión previa:", e.message);
@@ -73,7 +71,6 @@ function loginWithMicrosoft() {
           }
 
           try {
-            // Verificar si las cookies críticas ya se crearon antes de abortar
             const cookies = await session.defaultSession.cookies.get({});
             const shCookies = cookies.filter(
               (c) =>
@@ -108,7 +105,6 @@ function loginWithMicrosoft() {
       },
     );
 
-    // Cargar la página de SharePoint para forzar la redirección al login institucional
     loginWin.loadURL(SHAREPOINT_LOGIN_URL);
 
     // BUCLE DE SONDEO (POLLING) DE COOKIES - Opción B

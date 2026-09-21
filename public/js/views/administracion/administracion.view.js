@@ -118,9 +118,19 @@ export const AdministracionView = {
     if (!tabContainer) return;
 
     if (typeof window.changeAdminTab === 'function') {
-      window.changeAdminTab(this.currentTab);
+      window.changeAdminTab(this.currentTab, tabContainer);
     }
   },
 
   unmount() {}
 };
+
+export function renderAdministracion(container) {
+  return AdministracionView.mount(container);
+}
+
+if (typeof window !== 'undefined') {
+  window.AdministracionView = AdministracionView;
+  window.renderAdministracion = renderAdministracion;
+}
+

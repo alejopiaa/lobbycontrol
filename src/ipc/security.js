@@ -51,7 +51,6 @@ function safeIpcHandle(channel, handler) {
         let code = "ERR-GEN-999";
         const errMsg = (res.data && (res.data.error || res.data.message)) || "Error en la petición API";
         
-        // Mapear código si viene explícito en el mensaje, o según el status
         if (errMsg.includes("ERR-")) {
           const match = errMsg.match(/ERR-\w+-\d+/);
           if (match) code = match[0];

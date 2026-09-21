@@ -23,131 +23,204 @@
   <script src="/vendor/air-datepicker.min.js"></script>
   <script src="/vendor/air-datepicker.es.js"></script>
 </head>
-<body class="h-full flex flex-col font-sans antialiased overflow-hidden">
+<body class="behance-bg dot-pattern h-screen w-screen overflow-hidden font-sans antialiased flex items-center justify-center p-2 sm:p-4 text-slate-800 dark:text-slate-100">
 
   <!-- NOTIFICACIONES DENTRO DE LA APP -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
 
-  <!-- HEADER / TOP NAV -->
-  <header class="h-16 shrink-0 bg-bg-header border-b border-border-ui flex items-center px-6 z-40 hidden header-premium">
-    <!-- COLUMNA IZQUIERDA: IDENTIDAD LOBBYCONTROL -->
-    <div class="flex-1 flex flex-col justify-center leading-none">
-      <div class="flex items-center gap-2">
-        <span class="text-xl font-black text-text-primary tracking-tight">LobbyControl</span>
-        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 font-mono">v3.2.0</span>
-      </div>
-      <span class="text-[11px] font-medium text-text-tertiary mt-1 tracking-wide">Gestión de Ley de Lobby N° 20.730</span>
-    </div>
-
-    <!-- COLUMNA CENTRAL: NAVEGACIÓN SUPERIOR (CENTRADA MATEMÁTICAMENTE) -->
-    <div class="flex-none flex justify-center">
-      <nav class="hidden md:flex items-center gap-1 bg-border-ui/50 p-1 rounded-full border border-border-ui header-nav-capsule">
-        <button onclick="switchView('dashboard')" id="nav-dashboard" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-text-secondary hover:text-text-primary hover:bg-border-ui bg-transparent border-0 cursor-pointer">
-          <i data-lucide="layout-dashboard" class="h-3.5 w-3.5"></i>
-          <span>Dashboard</span>
-        </button>
-        <button onclick="switchView('audiencias')" id="nav-audiencias" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-text-secondary hover:text-text-primary hover:bg-border-ui bg-transparent border-0 cursor-pointer">
-          <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
-          <span>Audiencias</span>
-        </button>
-        <button onclick="switchView('agenda')" id="nav-agenda" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-text-secondary hover:text-text-primary hover:bg-border-ui bg-transparent border-0 cursor-pointer">
-          <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
-          <span>Agenda</span>
-        </button>
-        <button onclick="switchView('viajes')" id="nav-viajes" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-text-secondary hover:text-text-primary hover:bg-border-ui bg-transparent border-0 cursor-pointer">
-          <i data-lucide="plane" class="h-3.5 w-3.5"></i>
-          <span>Viajes</span>
-        </button>
-        <button onclick="switchView('donativos')" id="nav-donativos" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 text-text-secondary hover:text-text-primary hover:bg-border-ui bg-transparent border-0 cursor-pointer">
-          <i data-lucide="gift" class="h-3.5 w-3.5"></i>
-          <span>Donativos</span>
-        </button>
-      </nav>
-    </div>
-
-    <!-- COLUMNA DERECHA: ACCIONES Y PERFIL -->
-    <div class="flex-1 flex items-center justify-end gap-3">
-      <!-- Widget de Alertas (Semáforo) -->
-      <div id="alerts-widget-container" class="relative"></div>
-
-      <!-- Botón de Asistencia Técnica (Consola de Llamadas) -->
-      <button id="btn-open-asistencia-top" onclick="openAssistanceConsole()" class="h-8 px-2.5 rounded-xl flex items-center gap-1.5 border border-brand-500/30 bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500/20 transition-all duration-200 cursor-pointer text-xs font-semibold" title="Asistencia Técnica y Llamadas (Ctrl+Shift+A o F9)">
-        <i data-lucide="headset" class="h-3.5 w-3.5"></i>
-        <span class="hidden md:inline">Asistencia</span>
-      </button>
-
-      <!-- Botón de Configuración (Engranaje) -->
-      <button id="nav-settings" onclick="switchView('administracion')" class="h-8 w-8 rounded-xl flex items-center justify-center border border-border-ui hover:border-brand-500 bg-border-ui/50 text-text-secondary hover:text-text-primary transition-all duration-200 hidden cursor-pointer" title="Configuración y Administración">
-        <i data-lucide="settings" class="h-4 w-4"></i>
-      </button>
-
-      <!-- Botón de Modo Claro/Oscuro -->
-      <button id="theme-toggle" onclick="toggleTheme()" class="h-8 w-8 rounded-xl flex items-center justify-center border border-border-ui hover:border-brand-500 bg-border-ui/50 text-text-secondary hover:text-text-primary transition-all duration-200 cursor-pointer" title="Cambiar de Modo">
-        <i data-lucide="sun" class="h-4 w-4"></i>
-      </button>
-
-      <!-- Perfil del Usuario Logueado -->
-      <div id="user-profile-menu" class="relative flex items-center gap-3">
-        <!-- Contenedor clickeable del perfil -->
-        <div onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 cursor-pointer group select-none">
-          <div class="text-right hidden sm:block">
-            <p id="header-user-rol" class="text-xs font-semibold text-text-secondary group-hover:text-text-primary transition-colors">Cargando...</p>
-            <p id="header-user-nombre" class="text-[10px] text-text-tertiary group-hover:text-text-secondary transition-colors">...</p>
-          </div>
-          <div id="header-user-initials" class="h-8 w-8 rounded-full bg-bg-main border border-border-ui text-text-secondary font-semibold text-xs flex items-center justify-center group-hover:border-brand-500 transition-all duration-150" title="Perfil de usuario">
-            --
-          </div>
-          <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-text-tertiary group-hover:text-text-secondary transition-colors"></i>
-        </div>
-
-        <!-- Dropdown flotante del perfil -->
-        <div id="profile-dropdown" class="hidden absolute right-0 top-10 mt-2 w-48 glass-card text-text-primary rounded-2xl p-2 z-50 flex flex-col gap-1">
-          <button onclick="triggerEditProfile(event)" class="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-text-secondary hover:text-text-primary hover:bg-border-ui transition-all text-left cursor-pointer border-0 bg-transparent">
-            <i data-lucide="user" class="h-3.5 w-3.5 text-brand-500 dark:text-brand-400"></i>
-            <span>Editar Perfil</span>
-          </button>
-          <button onclick="triggerAlertCenter(event)" class="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-text-secondary hover:text-text-primary hover:bg-border-ui transition-all text-left cursor-pointer border-0 bg-transparent">
-            <i data-lucide="bell" class="h-3.5 w-3.5 text-brand-500 dark:text-brand-400"></i>
-            <span>Centro de Alertas</span>
-          </button>
-          <div class="border-t border-border-ui my-1"></div>
-          <button onclick="logout()" class="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all text-left cursor-pointer border-0 bg-transparent">
-            <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
-            <span>Cerrar Sesión</span>
-          </button>
-          <div class="border-t border-border-ui my-1"></div>
-          <div id="app-version" class="px-3 py-1.5 text-center text-[10px] text-text-tertiary font-semibold select-none">
-            v...
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- BANNER DE SIMULACIÓN DE PERFIL -->
-  <div id="impersonation-banner" class="hidden shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-amber-800 dark:text-amber-200 text-xs font-semibold backdrop-blur-md z-30">
-    <div class="flex items-center gap-2">
-      <div class="h-5 w-5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center">
-        <i data-lucide="shield-alert" class="h-3.5 w-3.5"></i>
-      </div>
-      <span>⚠️ Modo Simulación activo: Viendo la aplicación como el usuario <strong id="simulated-user-name" class="text-text-primary font-bold">...</strong> (<span id="simulated-user-role" class="italic font-medium text-amber-700 dark:text-amber-300">...</span>)</span>
-    </div>
-    <button onclick="stopImpersonation()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer shadow hover:shadow-amber-500/20 border-0">
-      Detener Simulación
-    </button>
-  </div>
-
-  <!-- CUERPO PRINCIPAL (SIDEBAR + MAIN CONTENT) -->
-  <div class="flex flex-1 overflow-hidden">
+  <!-- MARCO FLOTANTE PRINCIPAL (MACRO FRAME BEHANCE) -->
+  <div id="app-frame" class="w-full max-w-[1560px] h-[94vh] min-h-0 flex rounded-[36px] bg-[#f7f6fb] dark:bg-slate-900 shadow-2xl border border-white/90 dark:border-slate-800 overflow-hidden relative">
     
-    <!-- CONTENEDOR PRINCIPAL RESPONSIVO -->
-    <main class="flex-1 overflow-y-auto bg-bg-main p-8 relative">
-      <div id="top-loading-bar" class="absolute top-0 left-0 h-[3px] bg-brand-500 transition-all duration-200 w-0 opacity-0 z-50"></div>
-      <div class="max-w-7xl mx-auto space-y-6" id="main-content">
-        <!-- Las vistas se cargarán aquí de forma dinámica -->
-      </div>
-    </main>
+    <!-- SIDEBAR ERGONÓMICO LATERAL (ESTILO BEHANCE LMS) -->
+    <aside id="app-sidebar" class="w-64 lg:w-72 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 p-6 flex flex-col justify-between shrink-0 overflow-y-auto min-h-0 select-none">
+      
+      <div>
+        <!-- Logo / Marca Estilo Behance -->
+        <div class="flex items-center gap-3 px-2 mb-8 cursor-pointer" onclick="switchView('dashboard')">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-blue-600 to-cyan-400 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25 font-black text-sm">
+            LC
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">LobbyControl</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 font-mono">v3.3.0</span>
+            </div>
+            <p class="text-[11px] font-semibold text-slate-400">Ley N° 20.730 · Maipú</p>
+          </div>
+        </div>
 
+        <!-- Módulos Reales de la Aplicación -->
+        <div class="space-y-6">
+          <!-- 1. Módulos Principales -->
+          <div>
+            <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 mb-2.5">Módulos Principales</p>
+            <nav class="space-y-1">
+              <!-- Escritorio -->
+              <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-sidebar-item active">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                <span>Escritorio</span>
+              </button>
+
+              <!-- Audiencias -->
+              <button onclick="switchView('audiencias')" id="nav-audiencias" class="nav-sidebar-item justify-between">
+                <div class="flex items-center gap-3.5">
+                  <i data-lucide="calendar-check" class="w-4 h-4"></i>
+                  <span>Audiencias</span>
+                </div>
+                <span id="sidebar-audiencias-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">--</span>
+              </button>
+
+              <!-- Agenda -->
+              <button onclick="switchView('agenda')" id="nav-agenda" class="nav-sidebar-item justify-between">
+                <div class="flex items-center gap-3.5">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                  <span>Agenda</span>
+                </div>
+                <span id="sidebar-agenda-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/50 text-brand-700 dark:text-brand-300">--</span>
+              </button>
+
+              <!-- Viajes -->
+              <button onclick="switchView('viajes')" id="nav-viajes" class="nav-sidebar-item">
+                <i data-lucide="plane" class="w-4 h-4"></i>
+                <span>Viajes</span>
+              </button>
+
+              <!-- Donativos -->
+              <button onclick="switchView('donativos')" id="nav-donativos" class="nav-sidebar-item">
+                <i data-lucide="gift" class="w-4 h-4"></i>
+                <span>Donativos</span>
+              </button>
+
+              <!-- Estadísticas -->
+              <button onclick="switchView('estadisticas')" id="nav-estadisticas" class="nav-sidebar-item">
+                <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                <span>Estadísticas</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- 2. Sistema -->
+          <div>
+            <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 mb-2.5">Sistema</p>
+            <nav class="space-y-1">
+              <!-- Asistencia Técnica (F9) -->
+              <button id="btn-open-asistencia-top" onclick="openAssistanceConsole()" class="nav-sidebar-item justify-between" title="Consola de Asistencia Técnica (F9)">
+                <div class="flex items-center gap-3.5">
+                  <i data-lucide="headset" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+                  <span>Asistencia (F9)</span>
+                </div>
+                <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-mono">F9</span>
+              </button>
+
+              <!-- Administración -->
+              <button onclick="switchView('administracion')" id="nav-settings" class="nav-sidebar-item">
+                <i data-lucide="settings" class="w-4 h-4"></i>
+                <span>Administración</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pie del Sidebar: Usuario y Menú de Perfil -->
+      <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+        <!-- Usuario Oficial y Menú de Perfil -->
+        <div id="user-profile-menu" class="relative">
+          <div class="flex items-center justify-between px-1">
+            <div class="flex items-center gap-3">
+              <div id="header-user-initials" class="w-9 h-9 rounded-xl bg-slate-900 text-white font-bold text-xs flex items-center justify-center font-mono shadow-xs">
+                --
+              </div>
+              <div class="leading-tight">
+                <p id="header-user-nombre" class="text-xs font-bold text-slate-900 dark:text-white">Cargando...</p>
+                <p id="header-user-rol" class="text-[10px] text-slate-400 font-medium">--</p>
+              </div>
+            </div>
+            <button onclick="toggleProfileDropdown(event)" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer" title="Ajustes de Perfil">
+              <i data-lucide="more-vertical" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Dropdown flotante del perfil (Despliegue hacia arriba) -->
+          <div id="profile-dropdown" class="hidden absolute left-0 bottom-full mb-2 w-56 glass-card text-text-primary rounded-2xl p-2 z-50 flex flex-col gap-1 shadow-2xl border border-border-ui">
+            <button onclick="triggerEditProfile(event)" class="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-text-secondary hover:text-text-primary hover:bg-border-ui/50 transition-all text-left cursor-pointer border-0 bg-transparent">
+              <i data-lucide="user" class="h-3.5 w-3.5 text-brand-500 dark:text-brand-400"></i>
+              <span>Editar Perfil</span>
+            </button>
+            <button onclick="triggerAlertCenter(event)" class="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-text-secondary hover:text-text-primary hover:bg-border-ui/50 transition-all text-left cursor-pointer border-0 bg-transparent">
+              <i data-lucide="bell" class="h-3.5 w-3.5 text-brand-500 dark:text-brand-400"></i>
+              <span>Centro de Alertas</span>
+            </button>
+            <div class="border-t border-border-ui my-1"></div>
+            <button onclick="logout()" class="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all text-left cursor-pointer border-0 bg-transparent">
+              <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
+              <span>Cerrar Sesión</span>
+            </button>
+            <div class="border-t border-border-ui my-1"></div>
+            <div id="app-version" class="px-3 py-1 text-center text-[10px] text-text-tertiary font-semibold select-none">
+              v...
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL DE CONTENIDO -->
+    <div class="flex-1 min-h-0 flex flex-col overflow-hidden bg-[#f7f6fb] dark:bg-slate-950">
+      
+      <!-- ================= HEADER SUPERIOR ESTILO BEHANCE ================= -->
+      <header class="h-20 px-8 flex items-center justify-between border-b border-slate-100/90 dark:border-slate-800/90 shrink-0 bg-white/40 dark:bg-slate-900/40 hidden header-premium">
+        <!-- Título Dinámico -->
+        <div>
+          <h1 id="topbar-title" class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Escritorio</h1>
+          <p id="topbar-desc" class="text-xs text-slate-400 font-medium">Seguimiento operativo de plazos y audiencias del día</p>
+        </div>
+
+        <!-- Acciones Reales del Topbar (Estilo Behance) -->
+        <div class="flex items-center gap-3.5">
+          <!-- Botón de Sincronización SharePoint -->
+          <button id="btn-topbar-sync" onclick="sincronizarSharepoint(this)" class="px-5 py-2.5 rounded-full bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-md shadow-brand-500/20 flex items-center gap-2 transition-all cursor-pointer">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Sincronizar SharePoint</span>
+          </button>
+
+          <!-- Contenedor dinámico de alertas -->
+          <div id="alerts-widget-container" class="relative"></div>
+
+          <!-- Asistencia F9 -->
+          <button onclick="openAssistanceConsole()" class="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors shadow-xs cursor-pointer" title="Asistencia Técnica (F9)">
+            <i data-lucide="headset" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
+          </button>
+
+          <!-- Botón de Modo Claro/Oscuro -->
+          <button id="theme-toggle" onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors shadow-xs cursor-pointer" title="Cambiar de Modo">
+            <i data-lucide="sun" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- BANNER DE SIMULACIÓN DE PERFIL -->
+      <div id="impersonation-banner" class="hidden shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-amber-800 dark:text-amber-200 text-xs font-semibold backdrop-blur-md z-30">
+        <div class="flex items-center gap-2">
+          <div class="h-5 w-5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center">
+            <i data-lucide="shield-alert" class="h-3.5 w-3.5"></i>
+          </div>
+          <span>⚠️ Modo Simulación activo: Viendo la aplicación como el usuario <strong id="simulated-user-name" class="text-text-primary font-bold">...</strong> (<span id="simulated-user-role" class="italic font-medium text-amber-700 dark:text-amber-300">...</span>)</span>
+        </div>
+        <button onclick="stopImpersonation()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer shadow hover:shadow-amber-500/20 border-0">
+          Detener Simulación
+        </button>
+      </div>
+
+      <!-- VIEWPORT DE VISTAS CON SCROLL INDEPENDIENTE -->
+      <main class="flex-1 min-h-0 overflow-y-auto bg-transparent p-6 lg:p-8 relative">
+        <div id="top-loading-bar" class="absolute top-0 left-0 h-[3px] bg-brand-500 transition-all duration-200 w-0 opacity-0 z-50"></div>
+        <div class="max-w-7xl mx-auto space-y-6" id="main-content">
+          <!-- Las vistas se cargarán aquí de forma dinámica -->
+        </div>
+      </main>
+
+    </div>
   </div>
 
 
@@ -252,7 +325,7 @@
             <label class="block text-[11px] font-semibold text-text-secondary mb-1">Fecha y Hora *</label>
             <div class="relative">
               <input type="text" id="dock-input-fecha-atencion" readonly placeholder="DD/MM/AAAA *" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg pl-2.5 pr-7 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors cursor-pointer">
-              <button type="button" id="dock-btn-trigger-fecha" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-brand-500 transition-colors p-0.5 cursor-pointer">
+              <button type="button" id="dock-btn-trigger-fecha" title="Seleccionar fecha" aria-label="Seleccionar fecha" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-brand-500 transition-colors p-0.5 cursor-pointer">
                 <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
               </button>
             </div>
@@ -321,7 +394,7 @@
           <div class="relative">
             <div class="relative flex items-center">
               <input type="text" id="dock-input-direccion" class="form-field-control w-full bg-bg-card border border-border-ui rounded-lg pl-3 pr-7 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors" placeholder="Dirección Municipal (Ej: DOM, SECMUN, DIDECO) *" autocomplete="off">
-              <button id="dock-btn-toggle-direccion-dropdown" type="button" class="absolute right-1.5 text-text-tertiary hover:text-text-primary p-0.5 cursor-pointer">
+              <button id="dock-btn-toggle-direccion-dropdown" type="button" title="Desplegar direcciones" aria-label="Desplegar direcciones" class="absolute right-1.5 text-text-tertiary hover:text-text-primary p-0.5 cursor-pointer">
                 <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
               </button>
             </div>

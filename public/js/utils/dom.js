@@ -1,5 +1,6 @@
 /**
  * DOM - Helpers defensivos y seguros de manipulación del DOM
+ * @param {string|number} idOrSelector - Parámetro idOrSelector.
  */
 export function getEl(idOrSelector) {
   if (typeof idOrSelector !== 'string') return idOrSelector;
@@ -21,3 +22,12 @@ export function onEvent(target, event, handler) {
   }
   return () => {};
 }
+
+export function debounce(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+

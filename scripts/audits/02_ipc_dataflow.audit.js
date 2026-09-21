@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const walk = require('acorn-walk');
 
 module.exports = {
   id: 'ipc',
@@ -190,13 +191,16 @@ module.exports = {
     if (fs.existsSync(viewsJsPath)) {
       const viewsContent = ctx.getFileContent(viewsJsPath);
       if (viewsContent.includes('tabName === "reportes"') && !viewsContent.includes('fetchData("publicadas")') && !viewsContent.includes("fetchData('publicadas')")) {
+        const vLines = ctx.getFileLines(viewsJsPath);
+        const targetIdx = vLines.findIndex(l => l.includes('tabName === "reportes"'));
+        const lineNum = targetIdx !== -1 ? targetIdx + 1 : 1;
         addIssue(
           'dataStoreLoading',
           viewsJsPath,
-          2247,
+          lineNum,
           'La vista de Reportes no asegura la carga de dataStore.publicadas en el cambio de pestaña',
           'Invoque fetchData("publicadas") al activar la pestaña de reportes.',
-          null,
+          vLines[lineNum - 1] || null,
           'error'
         );
       }
@@ -205,24 +209,26 @@ module.exports = {
     // ─────────────────────────────────────────────────────────────────────────
     // 10. FIRMAS Y ARIDAD DE FUNCIONES COMPARTIDAS (openConfirmModal)
     // ─────────────────────────────────────────────────────────────────────────
-    for (const file of jsFiles) {
-      const lines = ctx.getFileLines(file);
-      lines.forEach((line, lineIdx) => {
-        const lineNum = lineIdx + 1;
-        const objCallMatch = line.match(/openConfirmModal\s*\(\s*\{/);
-        if (objCallMatch) {
-          addIssue(
-            'functionSignatures',
-            file,
-            lineNum,
-            'openConfirmModal invocado con un objeto de opciones en lugar de argumentos posicionales (title, message, onConfirm)',
-            'Use openConfirmModal(title, message, callback) en lugar de pasar un objeto.',
-            line,
-            'error'
-          );
+    ctx.forEachJsAst((ast, file, content, lines) => {
+      walk.simple(ast, {
+        CallExpression(node) {
+          if (node.callee.type === 'Identifier' && node.callee.name === 'openConfirmModal') {
+            if (node.arguments.length > 0 && node.arguments[0].type === 'ObjectExpression') {
+              const lineNum = node.loc?.start?.line || 1;
+              addIssue(
+                'functionSignatures',
+                file,
+                lineNum,
+                'openConfirmModal invocado con un objeto de opciones en lugar de argumentos posicionales (title, message, onConfirm)',
+                'Use openConfirmModal(title, message, callback) en lugar de pasar un objeto.',
+                lines[lineNum - 1] || '',
+                'error'
+              );
+            }
+          }
         }
       });
-    }
+    });
 
     // ─────────────────────────────────────────────────────────────────────────
     // 11. TIMEOUTS Y RESGUARDOS EN EXPORTADORES
@@ -231,13 +237,16 @@ module.exports = {
     if (fs.existsSync(handlersJsPath)) {
       const handlersContent = ctx.getFileContent(handlersJsPath);
       if (handlersContent.includes('generate-silent-pdf') && !handlersContent.includes('timeoutId = setTimeout')) {
+        const hLines = ctx.getFileLines(handlersJsPath);
+        const targetIdx = hLines.findIndex(l => l.includes('generate-silent-pdf'));
+        const lineNum = targetIdx !== -1 ? targetIdx + 1 : 1;
         addIssue(
           'exports',
           handlersJsPath,
-          323,
+          lineNum,
           'El manejador generate-silent-pdf no cuenta con timeout de seguridad en Electron',
           'Incorpore un timeout defensivo para resolver la promesa si la ventana tarda en imprimir.',
-          null,
+          hLines[lineNum - 1] || null,
           'error'
         );
       }

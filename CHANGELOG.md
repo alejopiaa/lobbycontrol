@@ -4,6 +4,22 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-09-21
+
+### Added
+- **Módulo 11 de Auditoría Universal**: Implementación de `11_comments_clean_code.audit.js` que evalúa de forma 100% estructural (sin listas de palabras) la calidad de comentarios, erradicando código muerto, banners ornamentales y exigiendo contratos formales JSDoc.
+- **Reloj y Radar en Vivo Integrado**: Integración de reloj en tiempo real con segundos (`HH:mm:ss hrs`) y punto de radar palpitante ("En Línea") dentro de la tarjeta unificada del Dashboard.
+- **Badges Dinámicos en Navegación**: Contador dinámico de solicitudes ingresadas en Audiencias y contador numérico limpio de audiencias agendadas hoy en Agenda.
+
+### Changed
+- **Jerarquía Tipográfica Estricta**: Reserva de `text-text-primary` exclusivamente para títulos de nivel superior (`h1`, `h2`), normalizando subtítulos, métricas y datos institucionales a `text-text-secondary`.
+- **Estandarización Canónica de Badges de Estado**: Unificación de colores y clases CSS de badges de estado entre Solicitudes y Dashboard mediante la función compartida `getDeadlineStatusBadge`.
+- **Refactorización Universal de Comentarios**: Estandarización de documentación JSDoc con `@param` y `@returns` en todos los módulos de frontend y backend.
+
+### Fixed
+- **Código Muerto Comentado**: Eliminación de bloques residuales de desarrollo en `main.js`.
+- **Banners y Separadores ASCII**: Limpieza de ornamentos visuales sustituidos por espaciado vertical modular.
+
 ## [3.2.0] - 2026-09-10
 
 ### Added
@@ -263,7 +279,8 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 - **Estructura de Datos y Validaciones**: Modelos de almacenamiento, importador de datos y normalización de registros.
 - **Dashboard de Métricas**: Indicadores de cumplimiento y visualización de estados.
 
-[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.2.0...HEAD
+[Unreleased]: https://github.com/alejopiaa/lobbycontrol/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/alejopiaa/lobbycontrol/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/alejopiaa/lobbycontrol/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.2...v3.1.0
 [3.0.2]: https://github.com/alejopiaa/lobbycontrol/compare/v3.0.1...v3.0.2

@@ -36,7 +36,6 @@ if (useProductionPath) {
     
   dbDir = path.join(baseDir, 'data');
 } else {
-  // Configuración estándar para desarrollo local (scripts o Electron en desarrollo)
   const devPath = path.isAbsolute(process.env.DATABASE_PATH || 'data/data.db')
     ? (process.env.DATABASE_PATH || 'data/data.db')
     : path.join(__dirname, '..', '..', process.env.DATABASE_PATH || 'data/data.db');
@@ -55,7 +54,6 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-// Limpieza preventiva de archivos Excel huérfanos de ejecuciones anteriores (a prueba de fallos)
 const orphanExcelPath = path.join(dbDir, 'lobby_data.xlsx');
 if (fs.existsSync(orphanExcelPath)) {
   try {
@@ -66,7 +64,10 @@ if (fs.existsSync(orphanExcelPath)) {
   }
 }
 
-// Función de autorreparación para asegurar que la base de datos no esté comprimida con GZIP en disco
+/**
+ * Función de autorreparación para asegurar que la base de datos no esté comprimida con GZIP en disco
+ * @param {*} filePath - Parámetro filePath.
+ */
 function ensureDecompressedDb(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return;
   try {
@@ -93,7 +94,6 @@ ensureDecompressedDb(usersDbPath);
 ensureDecompressedDb(localDbPath);
 ensureDecompressedDb(asistenciasDbPath);
 
-// Verificar firma digital del archivo de base de datos para depuración (sin acción destructiva)
 if (fs.existsSync(dbPath)) {
   const localVersionPath = fs.existsSync(path.join(dbDir, 'version_data.json'))
     ? path.join(dbDir, 'version_data.json')
@@ -179,7 +179,6 @@ function connectAsistenciasDb(targetPath) {
   });
 }
 
-// Inicializar las conexiones activas
 connectLobbyDb(dbPath);
 connectUsersDb(usersDbPath);
 connectLocalDb(localDbPath);
@@ -774,7 +773,9 @@ asistenciasDb.serialize(() => {
   setTimeout(ensureUuidInAsistenciasDb, 50);
 });
 
-// Siembra inicial de direcciones municipales oficiales en app.db
+/**
+ * Siembra inicial de direcciones municipales oficiales en app.db
+ */
 function seedDireccionesMunicipales() {
   const defaultDirecciones = [
     ['ALC', 'Alcaldía', 1],
@@ -805,7 +806,9 @@ function seedDireccionesMunicipales() {
   });
 }
 
-// Verificación y backfill de UUIDs en app.db
+/**
+ * Verificación y backfill de UUIDs en app.db
+ */
 function ensureUuidInAsistenciasDb() {
   const crypto = require('crypto');
 
@@ -1169,7 +1172,8 @@ function rebuildActiveSujetoIdsTable() {
       }
     });
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     db.run(`
       INSERT OR IGNORE INTO sujetos_pasivos_vigentes (id_sujeto_lobby)

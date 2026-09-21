@@ -69,7 +69,6 @@ class Store {
         const oldValue = obj[prop];
         obj[prop] = value;
 
-        // Notificar a observadores específicos
         this._notify(fullPath, value, oldValue);
         // Emitir evento en el bus general
         eventBus.emit(`state:${fullPath}`, { value, oldValue });

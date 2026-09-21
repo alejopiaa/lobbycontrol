@@ -14,7 +14,9 @@ let isImporting = false;
 // Semáforo de control para sincronizaciones concurrentes con SharePoint
 let isSyncing = false;
 
-// Helper para obtener prefijo AAMMDD en zona horaria oficial de Chile
+/**
+ * Helper para obtener prefijo AAMMDD en zona horaria oficial de Chile
+ */
 function getChileanDatePrefix() {
   try {
     const formatter = new Intl.DateTimeFormat('es-CL', {
@@ -37,7 +39,13 @@ function getChileanDatePrefix() {
   }
 }
 
-// Helper para sanitizar y normalizar datos de contacto institucional
+/**
+ * Helper para sanitizar y normalizar datos de contacto institucional
+ * @param {*} nombre - Parámetro nombre.
+ * @param {*} direccion - Parámetro direccion.
+ * @param {*} correo - Parámetro correo.
+ * @param {*} telefono - Parámetro telefono.
+ */
 function sanitizeContactData(nombre, direccion, correo, telefono) {
   let cleanName = (nombre || '').trim().replace(/\s+/g, ' ');
   let cleanDireccion = (direccion || '').trim();
@@ -187,9 +195,7 @@ async function handle(req, setSharepointCookie) {
     return { status: 403, data: { error: 'Acceso denegado. Se requieren privilegios de Administrador.', code: 'FORBIDDEN_ADMIN_ROLE_REQUIRED' } };
   }
 
-  // ==========================================
   // RUTAS: AUTENTICACIÓN
-  // ==========================================
 
   // GET /api/auth/me
   if (method === 'GET' && pathName === '/api/auth/me') {
@@ -277,7 +283,6 @@ async function handle(req, setSharepointCookie) {
     return new Promise((resolve) => {
       checkAndSyncDatabase(db, req.sharepointCookie)
         .then((updated) => {
-          // Obtener la fecha de última actualización para retornarla al cliente si hubo cambios
           if (updated) {
             appDb.get("SELECT valor FROM configuracion WHERE clave = 'db_last_update'", [], (err, row) => {
               const lastUpdate = (row && !err) ? row.valor : new Date().toLocaleString('es-CL');
@@ -432,27 +437,37 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: ESTADÍSTICAS DEL DASHBOARD
-  // ==========================================
 
   // GET /api/stats
   if (method === 'GET' && pathName === '/api/stats') {
     const stats = {};
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const todayPrefix = `${y}-${m}-${d}%`;
+
     if (effectiveUser.rol === 'Sujeto Pasivo' || effectiveUser.rol === 'Asistente técnico') {
       const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       stats.usuarios = 1;
       stats.sujetos_pasivos = 1;
       
       const solQuery = `
-        SELECT COUNT(*) AS count FROM solicitudes_sh 
+        SELECT 
+          COUNT(*) AS count,
+          SUM(CASE WHEN LOWER(estado) = 'ingresada' THEN 1 ELSE 0 END) AS ingresadas,
+          SUM(CASE WHEN LOWER(estado) = 'aceptada' AND fecha_agendada LIKE ? THEN 1 ELSE 0 END) AS agenda_hoy
+        FROM solicitudes_sh 
         WHERE sujeto_pasivo_id IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_sph WHERE rut = ?)
            OR LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?)
       `;
       return new Promise((resolve) => {
-        db.get(solQuery, [targetRut, targetRut], (err, row) => {
+        db.get(solQuery, [todayPrefix, targetRut, targetRut], (err, row) => {
           if (err) return resolve({ status: 500, data: { error: err.message } });
-          stats.solicitudes = row.count;
+          stats.solicitudes = row ? (row.count || 0) : 0;
+          stats.solicitudes_ingresadas = row ? (row.ingresadas || 0) : 0;
+          stats.agenda_hoy = row ? (row.agenda_hoy || 0) : 0;
           
           const pubQuery = `
             SELECT COUNT(*) AS count FROM publicadas_ph 
@@ -460,7 +475,7 @@ async function handle(req, setSharepointCookie) {
           `;
           db.get(pubQuery, [targetRut], (err, row) => {
             if (err) return resolve({ status: 500, data: { error: err.message } });
-            stats.publicadas = row.count;
+            stats.publicadas = row ? (row.count || 0) : 0;
             resolve({ status: 200, data: stats });
           });
         });
@@ -469,19 +484,28 @@ async function handle(req, setSharepointCookie) {
       return new Promise((resolve) => {
         usersDb.get('SELECT COUNT(*) AS count FROM usuarios', (err, row) => {
           if (err) return resolve({ status: 500, data: { error: err.message } });
-          stats.usuarios = row.count;
+          stats.usuarios = row ? (row.count || 0) : 0;
 
-          db.get('SELECT COUNT(*) AS count FROM solicitudes_sh', (err, row) => {
+          const solQuery = `
+            SELECT 
+              COUNT(*) AS count,
+              SUM(CASE WHEN LOWER(estado) = 'ingresada' THEN 1 ELSE 0 END) AS ingresadas,
+              SUM(CASE WHEN LOWER(estado) = 'aceptada' AND fecha_agendada LIKE ? THEN 1 ELSE 0 END) AS agenda_hoy
+            FROM solicitudes_sh
+          `;
+          db.get(solQuery, [todayPrefix], (err, row) => {
             if (err) return resolve({ status: 500, data: { error: err.message } });
-            stats.solicitudes = row.count;
+            stats.solicitudes = row ? (row.count || 0) : 0;
+            stats.solicitudes_ingresadas = row ? (row.ingresadas || 0) : 0;
+            stats.agenda_hoy = row ? (row.agenda_hoy || 0) : 0;
 
             db.get('SELECT COUNT(*) AS count FROM publicadas_ph', (err, row) => {
               if (err) return resolve({ status: 500, data: { error: err.message } });
-              stats.publicadas = row.count;
+              stats.publicadas = row ? (row.count || 0) : 0;
 
               db.get('SELECT COUNT(*) AS count FROM sujetos_pasivos_sph', (err, row) => {
                 if (err) return resolve({ status: 500, data: { error: err.message } });
-                stats.sujetos_pasivos = row.count;
+                stats.sujetos_pasivos = row ? (row.count || 0) : 0;
                 resolve({ status: 200, data: stats });
               });
             });
@@ -491,9 +515,7 @@ async function handle(req, setSharepointCookie) {
     }
   }
 
-  // ==========================================
   // RUTAS: GESTIÓN DE USUARIOS
-  // ==========================================
 
   // GET /api/usuarios
   if (method === 'GET' && pathName === '/api/usuarios') {
@@ -633,9 +655,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: SOLICITUDES SH
-  // ==========================================
 
   // GET /api/solicitudes
   if (method === 'GET' && pathName === '/api/solicitudes') {
@@ -707,6 +727,17 @@ async function handle(req, setSharepointCookie) {
       params.push(query.fecha_agendada_hasta);
     }
 
+    if (query.fechaInicio) {
+      const dateCol = pendingPub ? 'fecha_agendada' : 'fecha_ingreso';
+      whereClauses.push(`SUBSTR(${dateCol}, 1, 10) >= ?`);
+      params.push(query.fechaInicio);
+    }
+    if (query.fechaTermino) {
+      const dateCol = pendingPub ? 'fecha_agendada' : 'fecha_ingreso';
+      whereClauses.push(`SUBSTR(${dateCol}, 1, 10) <= ?`);
+      params.push(query.fechaTermino);
+    }
+
     if (pendingPub) {
       if (query.estado) {
         const val = query.estado.toLowerCase();
@@ -714,96 +745,57 @@ async function handle(req, setSharepointCookie) {
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         
         whereClauses.push(`fecha_limite_publicacion IS NOT NULL AND fecha_limite_publicacion != '' AND fecha_limite_publicacion != '-'`);
-        if (val === 'fuera de plazo') {
+        if (val === 'fuera de plazo' || val === 'fuera plazo') {
           whereClauses.push(`fecha_limite_publicacion < ?`);
           params.push(todayStr);
-        } else if (val === 'en plazo') {
+        } else if (val === 'en plazo' || val === 'dentro de plazo') {
           whereClauses.push(`fecha_limite_publicacion >= ?`);
           params.push(todayStr);
         }
       }
-
-      const finalWhereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-      return new Promise((resolve) => {
-        if (all) {
-          const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero, materia, especificacion_materia FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
-          db.all(sql, params, (err, rows) => {
-            if (err) return resolve({ status: 500, data: { error: err.message } });
-            injectDynamicFields(rows, () => {
-              resolve({ status: 200, data: rows });
-            });
-          });
-        } else {
-          const page = parseInt(query.page, 10) || 1;
-          const limit = parseInt(query.limit, 10) || 10;
-          const offset = (page - 1) * limit;
-
-          const countQuery = `SELECT COUNT(*) AS total FROM solicitudes_sh ${finalWhereSql}`;
-          const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC LIMIT ? OFFSET ?`;
-
-          db.get(countQuery, params, (err, countRow) => {
-            if (err) return resolve({ status: 500, data: { error: err.message } });
-            const totalItems = countRow ? countRow.total : 0;
-
-            db.all(dataQuery, [...params, limit, offset], (err, rows) => {
-              if (err) return resolve({ status: 500, data: { error: err.message } });
-              injectDynamicFields(rows, () => {
-                resolve({
-                  status: 200,
-                  data: { data: rows, totalItems, page, limit }
-                });
-              });
-            });
-          });
-        }
-      });
-    } else {
-      if (query.estado) {
-        whereClauses.push(`LOWER(estado) = ?`);
-        params.push(query.estado.toLowerCase());
-      }
-      const finalWhereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-      return new Promise((resolve) => {
-        if (all) {
-          const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero, materia, especificacion_materia FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
-          db.all(sql, params, (err, rows) => {
-            if (err) return resolve({ status: 500, data: { error: err.message } });
-            injectDynamicFields(rows, () => {
-              resolve({ status: 200, data: rows });
-            });
-          });
-        } else {
-          const page = parseInt(query.page, 10) || 1;
-          const limit = parseInt(query.limit, 10) || 10;
-          const offset = (page - 1) * limit;
-
-          const countQuery = `SELECT COUNT(*) AS total FROM solicitudes_sh ${finalWhereSql}`;
-          const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC LIMIT ? OFFSET ?`;
-
-          db.get(countQuery, params, (err, countRow) => {
-            if (err) return resolve({ status: 500, data: { error: err.message } });
-            const totalItems = countRow ? countRow.total : 0;
-
-            db.all(dataQuery, [...params, limit, offset], (err, rows) => {
-              if (err) return resolve({ status: 500, data: { error: err.message } });
-              injectDynamicFields(rows, () => {
-                resolve({
-                  status: 200,
-                  data: { data: rows, totalItems, page, limit }
-                });
-              });
-            });
-          });
-        }
-      });
+    } else if (query.estado) {
+      whereClauses.push(`LOWER(estado) = LOWER(?)`);
+      params.push(query.estado);
     }
+
+    const finalWhereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    return new Promise((resolve) => {
+      if (all) {
+        const sql = `SELECT id, id_lobby, folio_lobby, fecha_ingreso, fecha_respuesta, fecha_agendada, sujeto_pasivo, cargo, sujeto_pasivo_id, sujeto_activo, rut, representado, estado, cargo_limpio, codigo_licitacion, fecha_limite_sh, dias_habiles_respuesta, estado_cumplimiento_sh, fecha_limite_publicacion, genero, materia, especificacion_materia FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC`;
+        db.all(sql, params, (err, rows) => {
+          if (err) return resolve({ status: 500, data: { error: err.message } });
+          injectDynamicFields(rows, () => {
+            resolve({ status: 200, data: rows });
+          });
+        });
+      } else {
+          const page = parseInt(query.page, 10) || 1;
+          const limit = parseInt(query.limit, 10) || 10;
+          const offset = (page - 1) * limit;
+
+          const countQuery = `SELECT COUNT(*) AS total FROM solicitudes_sh ${finalWhereSql}`;
+          const dataQuery = `SELECT * FROM solicitudes_sh ${finalWhereSql} ORDER BY id_lobby DESC LIMIT ? OFFSET ?`;
+
+          db.get(countQuery, params, (err, countRow) => {
+            if (err) return resolve({ status: 500, data: { error: err.message } });
+            const totalItems = countRow ? countRow.total : 0;
+
+            db.all(dataQuery, [...params, limit, offset], (err, rows) => {
+              if (err) return resolve({ status: 500, data: { error: err.message } });
+              injectDynamicFields(rows, () => {
+                resolve({
+                  status: 200,
+                  data: { data: rows, totalItems, page, limit }
+                });
+              });
+            });
+          });
+        }
+      });
   }
 
-  // ==========================================
   // RUTAS: ALERTAS
-  // ==========================================
 
   // GET /api/alertas
   if (method === 'GET' && pathName === '/api/alertas') {
@@ -968,9 +960,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: PUBLICADAS PH
-  // ==========================================
 
   // GET /api/publicadas
   if (method === 'GET' && pathName === '/api/publicadas') {
@@ -1028,11 +1018,20 @@ async function handle(req, setSharepointCookie) {
 
     if (query.estado) {
       const val = query.estado.toLowerCase();
-      if (val === 'fuera de plazo') {
+      if (val === 'fuera de plazo' || val === 'fuera plazo') {
         whereClauses.push(`LOWER(cumplimiento) LIKE 'fuera%'`);
-      } else {
+      } else if (val === 'en plazo' || val === 'dentro de plazo') {
         whereClauses.push(`LOWER(cumplimiento) = 'en plazo'`);
       }
+    }
+
+    if (query.fechaInicio) {
+      whereClauses.push(`SUBSTR(fecha_inicio, 1, 10) >= ?`);
+      params.push(query.fechaInicio);
+    }
+    if (query.fechaTermino) {
+      whereClauses.push(`SUBSTR(fecha_inicio, 1, 10) <= ?`);
+      params.push(query.fechaTermino);
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -1068,11 +1067,13 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
-  // RUTAS: VIAJES VH
-  // ==========================================
+  /**
+   * RUTAS: VIAJES VH
+   */
 
-  // Helper de auto-migración preventiva para garantizar existencia de la tabla viajes_vh
+  /**
+   * Helper de auto-migración preventiva para garantizar existencia de la tabla viajes_vh
+   */
   function ensureViajesTable() {
     return new Promise((resolve) => {
       db.run(`
@@ -1113,6 +1114,48 @@ async function handle(req, setSharepointCookie) {
       const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       whereClauses.push(`(id_sujeto_pasivo IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_sph WHERE rut = ?) OR LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?))`);
       params.push(targetRut, targetRut);
+    }
+
+    if (query.vigencia === 'vigentes' || query.soloVigentes === 'true') {
+      whereClauses.push(`id_sujeto_pasivo IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes)`);
+    } else if (query.vigencia === 'no_vigentes') {
+      whereClauses.push(`(id_sujeto_pasivo IS NULL OR id_sujeto_pasivo NOT IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes))`);
+    }
+
+    if (query.search) {
+      whereClauses.push(`(destino LIKE ? OR objeto LIKE ? OR sujeto_pasivo LIKE ? OR cargo LIKE ? OR financiado_por LIKE ? OR items LIKE ?)`);
+      const s = `%${query.search}%`;
+      params.push(s, s, s, s, s, s);
+    }
+    if (query.sujetoPasivo || query.nombre) {
+      whereClauses.push(`sujeto_pasivo LIKE ?`);
+      params.push(`%${query.sujetoPasivo || query.nombre}%`);
+    }
+    if (query.cargo) {
+      whereClauses.push(`cargo LIKE ?`);
+      params.push(`%${query.cargo}%`);
+    }
+    if (query.destino) {
+      whereClauses.push(`destino LIKE ?`);
+      params.push(`%${query.destino}%`);
+    }
+    if (query.financiador || query.financiadoPor) {
+      whereClauses.push(`financiado_por LIKE ?`);
+      params.push(`%${query.financiador || query.financiadoPor}%`);
+    }
+    if (query.anio) {
+      whereClauses.push(`fecha_inicio LIKE ?`);
+      params.push(`${query.anio}%`);
+    }
+    if (query.fechaInicio && query.fechaTermino) {
+      whereClauses.push(`fecha_inicio <= ? AND fecha_termino >= ?`);
+      params.push(query.fechaTermino, query.fechaInicio);
+    } else if (query.fechaInicio) {
+      whereClauses.push(`fecha_termino >= ?`);
+      params.push(query.fechaInicio);
+    } else if (query.fechaTermino) {
+      whereClauses.push(`fecha_inicio <= ?`);
+      params.push(query.fechaTermino);
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -1204,12 +1247,14 @@ async function handle(req, setSharepointCookie) {
       whereClauses.push(`fecha_inicio LIKE ?`);
       params.push(`${query.anio}%`);
     }
-    if (query.fechaInicio) {
-      whereClauses.push(`fecha_inicio >= ?`);
+    if (query.fechaInicio && query.fechaTermino) {
+      whereClauses.push(`fecha_inicio <= ? AND fecha_termino >= ?`);
+      params.push(query.fechaTermino, query.fechaInicio);
+    } else if (query.fechaInicio) {
+      whereClauses.push(`fecha_termino >= ?`);
       params.push(query.fechaInicio);
-    }
-    if (query.fechaTermino) {
-      whereClauses.push(`fecha_termino <= ?`);
+    } else if (query.fechaTermino) {
+      whereClauses.push(`fecha_inicio <= ?`);
       params.push(query.fechaTermino);
     }
 
@@ -1260,11 +1305,13 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
-  // RUTAS: DONATIVOS DH
-  // ==========================================
+  /**
+   * RUTAS: DONATIVOS DH
+   */
 
-  // Helper de auto-migración preventiva para garantizar existencia de la tabla donativos_dh
+  /**
+   * Helper de auto-migración preventiva para garantizar existencia de la tabla donativos_dh
+   */
   function ensureDonativosTable() {
     return new Promise((resolve) => {
       db.run(`
@@ -1302,6 +1349,50 @@ async function handle(req, setSharepointCookie) {
       const targetRut = effectiveUser.rol === 'Sujeto Pasivo' ? effectiveUser.rut : effectiveUser.asistido_rut;
       whereClauses.push(`(id_sujeto_pasivo IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_sph WHERE rut = ?) OR LOWER(sujeto_pasivo) IN (SELECT LOWER(nombre) FROM sujetos_pasivos_sph WHERE rut = ?))`);
       params.push(targetRut, targetRut);
+    }
+
+    if (query.vigencia === 'vigentes' || query.soloVigentes === 'true') {
+      whereClauses.push(`id_sujeto_pasivo IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes)`);
+    } else if (query.vigencia === 'no_vigentes') {
+      whereClauses.push(`(id_sujeto_pasivo IS NULL OR id_sujeto_pasivo NOT IN (SELECT id_sujeto_lobby FROM sujetos_pasivos_vigentes))`);
+    }
+
+    if (query.search) {
+      whereClauses.push(`(descripcion LIKE ? OR ocasion LIKE ? OR procedencia LIKE ? OR sujeto_pasivo LIKE ? OR cargo LIKE ? OR tipo LIKE ?)`);
+      const s = `%${query.search}%`;
+      params.push(s, s, s, s, s, s);
+    }
+    if (query.sujetoPasivo || query.nombre) {
+      whereClauses.push(`sujeto_pasivo LIKE ?`);
+      params.push(`%${query.sujetoPasivo || query.nombre}%`);
+    }
+    if (query.cargo) {
+      whereClauses.push(`cargo LIKE ?`);
+      params.push(`%${query.cargo}%`);
+    }
+    if (query.procedencia) {
+      whereClauses.push(`procedencia LIKE ?`);
+      params.push(`%${query.procedencia}%`);
+    }
+    if (query.tipo) {
+      whereClauses.push(`tipo LIKE ?`);
+      params.push(`%${query.tipo}%`);
+    }
+    if (query.ocasion) {
+      whereClauses.push(`ocasion LIKE ?`);
+      params.push(`%${query.ocasion}%`);
+    }
+    if (query.anio) {
+      whereClauses.push(`fecha LIKE ?`);
+      params.push(`${query.anio}%`);
+    }
+    if (query.fechaInicio) {
+      whereClauses.push(`fecha >= ?`);
+      params.push(query.fechaInicio);
+    }
+    if (query.fechaTermino) {
+      whereClauses.push(`fecha <= ?`);
+      params.push(query.fechaTermino);
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -1452,9 +1543,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: SUJETOS PASIVOS SPH
-  // ==========================================
 
   // GET /api/sujetos_pasivos
   if (method === 'GET' && pathName === '/api/sujetos_pasivos') {
@@ -1520,9 +1609,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: ÚLTIMA MODIFICACIÓN DE LA BASE DE DATOS
-  // ==========================================
 
   // GET /api/db-last-update
   if (method === 'GET' && pathName === '/api/db-last-update') {
@@ -1550,9 +1637,9 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
-  // RUTAS: CORRELATIVO SECUENCIAL DE REPORTES (RAP)
-  // ==========================================
+  /**
+   * RUTAS: CORRELATIVO SECUENCIAL DE REPORTES (RAP)
+   */
 
   function getChileDateAAMMDD() {
     try {
@@ -1681,9 +1768,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: IMPORTACIÓN Y DIAGNÓSTICO (ADMINISTRADOR)
-  // ==========================================
 
   // POST /api/admin/importar
   if (method === 'POST' && pathName === '/api/admin/importar') {
@@ -2127,7 +2212,6 @@ async function handle(req, setSharepointCookie) {
         if (err) return resolve({ status: 500, data: { error: 'Error de base de datos: ' + err.message } });
         if (!dbUser) return resolve({ status: 404, data: { error: 'Usuario no encontrado en el sistema.' } });
         
-        // Cargar el nombre oficial del sujeto pasivo si tiene RUT
         if (dbUser.rol === 'Sujeto Pasivo' || dbUser.rol === 'Asistente técnico') {
           const targetRut = dbUser.rol === 'Sujeto Pasivo' ? dbUser.rut : dbUser.asistido_rut;
           db.get('SELECT nombre FROM sujetos_pasivos_sph WHERE rut = ? LIMIT 1', [targetRut], (errSp, rowSp) => {
@@ -2201,7 +2285,6 @@ async function handle(req, setSharepointCookie) {
         }
         return { id: idx, timestamp: '', code: 'RAW', message: line, details: '' };
       });
-      // Devolver en orden inverso (más reciente primero)
       return { status: 200, data: { entries: entries.reverse() } };
     } catch (e) {
       return { status: 500, data: { error: 'No se pudo leer la bitácora de logs: ' + e.message } };
@@ -2329,9 +2412,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: BITÁCORA DE ASISTENCIAS Y CONTACTOS (SOLO ADMINISTRADOR)
-  // ==========================================
   if (pathName.startsWith('/api/asistencias')) {
     if (!user || user.rol !== 'Administrador') {
       return {
@@ -2607,7 +2688,6 @@ async function handle(req, setSharepointCookie) {
                 }
 
                 const commitAndFinish = () => {
-                  // Actualizar timestamp en contacto principal para propagar cambios
                   asistenciasDb.run(`
                     UPDATE contactos_asistencia
                     SET activo = 1, updated_at = datetime('now', 'localtime')
@@ -3170,9 +3250,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: CATEGORÍAS / MATERIAS DE ASISTENCIA
-  // ==========================================
 
   // GET /api/asistencias/categorias
   if (method === 'GET' && pathName === '/api/asistencias/categorias') {
@@ -3228,7 +3306,6 @@ async function handle(req, setSharepointCookie) {
       return { status: 400, data: { error: 'El número de elementos supera el límite permitido (100).' } };
     }
 
-    // Validar enteros positivos y ausencia de duplicados
     const uniqueIds = new Set(ids);
     const allValidIntegers = ids.every(id => Number.isInteger(id) && id > 0);
     if (!allValidIntegers || uniqueIds.size !== ids.length) {
@@ -3359,9 +3436,7 @@ async function handle(req, setSharepointCookie) {
     });
   }
 
-  // ==========================================
   // RUTAS: DIRECCIONES MUNICIPALES (CONFIGURABLES)
-  // ==========================================
 
   // GET /api/direcciones
   if (method === 'GET' && pathName === '/api/direcciones') {

@@ -1,43 +1,134 @@
 /**
  * ToastComponent - Sistema desacoplado de notificaciones flotantes tipadas
  */
-export function showToast(message, type = 'info', duration = 3500) {
+
+import { translateError } from '../utils/error-translator.js';
+
+/**
+ * Descartar notificación Toast con animación de salida suave
+ * @param {*} element - Parámetro element.
+ */
+function dismissToast(element) {
+  if (!element) return;
+  const t = element.closest('.toast-notification-item, [data-toast-item]') || element;
+  if (t) {
+    t.classList.remove('toast-animate-in');
+    t.classList.add('toast-animate-out');
+    setTimeout(() => {
+      if (t.parentNode) t.parentNode.removeChild(t);
+    }, 190);
+  }
+}
+window.dismissToast = dismissToast;
+
+/**
+ * Mostrar notificaciones Toast
+ * @param {*} message - Parámetro message.
+ * @param {string} type - Parámetro type.
+ * @param {Object} options - Parámetro options.
+ */
+function showToast(message, type = 'success', options = {}) {
   const container = document.getElementById('toast-container');
-  if (!container) {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-    return;
+  const toast = document.createElement('div');
+  const isError = type === 'error';
+  
+  let displayMessage = message;
+  let errorDetails = options.details || '';
+  
+  if (isError) {
+    displayMessage = translateError(message);
+    
+    const codeMatch = displayMessage.match(/\[(ERR-\w+-\d+)\]/);
+    const code = codeMatch ? codeMatch[1] : '';
+    
+    if (code === 'ERR-GEN-999' || code === 'ERR-DB-500') {
+      const now = new Date();
+      const d = String(now.getDate()).padStart(2, '0');
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const y = now.getFullYear();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const timestamp = `${d}-${m}-${y} ${hh}:${min}:${ss}`;
+
+      errorDetails = `================ LOBBYCONTROL ERROR REPORT ================
+Fecha/Hora:     ${timestamp}
+Código Soporte: ${code}
+Mensaje:        ${displayMessage}
+-----------------------------------------------------------
+Detalle Técnico:
+${message}
+===========================================================`;
+    }
   }
 
-  const toast = document.createElement('div');
+  const persistent = options.persistent !== undefined ? options.persistent : isError;
+
+  const borderTextClass = type === 'success' 
+    ? 'border-emerald-500/30 text-emerald-300' 
+    : (type === 'warning' ? 'border-amber-500/30 text-amber-300' : 'border-rose-500/30 text-rose-300');
+
+  toast.className = `toast-notification-item flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-xl text-sm toast-animate-in glass-card border ${borderTextClass}`;
+  toast.setAttribute('data-toast-item', 'true');
+  toast.style.position = 'relative';
+  toast.style.overflow = 'hidden';
   
-  const typeConfig = {
-    success: { icon: 'check-circle', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400' },
-    error: { icon: 'x-circle', border: 'border-rose-500/30', bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400' },
-    warning: { icon: 'alert-triangle', border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400' },
-    info: { icon: 'info', border: 'border-brand-500/30', bg: 'bg-brand-500/10', text: 'text-brand-600 dark:text-brand-400' }
-  };
-
-  const cfg = typeConfig[type] || typeConfig.info;
-
-  toast.className = `glass-card flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border ${cfg.border} modal-animate-in max-w-md pointer-events-auto`;
-  toast.innerHTML = `
-    <div class="h-8 w-8 rounded-xl ${cfg.bg} ${cfg.text} flex items-center justify-center shrink-0">
-      <i data-lucide="${cfg.icon}" class="h-4 w-4"></i>
+  const icon = type === 'success' ? 'check-circle' : (type === 'warning' ? 'alert-triangle' : 'alert-circle');
+  const iconColor = type === 'success' ? 'text-emerald-400' : (type === 'warning' ? 'text-amber-400' : 'text-rose-400');
+  
+  let htmlContent = `
+    <div class="flex items-center gap-3 pr-2">
+      <i data-lucide="${icon}" class="h-5 w-5 shrink-0 ${iconColor}"></i>
+      <span class="break-words text-left font-medium">${displayMessage}</span>
     </div>
-    <span class="text-xs font-semibold text-text-primary flex-1">${message}</span>
+    <div class="flex items-center gap-2 shrink-0">
   `;
 
-  container.appendChild(toast);
-
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
-    window.lucide.createIcons();
+  if (isError && errorDetails) {
+    const escapedDetails = String(errorDetails).replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    htmlContent += `
+      <button onclick="navigator.clipboard.writeText('${escapedDetails}'); showToast('Detalles copiados', 'success', { persistent: false });" 
+              class="px-2 py-1 bg-rose-950/40 hover:bg-rose-900/60 rounded text-[10px] font-semibold text-rose-300 transition-colors border border-rose-800/40 active:scale-[0.98] cursor-pointer">
+        Copiar detalles
+      </button>
+    `;
   }
 
-  setTimeout(() => {
-    toast.classList.remove('modal-animate-in');
-    toast.classList.add('modal-animate-out');
+  if (persistent) {
+    htmlContent += `
+      <button onclick="dismissToast(this)" 
+              class="text-text-tertiary hover:text-text-primary transition-colors bg-transparent border-none cursor-pointer p-0.5 flex items-center justify-center"
+              title="Cerrar notificación">
+        <i data-lucide="x" class="h-4 w-4"></i>
+      </button>
+    `;
+  }
+
+  htmlContent += `</div>`;
+
+  if (!persistent) {
+    const progressBarColor = type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#f43f5e');
+    htmlContent += `
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; width: 100%; height: 3px; overflow: hidden; pointer-events: none;">
+        <div class="toast-progress-bar" style="height: 100%; background-color: ${progressBarColor};"></div>
+      </div>
+    `;
+  }
+
+  toast.innerHTML = htmlContent;
+  container.appendChild(toast);
+  lucide.createIcons();
+
+  if (!persistent) {
     setTimeout(() => {
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 130);
-  }, duration);
+      dismissToast(toast);
+    }, 3800);
+  }
 }
+
+window.showToast = showToast;
+
+export {
+  dismissToast,
+  showToast
+};

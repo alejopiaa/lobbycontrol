@@ -27,7 +27,10 @@ export const AsistenciaService = {
     return await apiClient.delete(`/api/asistencias/${id}`);
   },
 
-  // Contactos
+  /**
+   * Contactos
+   * @param {*} params - Parámetro params.
+   */
   async getContactos(params = {}) {
     return await apiClient.get('/api/asistencias/contactos', params);
   },
@@ -50,7 +53,9 @@ export const AsistenciaService = {
     });
   },
 
-  // Categorías
+  /**
+   * Categorías
+   */
   async getCategorias() {
     return await apiClient.get('/api/asistencias/categorias');
   },

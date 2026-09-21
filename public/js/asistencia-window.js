@@ -1,6 +1,4 @@
-// ============================================================================
 // CONSOLA DE ASISTENCIA TÉCNICA - LOBBYCONTROL PRO
-// ============================================================================
 
 let currentContactId = null;
 let lastSavedTicket = null;
@@ -14,6 +12,7 @@ let autoridadesList = [];
 let isFormLocked = false;
 let isReviewMode = false;
 let fechaAirDatepicker = null;
+let timerSeconds = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (window.lucide) window.lucide.createIcons();
@@ -31,7 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initActions();
   initKeyboardShortcuts();
 
-  // Comprobar si se abrió para editar una asistencia específica
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('id');
   if (editId) {
@@ -106,7 +104,6 @@ async function loadAsistenciaParaEdicion(id) {
       setCategoriaUI(catFound ? catFound.nombre : (ast.categoria || 'Plazos Legales (3 Días / Publicación)'));
       setEstadoUI(ast.estado || 'resuelta');
 
-      // Cargar fecha y hora de la atención si existe
       if (ast.fecha_hora && fechaAirDatepicker) {
         const isoStr = ast.fecha_hora.replace(' ', 'T');
         const d = new Date(isoStr);
@@ -142,7 +139,6 @@ function applyReviewMode(ticket) {
     triggerBtn.classList.add('opacity-50', 'pointer-events-none');
   }
 
-  // Ocultar botones no pertinentes en modo revisión
   const btnDescartar = document.getElementById('btn-descartar');
   const btnNueva = document.getElementById('btn-nueva-llamada');
   const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion');
@@ -153,7 +149,6 @@ function applyReviewMode(ticket) {
   // Habilitar Correo y PDF
   setExportButtonsState(true);
 
-  // Configurar botón principal como "Editar"
   const btnGuardar = document.getElementById('btn-guardar');
   if (btnGuardar) {
     btnGuardar.setAttribute('data-mode', 'edit');
@@ -166,7 +161,6 @@ function applyReviewMode(ticket) {
     }
   }
 
-  // Actualizar badge en la cabecera
   const badge = document.getElementById('badge-ticket-draft');
   if (badge && ticket) {
     badge.textContent = ticket.ticket_codigo;
@@ -199,7 +193,6 @@ function applyNewMode() {
     fechaAirDatepicker.selectDate(new Date());
   }
 
-  // Mostrar botones Descartar y Nueva
   const btnDescartar = document.getElementById('btn-descartar');
   const btnNueva = document.getElementById('btn-nueva-llamada');
   const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion');
@@ -210,7 +203,6 @@ function applyNewMode() {
   // Deshabilitar Correo y PDF (hasta que se guarde)
   setExportButtonsState(false);
 
-  // Configurar botón principal como "Guardar"
   const btnGuardar = document.getElementById('btn-guardar');
   if (btnGuardar) {
     btnGuardar.setAttribute('data-mode', 'save');
@@ -233,9 +225,12 @@ function applyNewMode() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-// ============================================================================
-// 1. SISTEMA DE TOASTS NATIVO DE LOBBYCONTROL (CERO ALERTS DE WINDOWS)
-// ============================================================================
+/**
+ * Muestra una notificación toast temporal en la interfaz.
+ * @param {string} message - Mensaje a exhibir.
+ * @param {string} [type='info'] - Tipo visual ('info'|'success'|'warning'|'error').
+ * @param {number} [duration=3500] - Duración de visualización en milisegundos.
+ */
 function showToast(message, type = 'info', duration = 3500) {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -318,9 +313,9 @@ function showConfirmDialog({ title, message, acceptText = 'Aceptar', cancelText 
   });
 }
 
-// ============================================================================
-// 2. RELOJ DE HORA ACTUAL
-// ============================================================================
+/**
+ * Inicializa el reloj en tiempo real con fecha y hora local.
+ */
 function initLiveClock() {
   const clockEl = document.getElementById('live-clock');
   if (!clockEl) return;
@@ -335,9 +330,9 @@ function initLiveClock() {
   setInterval(update, 1000);
 }
 
-// ============================================================================
-// 2.1 AIR DATEPICKER: SELECTOR DE FECHA Y HORA DE ATENCIÓN
-// ============================================================================
+/**
+ * Inicializa el selector AirDatepicker para fecha y hora de atención.
+ */
 function initFechaAirDatepicker() {
   const input = document.getElementById('input-fecha-atencion');
   if (!input || typeof AirDatepicker === 'undefined') return;
@@ -372,9 +367,9 @@ function initFechaAirDatepicker() {
   }
 }
 
-// ============================================================================
-// 3. ALWAYS ON TOP
-// ============================================================================
+/**
+ * Inicializa el control de fijación de la ventana superior (always on top).
+ */
 function initAlwaysOnTop() {
   const btn = document.getElementById('btn-always-on-top');
   if (!btn) return;
@@ -402,9 +397,9 @@ function updatePinButtonUI(active) {
   if (window.lucide) window.lucide.createIcons();
 }
 
-// ============================================================================
-// 4. CATEGORÍAS Y DIRECCIONES DINÁMICAS (LOCAL.DB)
-// ============================================================================
+/**
+ * 4. CATEGORÍAS Y DIRECCIONES DINÁMICAS (LOCAL.DB)
+ */
 async function loadCategorias() {
   try {
     const res = await window.api.invokeRoute({ url: '/api/asistencias/categorias', method: 'GET' });
@@ -679,9 +674,9 @@ function renderRepresentadoDropdown(list) {
   });
 }
 
-// ============================================================================
-// 5. VALIDACIONES Y RESTRICCIÓN DE DÍGITOS EN TELÉFONO
-// ============================================================================
+/**
+ * Restringe la entrada del campo telefónico estrictamente a caracteres numéricos.
+ */
 function initPhoneRestriction() {
   const input = document.getElementById('input-telefono');
   if (!input) return;
@@ -692,9 +687,9 @@ function initPhoneRestriction() {
   });
 }
 
-// ============================================================================
-// 6. MENÚS DESPLEGABLES GENERALES
-// ============================================================================
+/**
+ * Inicializa los menús desplegables personalizados y sus controladores de selección.
+ */
 function initCustomDropdowns() {
   setupDropdownToggle('btn-dropdown-canal', 'menu-dropdown-canal');
   setupDropdownToggle('btn-dropdown-categoria', 'menu-dropdown-categoria');
@@ -760,9 +755,6 @@ function setupDropdownToggle(btnId, menuId) {
   });
 }
 
-// ============================================================================
-// 7. BORRADOR AUTOMÁTICO (PERSISTENCIA TOTAL EN TIEMPO REAL)
-// ============================================================================
 const DRAFT_KEY = 'lobby_asistencia_draft_v6';
 
 function initDraftAutosave() {
@@ -893,9 +885,7 @@ function setEstadoUI(est) {
   }
 }
 
-// ============================================================================
 // 8. AUTOCOMPLETADO DE SOLICITANTE (SIN DUPLICACIÓN Y DISEÑO LIMPIO)
-// ============================================================================
 let debounceTimeout = null;
 
 function initAutocomplete() {
@@ -991,9 +981,7 @@ function seleccionarContactoExistente(c) {
   saveDraft();
 }
 
-// ============================================================================
 // 8.1. AUTOCOMPLETADO PREDICTIVO DE FOLIO LOBBY
-// ============================================================================
 let folioDebounceTimeout = null;
 
 function initFolioAutocomplete() {
@@ -1085,9 +1073,9 @@ function renderFolioSuggestions(items) {
   });
 }
 
-// ============================================================================
-// 9. ACCIONES (GUARDAR, EDITAR, CANCELAR, DESCARTAR, NUEVA, CORREO, PDF)
-// ============================================================================
+/**
+ * 9. ACCIONES (GUARDAR, EDITAR, CANCELAR, DESCARTAR, NUEVA, CORREO, PDF)
+ */
 function initActions() {
   const btnGuardar = document.getElementById('btn-guardar');
   const btnCancelarEdicion = document.getElementById('btn-cancelar-edicion');
@@ -1134,7 +1122,9 @@ function initKeyboardShortcuts() {
   });
 }
 
-// Descartar
+/**
+ * Descartar
+ */
 async function handleDescartar() {
   const nombre = document.getElementById('input-solicitante')?.value.trim();
   const motivo = document.getElementById('input-motivo')?.value.trim();
@@ -1154,7 +1144,9 @@ async function handleDescartar() {
   showToast('Formulario limpio.', 'info');
 }
 
-// Nueva Atención
+/**
+ * Nueva Atención
+ */
 async function handleNueva() {
   if (!isFormLocked) {
     const nombre = document.getElementById('input-solicitante')?.value.trim();
@@ -1267,9 +1259,9 @@ function unlockFormForEditing() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-// ============================================================================
-// 10. GUARDAR ASISTENCIA (SIN BLOQUEOS ANTE ERRORES)
-// ============================================================================
+/**
+ * Persiste el registro de asistencia técnica en la base de datos local y sincronizada.
+ */
 async function guardarAsistencia() {
   const inputFecha = document.getElementById('input-fecha-atencion');
   const inputSolicitante = document.getElementById('input-solicitante');
@@ -1463,9 +1455,9 @@ async function guardarAsistencia() {
   }
 }
 
-// ============================================================================
-// 11. CORREO OUTLOOK Y FICHA PDF (FECHAS EN 24 HORAS REALES DEL TICKET)
-// ============================================================================
+/**
+ * Prepara el archivo EML para Microsoft Outlook y la ficha PDF asociada.
+ */
 async function prepararCorreoOutlook() {
   if (!lastSavedTicket) {
     showToast('Debes guardar la atención antes de generar el correo.', 'warning');

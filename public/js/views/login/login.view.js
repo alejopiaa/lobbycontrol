@@ -1,127 +1,121 @@
 /**
- * LoginView - Vista modular de autenticación
+ * LoginView - Vista modular de autenticación corporativa Microsoft 365 (SSO)
  */
 import { AuthService } from '../../services/auth.service.js';
 import { appRouter } from '../../core/router.js';
-import { translateError } from '../../utils/error-translator.js';
 import { showToast } from '../../components/toast.component.js';
 
 export const LoginView = {
   mount(container) {
     container.innerHTML = `
-      <div class="min-h-[85vh] flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md p-8 rounded-3xl space-y-6 shadow-2xl border border-border-ui modal-animate-in">
-          <div class="text-center space-y-2">
-            <div class="h-16 w-16 mx-auto rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center shadow-inner">
-              <i data-lucide="shield-check" class="h-8 w-8"></i>
-            </div>
-            <h1 class="text-2xl font-extrabold text-heading">LobbyControl</h1>
-            <p class="text-xs text-body-muted font-medium">Sistema Local de Gestión de Audiencias y Ley de Lobby</p>
-          </div>
-
-          <div id="login-error-container" class="hidden p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold">
-            <span id="login-error-text"></span>
-          </div>
-
-          <form id="form-login-local" class="space-y-4">
-            <div class="space-y-1.5">
-              <label class="text-xs font-bold text-text-secondary uppercase tracking-wider">Usuario</label>
-              <input type="text" id="login-username" required autocomplete="username"
-                class="w-full px-4 py-2.5 rounded-xl border border-border-ui bg-bg-card text-text-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all placeholder:text-text-tertiary"
-                placeholder="Ingresa tu usuario institucional" />
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-xs font-bold text-text-secondary uppercase tracking-wider">Contraseña</label>
-              <input type="password" id="login-password" required autocomplete="current-password"
-                class="w-full px-4 py-2.5 rounded-xl border border-border-ui bg-bg-card text-text-primary text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all placeholder:text-text-tertiary"
-                placeholder="••••••••••••" />
-            </div>
-
-            <button type="submit" id="btn-login-local" class="w-full py-3 rounded-xl text-xs font-bold btn-primary text-white shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
-              <span>Iniciar Sesión</span>
-              <i data-lucide="arrow-right" class="h-4 w-4"></i>
-            </button>
-          </form>
-
-          <div class="relative flex py-2 items-center">
-            <div class="flex-grow border-t border-border-ui"></div>
-            <span class="flex-shrink mx-4 text-[10px] uppercase font-bold text-text-tertiary">O continuar con</span>
-            <div class="flex-grow border-t border-border-ui"></div>
-          </div>
-
-          <button type="button" id="btn-login-microsoft" class="w-full py-3 rounded-xl text-xs font-bold btn-secondary flex items-center justify-center gap-2 transition-all cursor-pointer">
-            <svg class="h-4 w-4" viewBox="0 0 21 21"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg>
-            <span>Microsoft 365</span>
+      <div class="h-full w-full min-h-[85vh] flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-8 rounded-3xl shadow-2xl border border-border-ui space-y-6 relative overflow-hidden animate-fade-in">
+          <button id="login-theme-toggle" type="button" class="absolute top-4 right-4 h-8 w-8 rounded-xl flex items-center justify-center border border-border-ui hover:border-border-ui bg-bg-main text-text-secondary hover:text-text-primary transition-all duration-200 cursor-pointer" title="Cambiar de Modo">
+            <i data-lucide="sun" class="h-4 w-4"></i>
           </button>
+
+          <div class="absolute -top-10 -left-10 w-40 h-40 bg-brand-600/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-brand-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div class="flex flex-col items-center text-center space-y-3 relative z-10">
+            <img src="/logo_secum.png" alt="Secretaría Municipal Maipú" class="h-20 w-auto object-contain mb-2">
+            <div>
+              <h1 class="text-2xl font-extrabold text-text-primary tracking-tight">LobbyControl</h1>
+              <p class="text-xs text-body-muted mt-1 font-medium">Gestión de Audiencias - Ley N° 20.730</p>
+            </div>
+          </div>
+
+          <div id="login-error" class="hidden px-4 py-3 rounded-xl bg-rose-950/40 border border-rose-900/60 text-rose-300 text-xs font-semibold flex items-center gap-2">
+            <i data-lucide="alert-circle" class="h-4 w-4 shrink-0"></i>
+            <span id="login-error-text">Credenciales inválidas. Inténtelo de nuevo.</span>
+          </div>
+
+          <div id="sso-container" class="space-y-4 relative z-10 text-center">
+            <button id="btn-sso-login" type="button" 
+                    class="w-full py-3 btn-primary rounded-xl text-xs font-bold transition-all hover:shadow-lg mt-2 flex items-center justify-center gap-2.5 active:scale-[0.98] cursor-pointer">
+              <svg style="width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 0H11V11H0V0Z" fill="#F25022"/>
+                <path d="M12 0H23V11H12V0Z" fill="#7FBA00"/>
+                <path d="M0 12H11V23H0V12Z" fill="#00A4EF"/>
+                <path d="M12 12H23V23H12V12Z" fill="#FFB900"/>
+              </svg>
+              <span id="btn-sso-text">Iniciar sesión con Microsoft 365</span>
+            </button>
+          </div>
+
+          <div class="text-center text-[10px] text-body-muted pt-2 relative z-10 border-t border-border-ui">
+            <p>LobbyControl - Gestión de Audiencias</p>
+          </div>
         </div>
       </div>
     `;
 
     this.bindEvents(container);
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
   },
 
   bindEvents(container) {
-    const form = container.querySelector('#form-login-local');
-    const btnMs = container.querySelector('#btn-login-microsoft');
-    const errContainer = container.querySelector('#login-error-container');
-    const errText = container.querySelector('#login-error-text');
+    const btnSso = container.querySelector('#btn-sso-login');
+    const themeBtn = container.querySelector('#login-theme-toggle');
 
-    const showError = (msg) => {
-      if (errContainer && errText) {
-        errText.textContent = translateError(msg);
-        errContainer.classList.remove('hidden');
-      }
-    };
-
-    if (form) {
-      form.onsubmit = async (e) => {
-        e.preventDefault();
-        const username = container.querySelector('#login-username').value.trim();
-        const password = container.querySelector('#login-password').value;
-        const submitBtn = container.querySelector('#btn-login-local');
-
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.classList.add('opacity-60', 'cursor-not-allowed');
-        }
-
-        try {
-          const res = await AuthService.loginLocal(username, password);
-          if (res.success) {
-            showToast('Bienvenido a LobbyControl', 'success');
-            await appRouter.navigate('dashboard');
-          } else {
-            showError(res.message);
-          }
-        } catch (err) {
-          showError(err.message);
-        } finally {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.classList.remove('opacity-60', 'cursor-not-allowed');
-          }
+    if (themeBtn) {
+      themeBtn.onclick = () => {
+        if (typeof window.toggleTheme === 'function') {
+          window.toggleTheme();
         }
       };
     }
 
-    if (btnMs) {
-      btnMs.onclick = async () => {
-        btnMs.disabled = true;
-        btnMs.classList.add('opacity-60', 'cursor-not-allowed');
+    if (btnSso) {
+      btnSso.onclick = async () => {
+        const errorEl = container.querySelector('#login-error');
+        const errorTextEl = container.querySelector('#login-error-text');
+        if (errorEl) errorEl.classList.add('hidden');
+
+        btnSso.disabled = true;
+        btnSso.classList.add('opacity-60', 'cursor-not-allowed');
+        const originalHtml = btnSso.innerHTML;
+        btnSso.innerHTML = `<i data-lucide="refresh-cw" class="h-4 w-4 animate-spin shrink-0"></i> <span>Iniciando sesión...</span>`;
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+
         try {
           const res = await AuthService.loginMicrosoft();
-          if (res.success) {
-            showToast('Sesión iniciada con Microsoft', 'success');
-            await appRouter.navigate('dashboard');
+          if (res && res.success) {
+            showToast('Sesión iniciada con Microsoft 365');
+            if (typeof window.switchView === 'function') {
+              await window.switchView('dashboard');
+            } else {
+              await appRouter.navigate('dashboard');
+            }
           } else {
-            showError(res.message);
+            const msg = (res && (res.message || res.error)) || 'No se pudo iniciar sesión con Microsoft.';
+            if (errorEl && errorTextEl) {
+              errorTextEl.textContent = msg;
+              errorEl.classList.remove('hidden');
+            } else {
+              showToast(msg, 'error');
+            }
           }
         } catch (err) {
-          showError(err.message);
+          console.error('[LoginView] Error en login Microsoft 365:', err);
+          if (errorEl && errorTextEl) {
+            errorTextEl.textContent = err.message || 'Error de conexión.';
+            errorEl.classList.remove('hidden');
+          } else {
+            showToast('Error de conexión al iniciar sesión.', 'error');
+          }
         } finally {
-          btnMs.disabled = false;
-          btnMs.classList.remove('opacity-60', 'cursor-not-allowed');
+          btnSso.disabled = false;
+          btnSso.classList.remove('opacity-60', 'cursor-not-allowed');
+          btnSso.innerHTML = originalHtml;
+          if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+          }
         }
       };
     }
@@ -129,3 +123,12 @@ export const LoginView = {
 
   unmount() {}
 };
+
+export function renderLogin(container) {
+  return LoginView.mount(container);
+}
+
+if (typeof window !== 'undefined') {
+  window.LoginView = LoginView;
+  window.renderLogin = renderLogin;
+}

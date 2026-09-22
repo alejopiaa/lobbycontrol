@@ -2,12 +2,12 @@
   "totalIssues": 0,
   "totalErrors": 0,
   "totalWarnings": 0,
-  "executionTimeMs": 2446,
+  "executionTimeMs": 2888,
   "executedModules": [
     {
       "id": "ui",
       "name": "Integridad DOM, Clases y Tokens de Diseño",
-      "durationMs": 191,
+      "durationMs": 225,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -15,7 +15,7 @@
     {
       "id": "ipc",
       "name": "IPC, APIs y Flujo de Datos",
-      "durationMs": 164,
+      "durationMs": 195,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -23,7 +23,7 @@
     {
       "id": "ast",
       "name": "Calidad de Código, AST y Diálogos",
-      "durationMs": 1926,
+      "durationMs": 2284,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -31,7 +31,7 @@
     {
       "id": "lifecycle",
       "name": "Ciclo de Vida, Listeners y Autenticación",
-      "durationMs": 23,
+      "durationMs": 24,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -39,7 +39,7 @@
     {
       "id": "security",
       "name": "Seguridad y Vulnerabilidades (AppSec)",
-      "durationMs": 39,
+      "durationMs": 38,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -47,7 +47,7 @@
     {
       "id": "hygiene",
       "name": "Higiene de Código y Vestigios de IA",
-      "durationMs": 21,
+      "durationMs": 23,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -55,7 +55,7 @@
     {
       "id": "resilience",
       "name": "Resiliencia de Red y Manejo de Errores",
-      "durationMs": 15,
+      "durationMs": 16,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -63,7 +63,7 @@
     {
       "id": "packaging",
       "name": "Empaquetado, Dependencias y Archivos Residuales",
-      "durationMs": 48,
+      "durationMs": 62,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -71,7 +71,7 @@
     {
       "id": "accessibility",
       "name": "Accesibilidad, Formularios y UX Compliance",
-      "durationMs": 4,
+      "durationMs": 6,
       "status": "passed",
       "errors": 0,
       "warnings": 0
@@ -79,7 +79,7 @@
     {
       "id": "hardcoded",
       "name": "Datos Estáticos, Ficticios y Contadores Hardcodeados",
-      "durationMs": 5,
+      "durationMs": 7,
       "status": "passed",
       "errors": 0,
       "warnings": 0

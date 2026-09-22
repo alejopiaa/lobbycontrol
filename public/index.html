@@ -104,7 +104,7 @@
             <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 mb-2.5">Sistema</p>
             <nav class="space-y-1">
               <!-- Asistencia Técnica (F9) -->
-              <button id="btn-open-asistencia-top" onclick="openAssistanceConsole()" class="nav-sidebar-item justify-between" title="Consola de Asistencia Técnica (F9)">
+              <button id="btn-open-asistencia-top" onclick="toggleAssistanceDock()" class="nav-sidebar-item justify-between" title="Consola de Asistencia Técnica (F9)">
                 <div class="flex items-center gap-3.5">
                   <i data-lucide="headset" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
                   <span>Asistencia (F9)</span>
@@ -188,7 +188,7 @@
           <div id="alerts-widget-container" class="relative"></div>
 
           <!-- Asistencia F9 -->
-          <button onclick="openAssistanceConsole()" class="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors shadow-xs cursor-pointer" title="Asistencia Técnica (F9)">
+          <button onclick="toggleAssistanceDock()" class="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors shadow-xs cursor-pointer" title="Asistencia Técnica (F9)">
             <i data-lucide="headset" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
           </button>
 

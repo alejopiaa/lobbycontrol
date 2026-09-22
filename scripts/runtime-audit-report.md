@@ -1,6 +1,6 @@
 # 📋 Informe Técnico de Auditoría de Integridad y Seguridad
 
-> **LobbyControl Suite v3.3** | **Fecha:** `21-09-2026, 6:17:42 p. m.` | **Tiempo de Ejecución:** `2446 ms`
+> **LobbyControl Suite v3.3** | **Fecha:** `22-09-2026, 1:07:13 p. m.` | **Tiempo de Ejecución:** `2888 ms`
 
 ## 📊 Resumen Ejecutivo
 
@@ -14,16 +14,16 @@
 
 | Módulo | ID | Duración | Hallazgos | Estado |
 | :--- | :---: | :---: | :---: | :---: |
-| **Integridad DOM, Clases y Tokens de Diseño** | `ui` | `191 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **IPC, APIs y Flujo de Datos** | `ipc` | `164 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Calidad de Código, AST y Diálogos** | `ast` | `1926 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Ciclo de Vida, Listeners y Autenticación** | `lifecycle` | `23 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Seguridad y Vulnerabilidades (AppSec)** | `security` | `39 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Higiene de Código y Vestigios de IA** | `hygiene` | `21 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Resiliencia de Red y Manejo de Errores** | `resilience` | `15 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Empaquetado, Dependencias y Archivos Residuales** | `packaging` | `48 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Accesibilidad, Formularios y UX Compliance** | `accessibility` | `4 ms` | `0 incidencias` | 🟢 **APROBADO** |
-| **Datos Estáticos, Ficticios y Contadores Hardcodeados** | `hardcoded` | `5 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Integridad DOM, Clases y Tokens de Diseño** | `ui` | `225 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **IPC, APIs y Flujo de Datos** | `ipc` | `195 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Calidad de Código, AST y Diálogos** | `ast` | `2284 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Ciclo de Vida, Listeners y Autenticación** | `lifecycle` | `24 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Seguridad y Vulnerabilidades (AppSec)** | `security` | `38 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Higiene de Código y Vestigios de IA** | `hygiene` | `23 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Resiliencia de Red y Manejo de Errores** | `resilience` | `16 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Empaquetado, Dependencias y Archivos Residuales** | `packaging` | `62 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Accesibilidad, Formularios y UX Compliance** | `accessibility` | `6 ms` | `0 incidencias` | 🟢 **APROBADO** |
+| **Datos Estáticos, Ficticios y Contadores Hardcodeados** | `hardcoded` | `7 ms` | `0 incidencias` | 🟢 **APROBADO** |
 | **Estandarización de Comentarios y Clean Code** | `comments` | `8 ms` | `0 incidencias` | 🟢 **APROBADO** |
 
 ---

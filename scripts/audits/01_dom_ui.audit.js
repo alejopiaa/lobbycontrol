@@ -22,6 +22,8 @@ module.exports = {
 
   run(ctx, addIssue) {
     const jsFiles = ctx.getJsFiles();
+    const indexHtmlPath = path.join(ctx.publicDir, 'index.html');
+    const filesWithEvents = fs.existsSync(indexHtmlPath) ? [...jsFiles, indexHtmlPath] : jsFiles;
     const { globals: globalFunctions } = ctx.getDeclaredGlobals();
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -29,7 +31,7 @@ module.exports = {
     // ─────────────────────────────────────────────────────────────────────────
     const eventAttrRegex = /\b(onclick|onchange|oninput|onsubmit|onkeydown|onkeyup)\s*=\s*(["'])([\s\S]*?)\2/gi;
 
-    for (const file of jsFiles) {
+    for (const file of filesWithEvents) {
       const content = ctx.getFileContent(file);
       const lines = ctx.getFileLines(file);
 

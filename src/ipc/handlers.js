@@ -511,4 +511,7 @@ safeIpcHandle("generate-eml-and-open", async (event, args) => {
   }
 });
 
-
+module.exports = {
+  setCurrentUserSession: (user) => { currentUserSession = user; },
+  getCurrentUserSession: () => currentUserSession
+};

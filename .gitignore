@@ -18,21 +18,10 @@ release/
 *.db-wal
 *.sqlite
 *.tmp*
-data/*.db
-data/*.sqlite
-data/*.db-journal
-data/*.db-shm
-data/*.db-wal
-data/*.json
-data/*.bak
-data/*.backup*
-data/*.tmp*
 data/
 *.bak
-data/backup/
-data/sharepoint_upload/
 
-# Excel files
+# Office and generated data files
 *.xlsx
 *.xls
 
@@ -47,12 +36,3 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
-.clinerules
-.cursorrules
-.agents/
-
-# Temp scripts / plans / scratch files
-implementation_plan.md
-iniciar_servidor.bat
-scratch/
-docs/

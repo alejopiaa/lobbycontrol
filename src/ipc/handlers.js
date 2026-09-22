@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const { safeIpcHandle } = require("./security");
 const db = require("../config/database");
-const { loginWithMicrosoft, fetchSharepointUser, clearAllSsoData } = require("../config/sharepoint-auth");
+const { loginWithMicrosoft, fetchSharepointUser, clearAllSsoData } = require("../config/sso-auth");
 const { checkAndSyncDatabase } = require("../config/db-sync");
 const router = require("./router");
 
@@ -12,7 +12,11 @@ let latestSharepointCookie = null;
 
 // Intentar auto-login de SharePoint al arrancar (SSO persistente)
 app.whenReady().then(async () => {
-  const SHAREPOINT_HOST = process.env.SHAREPOINT_HOST || "immaipu.sharepoint.com";
+  const SHAREPOINT_HOST = process.env.SHAREPOINT_HOST;
+  if (!SHAREPOINT_HOST) {
+    console.warn("[Auto-Login SSO] SHAREPOINT_HOST no configurado en entorno.");
+    return;
+  }
   try {
     console.log("[Auto-Login SSO] Buscando cookies corporativas...");
     const cookies = await session.defaultSession.cookies.get({ domain: SHAREPOINT_HOST });

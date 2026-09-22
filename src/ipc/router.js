@@ -317,8 +317,9 @@ async function handle(req, setSharepointCookie) {
     if (cookieHeader && setSharepointCookie) {
       setSharepointCookie(cookieHeader);
     }
-    if (!email || !email.toLowerCase().trim().endsWith('@maipu.cl')) {
-      return { status: 400, data: { error: 'Correo institucional inválido o no pertenece a @maipu.cl.' } };
+    const allowedDomain = process.env.ALLOWED_EMAIL_DOMAIN || '';
+    if (!email || (allowedDomain && !email.toLowerCase().trim().endsWith(allowedDomain.toLowerCase().trim()))) {
+      return { status: 400, data: { error: 'Correo institucional inválido o no pertenece al dominio corporativo autorizado.' } };
     }
     const cleanEmail = email.toLowerCase().trim();
     return new Promise((resolve) => {
@@ -326,7 +327,7 @@ async function handle(req, setSharepointCookie) {
         if (err) return resolve({ status: 500, data: { error: 'Error de base de datos: ' + err.message } });
         if (!dbUser) {
           try {
-            const { clearAllSsoData } = require('./sharepoint-auth');
+            const { clearAllSsoData } = require('../config/sso-auth');
             await clearAllSsoData();
           } catch (e) {}
           return resolve({ status: 403, data: { error: 'Acceso denegado: Tu correo corporativo no está registrado en el sistema. Solicita acceso al administrador.' } });

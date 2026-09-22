@@ -223,14 +223,28 @@ function showSujetoDetailsModal(sujetoId) {
 window.showSujetoDetailsModal = showSujetoDetailsModal;
 
 if (typeof window.showSolicitudDetailsModal !== 'function') {
-  window.showSolicitudDetailsModal = function(idOrItem, isPending = false) {
-    console.debug('showSolicitudDetailsModal pendiente de inicialización');
+  window.showSolicitudDetailsModal = async function(idOrItem, isPending = false) {
+    try {
+      const mod = await import('./views/solicitudes/solicitudes.view.js');
+      if (typeof mod.showSolicitudDetailsModal === 'function') {
+        return mod.showSolicitudDetailsModal(idOrItem, isPending);
+      }
+    } catch (err) {
+      console.error('Error al abrir modal de detalle de solicitud:', err);
+    }
   };
 }
 
 if (typeof window.showAudienciaPublicadaDetailsModal !== 'function') {
-  window.showAudienciaPublicadaDetailsModal = function(idOrItem) {
-    console.debug('showAudienciaPublicadaDetailsModal pendiente de inicialización');
+  window.showAudienciaPublicadaDetailsModal = async function(idOrItem) {
+    try {
+      const mod = await import('./views/audienciasPublicadas/audienciasPublicadas.view.js');
+      if (typeof mod.showAudienciaPublicadaDetailsModal === 'function') {
+        return mod.showAudienciaPublicadaDetailsModal(idOrItem);
+      }
+    } catch (err) {
+      console.error('Error al abrir modal de detalle de audiencia publicada:', err);
+    }
   };
 }
 

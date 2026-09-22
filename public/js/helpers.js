@@ -813,7 +813,8 @@ function debounce(fn, delay) {
  */
 function translateError(msg) {
   if (!msg) return 'Su sesión ha expirado. Por favor, inicie sesión nuevamente. [ERR-AUTH-201]';
-  const cleanMsg = String(msg).toLowerCase();
+  const originalMsg = String(msg);
+  const cleanMsg = originalMsg.toLowerCase();
 
   // 1. Conectividad y Red
   if (cleanMsg.includes('enotfound') || cleanMsg.includes('getaddrinfo') || cleanMsg.includes('connect error') || cleanMsg.includes('error de conexión') || cleanMsg.includes('etimedout') || cleanMsg.includes('econnreset') || cleanMsg.includes('fetch failed')) {
